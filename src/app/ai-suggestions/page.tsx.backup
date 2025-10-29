@@ -117,6 +117,136 @@ export default function AISuggestionsPage() {
     )
   }
 
+  useEffect(() => {
+    // Mock AI suggestions - in real app, this would fetch from API
+    const mockSuggestions: AISuggestion[] = [
+      {
+        id: 'ai-suggestion-1',
+        homeTeam: {
+          id: 'team-1',
+          name: 'Thunder Strikers',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        awayTeam: {
+          id: 'team-2',
+          name: 'Lightning FC',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        venue: {
+          id: 'venue-1',
+          name: 'Test Sports Hub',
+          courtNumber: 'Field 1',
+          pricePerHour: 2000
+        },
+        vendor: {
+          name: 'Test Sports Hub',
+          slug: 'test-sports-hub'
+        },
+        scheduledTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Next week
+        duration: 2,
+        aiScore: 0.92,
+        scoringFactors: {
+          timeSlotCompatibility: 1.0,
+          venuePreference: 0.9,
+          teamAvailability: 1.0,
+          travelDistance: 0.8,
+          venueAvailability: 1.0,
+          skillLevelMatch: 0.8
+        },
+        status: 'PENDING',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+        homeTeamAccepted: false,
+        awayTeamAccepted: false
+      },
+      {
+        id: 'ai-suggestion-2',
+        homeTeam: {
+          id: 'team-3',
+          name: 'Warriors FC',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        awayTeam: {
+          id: 'team-4',
+          name: 'Phoenix United',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        venue: {
+          id: 'venue-2',
+          name: 'Elite Sports Complex',
+          courtNumber: 'Field 2',
+          pricePerHour: 2500
+        },
+        vendor: {
+          name: 'Elite Sports Complex',
+          slug: 'elite-sports'
+        },
+        scheduledTime: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString(), // Next week + 1 day
+        duration: 2,
+        aiScore: 0.87,
+        scoringFactors: {
+          timeSlotCompatibility: 0.9,
+          venuePreference: 0.85,
+          teamAvailability: 1.0,
+          travelDistance: 0.75,
+          venueAvailability: 0.9,
+          skillLevelMatch: 0.85
+        },
+        status: 'PENDING',
+        expiresAt: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(), // 20 hours
+        homeTeamAccepted: true,
+        awayTeamAccepted: false
+      },
+      {
+        id: 'ai-suggestion-3',
+        homeTeam: {
+          id: 'team-5',
+          name: 'Eagles FC',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        awayTeam: {
+          id: 'team-6',
+          name: 'Lions United',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        venue: {
+          id: 'venue-3',
+          name: 'Arena Plus',
+          courtNumber: 'Field 1',
+          pricePerHour: 1800
+        },
+        vendor: {
+          name: 'Arena Plus',
+          slug: 'arena-plus'
+        },
+        scheduledTime: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(), // 6 days
+        duration: 2,
+        aiScore: 0.78,
+        scoringFactors: {
+          timeSlotCompatibility: 0.8,
+          venuePreference: 0.7,
+          teamAvailability: 0.9,
+          travelDistance: 0.65,
+          venueAvailability: 0.8,
+          skillLevelMatch: 0.8
+        },
+        status: 'EXPIRED',
+        expiresAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // Expired 2 hours ago
+        homeTeamAccepted: false,
+        awayTeamAccepted: false
+      }
+    ]
+
+    setTimeout(() => {
+      setSuggestions(mockSuggestions)
+      setLoading(false)
+    }, 1000)
+  }, [])
 
   const getStatusBadge = (status: string, homeAccepted?: boolean, awayAccepted?: boolean) => {
     switch (status) {

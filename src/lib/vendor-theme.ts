@@ -279,9 +279,11 @@ export const vendorHelpers = {
   },
 }
 
-export default {
+const vendorTheme = {
   defaultVendorSettings,
   getVendorTheme,
   validateVendorSettings,
   vendorHelpers,
 }
+
+export default vendorTheme
