@@ -4,12 +4,13 @@ import { db } from '@/lib/db'
 // DELETE /api/teams/[id]/members/[userId] - Remove team member
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; userId: string } }
+  { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
   try {
+    const { id, userId } = await params
     // Check if team exists
     const team = await db.team.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         captain: {
           select: { id: true, name: true }
@@ -24,8 +25,8 @@ export async function DELETE(
     // Check if team member exists
     const teamMember = await db.teamMember.findUnique({
       where: {
-        teamId: params.id,
-        userId: params.userId
+        teamId: id,
+        userId: userId
       }
     })
 
@@ -48,8 +49,8 @@ export async function DELETE(
     const upcomingMatches = await db.match.findMany({
       where: {
         OR: [
-          { homeTeamId: params.id },
-          { awayTeamId: params.id }
+          { homeTeamId: id },
+          { awayTeamId: id }
         ],
         status: { in: ['OPEN', 'CONFIRMED'] }
       },
@@ -76,15 +77,15 @@ export async function DELETE(
     // Remove team member
     await db.teamMember.delete({
       where: {
-        teamId: params.id,
-        userId: params.userId
+        teamId: id,
+        userId: userId
       }
     })
 
     return NextResponse.json({
       message: 'Team member removed successfully',
-      teamId: params.id,
-      removedUserId: params.userId
+      teamId: id,
+      removedUserId: userId
     })
 
   } catch (error) {

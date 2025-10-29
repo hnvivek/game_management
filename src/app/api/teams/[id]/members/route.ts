@@ -4,12 +4,13 @@ import { db } from '@/lib/db'
 // GET /api/teams/[id]/members - Get team members
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // Check if team exists
     const team = await db.team.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { id: true, name: true, maxPlayers: true }
     })
 
@@ -55,9 +56,10 @@ export async function GET(
 // POST /api/teams/[id]/members - Add team member
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { userId, role = 'member' } = body
 

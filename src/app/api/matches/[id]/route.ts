@@ -4,11 +4,12 @@ import { db } from '@/lib/db'
 // GET /api/matches/[id] - Get match details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const match = await db.match.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         homeTeam: {
           include: {
@@ -137,9 +138,10 @@ export async function GET(
 // PUT /api/matches/[id]/request - Request to join match as opponent
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { awayTeamId } = body
 
@@ -153,7 +155,7 @@ export async function PUT(
 
     // Check if match exists and is open
     const match = await db.match.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         homeTeam: true,
         awayTeam: true,
@@ -195,7 +197,7 @@ export async function PUT(
     // Check for scheduling conflicts
     const conflictingMatch = await db.match.findFirst({
       where: {
-        id: { not: params.id },
+        id: { not: id },
         status: 'CONFIRMED',
         bookingId: match.bookingId
       }
@@ -210,7 +212,7 @@ export async function PUT(
 
     // Update match with pending opponent
     const updatedMatch = await db.match.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         awayTeamId,
         status: 'PENDING' // Waiting for home team confirmation
@@ -276,9 +278,10 @@ export async function PUT(
 // PATCH /api/matches/[id]/confirm - Confirm opponent request
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { action, teamId } = body // 'accept' or 'reject'
 
@@ -299,7 +302,7 @@ export async function PATCH(
 
     // Check if match exists
     const match = await db.match.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         homeTeam: true,
         awayTeam: true,
@@ -344,7 +347,7 @@ export async function PATCH(
 
     // Update match
     const updatedMatch = await db.match.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         homeTeam: {

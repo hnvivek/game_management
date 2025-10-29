@@ -4,11 +4,12 @@ import { db } from '@/lib/db'
 // GET /api/teams/[id] - Get team details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const team = await db.team.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         captain: {
           select: {
@@ -135,9 +136,10 @@ export async function GET(
 // PUT /api/teams/[id] - Update team
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const {
       name,
@@ -152,7 +154,7 @@ export async function PUT(
 
     // Check if team exists
     const existingTeam = await db.team.findUnique({
-      where: { id: params.id }
+      where: { id: id }
     })
 
     if (!existingTeam) {
@@ -161,7 +163,7 @@ export async function PUT(
 
     // Update team
     const team = await db.team.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         ...(name && { name }),
         ...(description !== undefined && { description }),
@@ -222,12 +224,13 @@ export async function PUT(
 // DELETE /api/teams/[id] - Delete team
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // Check if team exists
     const existingTeam = await db.team.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         _count: {
           select: {
@@ -256,17 +259,17 @@ export async function DELETE(
 
     // Delete team members first
     await db.teamMember.deleteMany({
-      where: { teamId: params.id }
+      where: { teamId: id }
     })
 
     // Delete team
     await db.team.delete({
-      where: { id: params.id }
+      where: { id: id }
     })
 
     return NextResponse.json({
       message: 'Team deleted successfully',
-      teamId: params.id
+      teamId: id
     })
 
   } catch (error) {
