@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { addVendorFiltering, extractSubdomain, getVendorBySubdomain } from '@/lib/subdomain'
 
 // GET /api/teams - List teams with filtering
 export async function GET(request: NextRequest) {
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     const captainId = searchParams.get('captainId')
     const isActive = searchParams.get('isActive') !== 'false'
 
-    // Build filter conditions
+    // Build filter conditions with automatic subdomain filtering
     const whereConditions: any = {
       isActive,
       isPublic: true // Only show public teams by default
@@ -22,9 +23,36 @@ export async function GET(request: NextRequest) {
     if (formatId) whereConditions.formatId = formatId
     if (captainId) whereConditions.captainId = captainId
 
+    // Add automatic vendor filtering based on subdomain
+    // Show teams that play at this vendor (through TeamVendor relationship)
+    const vendor = await getVendorBySubdomain(extractSubdomain(request))
+    if (vendor) {
+      whereConditions.homeVenues = {
+        some: {
+          vendorId: vendor.id
+        }
+      }
+    }
+    // If no vendor (global context), show all public teams without vendor filtering
+
     const teams = await db.team.findMany({
       where: whereConditions,
       include: {
+        homeVenues: {
+          select: {
+            vendorId: true,
+            isPrimary: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                primaryColor: true,
+                secondaryColor: true
+              }
+            }
+          }
+        },
         captain: {
           select: {
             id: true,
@@ -94,7 +122,8 @@ export async function POST(request: NextRequest) {
       maxPlayers,
       city,
       area,
-      isPublic = true
+      isPublic = true,
+      vendorId
     } = body
 
     // Validate required fields
@@ -137,7 +166,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create team
+    // Create team (now global - no direct vendor association)
     const team = await db.team.create({
       data: {
         name,
@@ -152,6 +181,19 @@ export async function POST(request: NextRequest) {
         isPublic
       },
       include: {
+        homeVenues: {
+          include: {
+            vendor: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                primaryColor: true,
+                secondaryColor: true
+              }
+            }
+          }
+        },
         captain: {
           select: {
             id: true,

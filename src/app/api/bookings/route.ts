@@ -1,5 +1,138 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { addVendorFiltering } from '@/lib/subdomain'
+
+// GET /api/bookings - List bookings with filtering
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const venueId = searchParams.get('venueId')
+    const customerId = searchParams.get('customerId')
+    const status = searchParams.get('status')
+    const bookingType = searchParams.get('bookingType')
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+    const limit = parseInt(searchParams.get('limit') || '50')
+    const offset = parseInt(searchParams.get('offset') || '0')
+
+    // Build filter conditions with automatic subdomain filtering
+    const whereConditions: any = {}
+
+    if (venueId) whereConditions.venueId = venueId
+    if (customerId) whereConditions.customerId = customerId
+    if (status) whereConditions.status = status.toUpperCase()
+    if (bookingType) whereConditions.bookingType = bookingType.toUpperCase()
+
+    // Date range filtering
+    if (startDate || endDate) {
+      whereConditions.startTime = {}
+      if (startDate) whereConditions.startTime.gte = new Date(startDate)
+      if (endDate) whereConditions.startTime.lte = new Date(endDate)
+    }
+
+    // Add automatic vendor filtering based on subdomain
+    // Filter bookings by venue vendor when on vendor subdomain
+    await addVendorFiltering(request, whereConditions, 'venue.vendorId')
+
+    const bookings = await db.booking.findMany({
+      where: whereConditions,
+      include: {
+        venue: {
+          include: {
+            vendor: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                primaryColor: true,
+                secondaryColor: true
+              }
+            },
+            sport: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                icon: true
+              }
+            },
+            format: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                maxPlayers: true
+              }
+            }
+          }
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true
+          }
+        },
+        match: {
+          select: {
+            id: true,
+            homeTeam: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            awayTeam: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        payments: {
+          select: {
+            id: true,
+            amount: true,
+            currency: true,
+            method: true,
+            status: true,
+            paidAt: true
+          }
+        }
+      },
+      orderBy: [
+        { startTime: 'desc' }
+      ],
+      take: limit,
+      skip: offset
+    })
+
+    // Get total count for pagination
+    const totalCount = await db.booking.count({
+      where: whereConditions
+    })
+
+    return NextResponse.json({
+      bookings,
+      pagination: {
+        total: totalCount,
+        limit,
+        offset,
+        hasMore: offset + limit < totalCount
+      },
+      filters: { venueId, customerId, status, bookingType, startDate, endDate }
+    })
+
+  } catch (error) {
+    console.error('Error fetching bookings:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch bookings' },
+      { status: 500 }
+    )
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {

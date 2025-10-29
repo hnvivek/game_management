@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { addVendorFiltering } from '@/lib/subdomain'
+import { addVendorFiltering, extractSubdomain, getVendorBySubdomain } from '@/lib/subdomain'
 
 // GET /api/matches - List matches with filtering
 export async function GET(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const whereConditions: any = {}
 
     if (sportId) whereConditions.sportId = sportId
-    if (status) whereConditions.status = status
+    if (status) whereConditions.status = status.toUpperCase() as any
     if (homeTeamId) whereConditions.homeTeamId = homeTeamId
 
     // Filter for teams looking for opponents
@@ -26,7 +26,14 @@ export async function GET(request: NextRequest) {
 
     // Add automatic vendor filtering based on subdomain
     // Filter matches by venue vendor when on vendor subdomain
-    await addVendorFiltering(request, whereConditions, 'booking.venue.vendorId')
+    const vendor = await getVendorBySubdomain(extractSubdomain(request))
+    if (vendor) {
+      whereConditions.booking = {
+        venue: {
+          vendorId: vendor.id
+        }
+      }
+    }
 
     // Filter by city through home team
     if (city) {
@@ -100,7 +107,6 @@ export async function GET(request: NextRequest) {
             venue: {
               select: {
                 id: true,
-                name: true,
                 courtNumber: true,
                 pricePerHour: true,
                 vendor: {
@@ -108,6 +114,11 @@ export async function GET(request: NextRequest) {
                     id: true,
                     name: true,
                     slug: true
+                  }
+                },
+                sport: {
+                  select: {
+                    displayName: true
                   }
                 }
               }

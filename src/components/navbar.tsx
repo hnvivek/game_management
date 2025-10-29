@@ -3,18 +3,22 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Trophy, Menu, X, Calendar, Users, BarChart3 } from 'lucide-react'
+import { Trophy, Menu, X, Calendar, Users, BarChart3, Target, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/components/auth/AuthProvider'
+import UserMenu from '@/components/auth/UserMenu'
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const pathname = usePathname()
+  const { user } = useAuth()
 
   const navigation = [
     { name: 'Home', href: '/', icon: Trophy },
-    { name: 'Find Venues', href: '/book-venue', icon: Calendar },
+    { name: 'Book Venues', href: '/book-venue', icon: Calendar },
     { name: 'Teams', href: '/teams', icon: Users },
-    { name: 'Leaderboard', href: '/leaderboard', icon: BarChart3 },
+    { name: 'Matches', href: '/matches', icon: Target },
+    ...(user ? [{ name: 'AI Suggestions', href: '/ai-suggestions', icon: Bot }] : []),
   ]
 
   const isActive = (href: string) => {
@@ -61,12 +65,15 @@ export default function Navbar() {
 
           {/* User Actions */}
           <div className="hidden md:flex items-center space-x-2">
-            <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-7 text-xs px-3">
-              Sign In
-            </Button>
-            <Button size="sm" className="bg-primary hover:bg-primary-600 text-primary-foreground h-7 text-xs px-3">
-              Get Started
-            </Button>
+            {user ? (
+              <UserMenu />
+            ) : (
+              <Link href="/signin">
+                <Button size="sm" className="bg-primary hover:bg-primary-600 text-primary-foreground h-7 text-xs px-4">
+                  Sign In
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -106,13 +113,18 @@ export default function Navbar() {
                 </Link>
               )
             })}
-            <div className="pt-2 mt-2 border-t border space-y-2">
-              <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-50">
-                Sign In
-              </Button>
-              <Button size="sm" className="w-full bg-primary hover:bg-primary-600 text-primary-foreground">
-                Get Started
-              </Button>
+            <div className="pt-2 mt-2 border-t border">
+              {user ? (
+                <div className="px-3 py-2 text-sm text-gray-600">
+                  Signed in as {user.name}
+                </div>
+              ) : (
+                <Link href="/signin">
+                  <Button size="sm" className="w-full bg-primary hover:bg-primary-600 text-primary-foreground">
+                    Sign In
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         )}

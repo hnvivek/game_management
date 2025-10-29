@@ -26,18 +26,34 @@ beforeEach(async () => {
 
   try {
     // Clear all data in dependency order (foreign keys matter!)
-    await prisma.booking.deleteMany()
-    await prisma.venue.deleteMany()
-    await prisma.vendorSettings.deleteMany()
-    await prisma.vendorLocation.deleteMany()
-    await prisma.user.deleteMany()
-    await prisma.vendor.deleteMany()
-    await prisma.formatType.deleteMany()
-    await prisma.sportType.deleteMany()
-    await prisma.teamMember.deleteMany()
-    await prisma.team.deleteMany()
-    await prisma.match.deleteMany()
-    await prisma.payment.deleteMany()
+    const deleteOrder = [
+      'matchSchedule',
+      'matchPerformance',
+      'teamAvailability',
+      'teamStanding',
+      'teamMember',
+      'teamVendor',
+      'team',
+      'match',
+      'booking',
+      'venue',
+      'vendorSettings',
+      'vendorLocation',
+      'payment',
+      'user',
+      'vendor',
+      'formatType',
+      'sportType',
+      'conflict'
+    ]
+
+    for (const model of deleteOrder) {
+      try {
+        await prisma[model].deleteMany()
+      } catch (error) {
+        // Model might not exist, continue
+      }
+    }
 
     // Seed fresh data for THIS test
     await seedFreshTestData()

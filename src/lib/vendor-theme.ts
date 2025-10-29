@@ -284,5 +284,4 @@ export default {
   getVendorTheme,
   validateVendorSettings,
   vendorHelpers,
-  type VendorSettings,
 }

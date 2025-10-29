@@ -81,8 +81,8 @@ const customJestConfig = {
       }
     },
     {
-      displayName: 'Integration Tests', 
-      testMatch: ['<rootDir>/__tests__/integration/**/*.(test|spec).(js|jsx|ts|tsx)'],
+      displayName: 'Integration Tests',
+      testMatch: ['<rootDir>/__tests__/integration/**/*.(test|spec).(js|jsx|ts|tsx)', '<rootDir>/tests/**/*.test.ts'],
       testEnvironment: 'node',
       setupFilesAfterEnv: ['<rootDir>/jest.setup.api.js'],
       preset: 'ts-jest',
@@ -90,7 +90,7 @@ const customJestConfig = {
         '^@/(.*)$': '<rootDir>/src/$1',
       },
       transform: {
-        '^.+\\.(ts|tsx)$': ['ts-jest', { 
+        '^.+\\.(ts|tsx)$': ['ts-jest', {
           tsconfig: {
             jsx: 'react-jsx',
             module: 'commonjs'

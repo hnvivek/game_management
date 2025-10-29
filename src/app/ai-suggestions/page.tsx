@@ -1,0 +1,436 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/components/auth/AuthProvider'
+import { Bot, Clock, MapPin, Users, Trophy, Target, CheckCircle, XCircle, Calendar } from 'lucide-react'
+import Link from 'next/link'
+
+interface AISuggestion {
+  id: string
+  homeTeam: {
+    id: string
+    name: string
+    sport: string
+    city: string
+  }
+  awayTeam: {
+    id: string
+    name: string
+    sport: string
+    city: string
+  }
+  venue: {
+    id: string
+    name: string
+    courtNumber: string
+    pricePerHour: number
+  }
+  vendor: {
+    name: string
+    slug: string
+  }
+  scheduledTime: string
+  duration: number
+  aiScore: number
+  scoringFactors: {
+    timeSlotCompatibility: number
+    venuePreference: number
+    teamAvailability: number
+    travelDistance: number
+    venueAvailability: number
+    skillLevelMatch: number
+  }
+  status: 'PENDING' | 'SCHEDULED' | 'EXPIRED'
+  expiresAt?: string
+  homeTeamAccepted?: boolean
+  awayTeamAccepted?: boolean
+}
+
+export default function AISuggestionsPage() {
+  const { user } = useAuth()
+  const [suggestions, setSuggestions] = useState<AISuggestion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Sign In Required</h2>
+          <p className="text-gray-600 mb-6">Please sign in to view AI-powered match suggestions</p>
+          <Link href="/signin">
+            <button className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+              Sign In
+            </button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  useEffect(() => {
+    // Mock AI suggestions - in real app, this would fetch from API
+    const mockSuggestions: AISuggestion[] = [
+      {
+        id: 'ai-suggestion-1',
+        homeTeam: {
+          id: 'team-1',
+          name: 'Thunder Strikers',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        awayTeam: {
+          id: 'team-2',
+          name: 'Lightning FC',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        venue: {
+          id: 'venue-1',
+          name: 'Test Sports Hub',
+          courtNumber: 'Field 1',
+          pricePerHour: 2000
+        },
+        vendor: {
+          name: 'Test Sports Hub',
+          slug: 'test-sports-hub'
+        },
+        scheduledTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Next week
+        duration: 2,
+        aiScore: 0.92,
+        scoringFactors: {
+          timeSlotCompatibility: 1.0,
+          venuePreference: 0.9,
+          teamAvailability: 1.0,
+          travelDistance: 0.8,
+          venueAvailability: 1.0,
+          skillLevelMatch: 0.8
+        },
+        status: 'PENDING',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+        homeTeamAccepted: false,
+        awayTeamAccepted: false
+      },
+      {
+        id: 'ai-suggestion-2',
+        homeTeam: {
+          id: 'team-3',
+          name: 'Warriors FC',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        awayTeam: {
+          id: 'team-4',
+          name: 'Phoenix United',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        venue: {
+          id: 'venue-2',
+          name: 'Elite Sports Complex',
+          courtNumber: 'Field 2',
+          pricePerHour: 2500
+        },
+        vendor: {
+          name: 'Elite Sports Complex',
+          slug: 'elite-sports'
+        },
+        scheduledTime: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString(), // Next week + 1 day
+        duration: 2,
+        aiScore: 0.87,
+        scoringFactors: {
+          timeSlotCompatibility: 0.9,
+          venuePreference: 0.85,
+          teamAvailability: 1.0,
+          travelDistance: 0.75,
+          venueAvailability: 0.9,
+          skillLevelMatch: 0.85
+        },
+        status: 'PENDING',
+        expiresAt: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(), // 20 hours
+        homeTeamAccepted: true,
+        awayTeamAccepted: false
+      },
+      {
+        id: 'ai-suggestion-3',
+        homeTeam: {
+          id: 'team-5',
+          name: 'Eagles FC',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        awayTeam: {
+          id: 'team-6',
+          name: 'Lions United',
+          sport: 'Football',
+          city: 'Bengaluru'
+        },
+        venue: {
+          id: 'venue-3',
+          name: 'Arena Plus',
+          courtNumber: 'Field 1',
+          pricePerHour: 1800
+        },
+        vendor: {
+          name: 'Arena Plus',
+          slug: 'arena-plus'
+        },
+        scheduledTime: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(), // 6 days
+        duration: 2,
+        aiScore: 0.78,
+        scoringFactors: {
+          timeSlotCompatibility: 0.8,
+          venuePreference: 0.7,
+          teamAvailability: 0.9,
+          travelDistance: 0.65,
+          venueAvailability: 0.8,
+          skillLevelMatch: 0.8
+        },
+        status: 'EXPIRED',
+        expiresAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // Expired 2 hours ago
+        homeTeamAccepted: false,
+        awayTeamAccepted: false
+      }
+    ]
+
+    setTimeout(() => {
+      setSuggestions(mockSuggestions)
+      setLoading(false)
+    }, 1000)
+  }, [])
+
+  const getStatusBadge = (status: string, homeAccepted?: boolean, awayAccepted?: boolean) => {
+    switch (status) {
+      case 'PENDING':
+        if (homeAccepted && awayAccepted) {
+          return { text: 'Scheduled', color: 'bg-green-100 text-green-800', icon: CheckCircle }
+        } else if (homeAccepted || awayAccepted) {
+          return { text: 'Partial Accept', color: 'bg-yellow-100 text-yellow-800', icon: Clock }
+        }
+        return { text: 'Pending', color: 'bg-blue-100 text-blue-800', icon: Clock }
+      case 'SCHEDULED':
+        return { text: 'Scheduled', color: 'bg-green-100 text-green-800', icon: CheckCircle }
+      case 'EXPIRED':
+        return { text: 'Expired', color: 'bg-red-100 text-red-800', icon: XCircle }
+      default:
+        return { text: status, color: 'bg-gray-100 text-gray-800', icon: Clock }
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getScoreColor = (score: number) => {
+    if (score >= 0.9) return 'text-green-600 bg-green-50'
+    if (score >= 0.8) return 'text-blue-600 bg-blue-50'
+    if (score >= 0.7) return 'text-yellow-600 bg-yellow-50'
+    return 'text-red-600 bg-red-50'
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Bot className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600">AI is analyzing team data and generating suggestions...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center space-x-3 mb-4">
+            <Bot className="h-8 w-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">AI Match Suggestions</h1>
+          </div>
+          <p className="text-gray-600">
+            Personalized match recommendations based on team preferences, availability, and venue compatibility
+          </p>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Active Suggestions</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {suggestions.filter(s => s.status === 'PENDING').length}
+                </p>
+              </div>
+              <Target className="h-8 w-8 text-blue-600" />
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Scheduled Matches</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {suggestions.filter(s => s.status === 'SCHEDULED' || (s.homeTeamAccepted && s.awayTeamAccepted)).length}
+                </p>
+              </div>
+              <Trophy className="h-8 w-8 text-green-600" />
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Average AI Score</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {suggestions.length > 0 ? (suggestions.reduce((acc, s) => acc + s.aiScore, 0) / suggestions.length * 100).toFixed(0) : 0}%
+                </p>
+              </div>
+              <Bot className="h-8 w-8 text-purple-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* AI Suggestions List */}
+        <div className="space-y-6">
+          {suggestions.map((suggestion) => {
+            const statusBadge = getStatusBadge(suggestion.status, suggestion.homeTeamAccepted, suggestion.awayTeamAccepted)
+            const StatusIcon = statusBadge.icon
+
+            return (
+              <div key={suggestion.id} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+                <div className="p-6">
+                  {/* Header with Score and Status */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge.color}`}>
+                        <StatusIcon className="h-4 w-4 inline mr-1" />
+                        {statusBadge.text}
+                      </span>
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getScoreColor(suggestion.aiScore)}`}>
+                        AI Score: {(suggestion.aiScore * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    {suggestion.expiresAt && suggestion.status === 'PENDING' && (
+                      <div className="text-sm text-gray-500">
+                        <Clock className="h-4 w-4 inline mr-1" />
+                        Expires in {Math.max(0, Math.floor((new Date(suggestion.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)))}h
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Match Details */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Teams */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Users className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{suggestion.homeTeam.name}</p>
+                          <p className="text-sm text-gray-500">{suggestion.homeTeam.city}</p>
+                        </div>
+                        {suggestion.homeTeamAccepted && (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        )}
+                      </div>
+                      <div className="text-center text-gray-400">vs</div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                          <Users className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{suggestion.awayTeam.name}</p>
+                          <p className="text-sm text-gray-500">{suggestion.awayTeam.city}</p>
+                        </div>
+                        {suggestion.awayTeamAccepted && (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Venue and Time */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <MapPin className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="font-medium text-gray-900">{suggestion.venue.name}</p>
+                          <p className="text-sm text-gray-500">{suggestion.venue.courtNumber}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <Calendar className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="font-medium text-gray-900">{formatDate(suggestion.scheduledTime)}</p>
+                          <p className="text-sm text-gray-500">{suggestion.duration} hours</p>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        💰 ₹{suggestion.venue.pricePerHour}/hour
+                      </div>
+                    </div>
+
+                    {/* AI Scoring Factors */}
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-3">AI Scoring Breakdown</h4>
+                      <div className="space-y-2">
+                        {Object.entries(suggestion.scoringFactors).map(([factor, score]) => (
+                          <div key={factor} className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600 capitalize">
+                              {factor.replace(/([A-Z])/g, ' $1').trim()}
+                            </span>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-20 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-blue-600 h-2 rounded-full"
+                                  style={{ width: `${score * 100}%` }}
+                                />
+                              </div>
+                              <span className="text-sm text-gray-500 w-10 text-right">
+                                {(score * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  {suggestion.status === 'PENDING' && (
+                    <div className="mt-6 pt-6 border-t border-gray-200 flex justify-end space-x-3">
+                      <button className="px-4 py-2 text-gray-600 hover:text-gray-800">
+                        Decline
+                      </button>
+                      <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        Accept Match
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {suggestions.length === 0 && (
+          <div className="text-center py-12">
+            <Bot className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No AI suggestions available</h3>
+            <p className="text-gray-600">
+              AI is analyzing team data and will generate personalized match suggestions soon.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { addVendorFiltering } from '@/lib/subdomain'
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const sport = searchParams.get('sport')
-    
+
+    // Build filter conditions with automatic subdomain filtering
+    const whereConditions: any = {
+      isActive: true,
+      ...(sport && { sport: { name: sport } }),
+    }
+
+    // Add automatic vendor filtering based on subdomain
+    // Filter venues by vendor when on vendor subdomain
+    await addVendorFiltering(request, whereConditions, 'vendorId')
+
     // Get all active venues with their pricing
     const venues = await db.venue.findMany({
-      where: {
-        isActive: true,
-        ...(sport && { sport: { name: sport } }),
-      },
+      where: whereConditions,
       include: {
         sport: true,
         vendor: true,

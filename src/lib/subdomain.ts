@@ -8,9 +8,25 @@ export function extractSubdomain(request: NextRequest): string | null {
   // Remove port if present
   const hostWithoutPort = hostname.split(':')[0]
 
-  // Handle localhost development
+  // Handle localhost development with subdomains (e.g., 3lok.localhost:3000)
+  if (hostWithoutPort.endsWith('.localhost') || hostWithoutPort.endsWith('.127.0.0.1')) {
+    const domainParts = hostWithoutPort.split('.')
+    if (domainParts.length >= 2) {
+      const subdomain = domainParts[0].toLowerCase()
+
+      // Common subdomains to ignore
+      const ignoredSubdomains = ['www', 'api', 'app', 'admin', 'test', 'staging', 'dev']
+
+      if (!ignoredSubdomains.includes(subdomain)) {
+        return subdomain
+      }
+    }
+    return null
+  }
+
+  // Handle plain localhost without subdomain
   if (hostWithoutPort === 'localhost' || hostWithoutPort === '127.0.0.1') {
-    return null // No subdomain on localhost
+    return null // No subdomain on plain localhost
   }
 
   // Extract subdomain from domains like: 3lok.gamehub.com
