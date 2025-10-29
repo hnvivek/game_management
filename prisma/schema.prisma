@@ -74,22 +74,24 @@ model Vendor {
   description String?
   logo        String?  // Logo URL for vendor branding
   website     String?
-  
+
   // Business settings
   isActive    Boolean  @default(true)
   onboardedAt DateTime @default(now())
-  
+
   // Branding & customization (for subdomain white-labeling)
-  primaryColor   String?  @default("#3B82F6")
-  secondaryColor String?  @default("#1E40AF")
-  
+  primaryColor   String?  @default("#f39c12")
+  secondaryColor String?  @default("#0ea5e9")
+  accentColor    String?  @default("#f39c12")
+
   // Contact info (can be different per location)
   phone       String?
   email       String?
-  
+  address     String? // Main address
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
   users       User[]
   venues      Venue[]  // Renamed from turfs
@@ -112,23 +114,30 @@ model Venue {
   id             String   @id @default(cuid())
   vendorId       String   // Link to vendor
   locationId     String?  // Link to specific vendor location (for multi-outlet support)
-  
+
   // Venue details
   sportId        String   // Link to SportType
-  formatId       String   // Link to FormatType (e.g., "11-a-side", "Full Court") 
+  formatId       String   // Link to FormatType (e.g., "11-a-side", "Full Court")
   courtNumber    String   // e.g., "Court 1", "Field A", "Hall 2"
-  pricePerHour   Int      // in INR (vendor-configurable)
+  pricePerHour   Int      // in INR (vendor-configurable, can be overridden by VendorSettings)
   maxPlayers     Int      // Maximum capacity (should match formatType.maxPlayers)
   isActive       Boolean  @default(true)
-  
+
+  // Venue-specific pricing (overrides vendor defaults)
+  peakHourPrice  Int?     // Peak hour pricing for this specific venue
+  weekendPrice   Int?     // Weekend pricing for this specific venue
+
   // Vendor-configurable features
   amenities      Json?    // JSON array: ["parking", "changing_rooms", "lights"]
   description    String?
   images         Json?    // JSON array of image URLs
-  
+
+  // Venue configuration
+  bookingTimeSlots Int?   // Minutes per booking slot (overrides vendor default)
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+
   // Relations
   vendor         Vendor              @relation(fields: [vendorId], references: [id])
   location       VendorLocation?     @relation(fields: [locationId], references: [id])
@@ -137,7 +146,7 @@ model Venue {
   bookings       Booking[]
   availabilities VenueAvailability[]
   conflicts      Conflict[]
-  
+
   // Performance indexes
   @@index([vendorId])
   @@index([sportId, isActive])
@@ -249,24 +258,59 @@ model VendorLocation {
   venues      Venue[]  // Venues at this location
 }
 
-// Vendor business settings (operating hours moved to VendorLocation)
+// Vendor business settings (comprehensive vendor configuration)
 model VendorSettings {
   id              String   @id @default(cuid())
   vendorId        String   @unique
-  
+
   // Booking settings
   advanceBookingDays    Int     @default(30) // How far in advance bookings can be made
   cancellationPolicy    String? // Cancellation policy text
   paymentMethods        Json?   // JSON array ["cash", "card", "upi"]
-  
+  bookingTimeSlots      Int     @default(60) // Minutes per booking slot (30, 60, 90, 120)
+  maxConcurrentBookings Int     @default(1) // Max simultaneous bookings per venue
+
+  // Pricing settings (overrides venue-specific pricing)
+  basePrice             Int?    // Default base price per hour
+  peakHourPrice         Int?    // Peak hour pricing (6 PM - 9 PM)
+  weekendPrice          Int?    // Weekend pricing
+  currency              String  @default("INR")
+
+  // Display preferences
+  showBookingCalendar   Boolean @default(true)
+  showPricingPublicly   Boolean @default(true)
+  allowOnlinePayments   Boolean @default(true)
+  showContactInfo       Boolean @default(true)
+  themePreference       String  @default("light") // "light", "dark", "auto"
+  customCSS             String? // Vendor's custom CSS
+
+  // Notification settings
+  emailNotifications     Boolean @default(true)
+  smsNotifications       Boolean @default(false)
+  bookingReminders       Boolean @default(true)
+  newBookingAlerts       Boolean @default(true)
+  cancellationAlerts     Boolean @default(true)
+  paymentAlerts          Boolean @default(true)
+
+  // Integration settings
+  paymentProvider        String? // "stripe", "razorpay", "paypal"
+  calendarSync           Boolean @default(false)
+  websiteEmbed           Boolean @default(false)
+  socialMediaLinks       Json?   // JSON object with social media URLs
+
   // Auto-settings
-  autoApproval          Boolean @default(true)
-  requiresDeposit       Boolean @default(false)
-  depositPercentage     Int?    @default(25)
-  
+  autoApproval           Boolean @default(true)
+  requiresDeposit        Boolean @default(false)
+  depositPercentage      Int?    @default(25)
+
+  // Venue-specific settings
+  availableAmenities     Json?   // JSON array of available amenities
+  venueImages            Json?   // JSON array of venue image URLs
+  sportTypes             Json?   // JSON array of available sports
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   // Relations
   vendor          Vendor   @relation(fields: [vendorId], references: [id])
 }

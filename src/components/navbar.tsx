@@ -13,8 +13,8 @@ export default function Navbar() {
   const navigation = [
     { name: 'Home', href: '/', icon: Trophy },
     { name: 'Find Venues', href: '/book-venue', icon: Calendar },
-    { name: 'Teams', href: '/#teams', icon: Users },
-    { name: 'Leaderboard', href: '/#leaderboard', icon: BarChart3 },
+    { name: 'Teams', href: '/teams', icon: Users },
+    { name: 'Leaderboard', href: '/leaderboard', icon: BarChart3 },
   ]
 
   const isActive = (href: string) => {
@@ -24,16 +24,16 @@ export default function Navbar() {
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex justify-between items-center h-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="flex justify-between items-center h-14 md:h-12">
           {/* Logo/Brand */}
           <Link href="/" className="flex items-center space-x-2 group">
             <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105">
               <Trophy className="h-4 w-4 text-white" />
             </div>
             <div>
-              <span className="text-base font-bold text-gray-900">GameHub</span>
-              <span className="text-xs text-gray-500 ml-1.5">Enterprise</span>
+              <span className="text-base sm:text-lg font-bold text-gray-900">GameHub</span>
+              <span className="text-xs sm:text-sm text-gray-500 ml-1.5">Enterprise</span>
             </div>
           </Link>
 
