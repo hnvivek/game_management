@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Calendar, MapPin, Users, Trophy, Plus, Filter, Clock, Star, BarChart3, TrendingUp, Shield, Check } from 'lucide-react'
+import { Search, Calendar, MapPin, Users, Trophy, Plus, Filter, Clock, Star, BarChart3, TrendingUp, Shield, Check, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,11 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import TurfBooking from '@/components/turf-booking'
 
 // Enterprise Design System
 const DESIGN_SYSTEM = {
@@ -210,13 +206,6 @@ export default function Home() {
   const [selectedSport, setSelectedSport] = useState('all')
   const [selectedLevel, setSelectedLevel] = useState('all')
   const [selectedDate, setSelectedDate] = useState('')
-  const [showCreateMatch, setShowCreateMatch] = useState(false)
-  const [turfBooking, setTurfBooking] = useState<any>(null)
-  const [matchDetails, setMatchDetails] = useState({
-    level: '',
-    playersPerTeam: '',
-    notes: '',
-  })
 
   const filteredMatches = dummyMatches.filter(match => {
     const matchesSearch = match.venue.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -229,39 +218,6 @@ export default function Home() {
     return matchesSearch && matchesSport && matchesLevel && matchesDate
   })
 
-  const handleTurfSelect = (turf: any, date: string, startTime: string, duration: number, totalAmount: number) => {
-    setTurfBooking({ turf, date, startTime, duration, totalAmount })
-  }
-
-  const handleCreateMatch = async () => {
-    if (!turfBooking) return
-    
-    try {
-      // Create booking first
-      const bookingResponse = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          turfId: turfBooking.turf.id,
-          date: turfBooking.date,
-          startTime: turfBooking.startTime,
-          duration: turfBooking.duration,
-          totalAmount: turfBooking.totalAmount,
-          bookingType: 'match',
-        }),
-      })
-      
-      if (bookingResponse.ok) {
-        // Create match logic here
-        console.log('Match created successfully!')
-        setShowCreateMatch(false)
-        setTurfBooking(null)
-        setMatchDetails({ level: '', playersPerTeam: '', notes: '' })
-      }
-    } catch (error) {
-      console.error('Error creating match:', error)
-    }
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -315,135 +271,30 @@ export default function Home() {
 
           {/* Quick Actions */}
           <div className="flex flex-wrap justify-center gap-4">
-            <Dialog open={showCreateMatch} onOpenChange={setShowCreateMatch}>
-              <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 font-medium">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Match
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-semibold text-gray-900">Book Turf & Create Match</DialogTitle>
-                  <DialogDescription className="text-gray-600">
-                    Select your preferred turf, date, and time to create a match at 3Lok Football Fitness Hub
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-6">
-                  {/* Step 1: Turf Booking */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium text-gray-900">Step 1: Select Turf & Time</h3>
-                    <TurfBooking onTurfSelect={handleTurfSelect} />
-                  </div>
-
-                  {/* Step 2: Match Details */}
-                  {turfBooking && (
-                    <div className="space-y-4 border-t pt-6">
-                      <h3 className="text-lg font-medium text-gray-900">Step 2: Match Details</h3>
-                      
-                      {/* Booking Summary */}
-                      <Card className="bg-green-50 border-green-200">
-                        <CardContent className="pt-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="font-semibold text-green-900">Turf Booking Confirmed</h4>
-                              <p className="text-sm text-green-700 mt-1">
-                                {turfBooking.turf.size} ({turfBooking.turf.courtNumber})
-                              </p>
-                              <p className="text-sm text-green-700">
-                                {turfBooking.date} • {turfBooking.startTime} • {turfBooking.duration}h
-                              </p>
-                              <p className="text-lg font-bold text-green-900 mt-2">
-                                Total: {new Intl.NumberFormat('en-IN', {
-                                  style: 'currency',
-                                  currency: 'INR',
-                                }).format(turfBooking.totalAmount)}
-                              </p>
-                            </div>
-                            <Badge className="bg-green-100 text-green-800">
-                              <Check className="h-3 w-3 mr-1" />
-                              Booked
-                            </Badge>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="level">Match Level</Label>
-                          <Select value={matchDetails.level} onValueChange={(value) => setMatchDetails(prev => ({ ...prev, level: value }))}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="beginner">Beginner</SelectItem>
-                              <SelectItem value="intermediate">Intermediate</SelectItem>
-                              <SelectItem value="advanced">Advanced</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label htmlFor="players">Players per Team</Label>
-                          <Input 
-                            type="number" 
-                            placeholder={turfBooking.turf.maxPlayers.toString()}
-                            value={matchDetails.playersPerTeam}
-                            onChange={(e) => setMatchDetails(prev => ({ ...prev, playersPerTeam: e.target.value }))}
-                            max={turfBooking.turf.maxPlayers}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Max: {turfBooking.turf.maxPlayers} players
-                          </p>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="notes">Additional Notes</Label>
-                        <Textarea 
-                          placeholder="Any special requirements or match details..."
-                          value={matchDetails.notes}
-                          onChange={(e) => setMatchDetails(prev => ({ ...prev, notes: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4 border-t">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setShowCreateMatch(false)
-                      setTurfBooking(null)
-                      setMatchDetails({ level: '', playersPerTeam: '', notes: '' })
-                    }} 
-                    className="border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleCreateMatch} 
-                    disabled={!turfBooking || !matchDetails.level}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                  >
-                    Create Match
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Link href="/book-venue">
+              <Button 
+                size="lg"
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3 font-semibold shadow-lg hover:shadow-xl transition-all duration-200 border-0 rounded-lg"
+              >
+                <Plus className="h-5 w-5 mr-3" />
+                Find & Book Venues
+              </Button>
+            </Link>
             
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">
-              <Calendar className="h-4 w-4 mr-2" />
-              Book Now
+            <Button 
+              variant="outline" 
+              size="lg"
+              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <Users className="h-5 w-5 mr-3" />
+              Browse Teams
             </Button>
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">
-              <Users className="h-4 w-4 mr-2" />
-              Find Team
-            </Button>
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">
-              <Trophy className="h-4 w-4 mr-2" />
+            <Button 
+              variant="outline" 
+              size="lg"
+              className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <Trophy className="h-5 w-5 mr-3" />
               Leaderboard
             </Button>
           </div>
@@ -503,7 +354,7 @@ export default function Home() {
 
           {/* Match Challenges Tab */}
           <TabsContent value="matches" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
               {filteredMatches.map((match) => (
                 <Card key={match.id} className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-3">
@@ -641,7 +492,7 @@ export default function Home() {
             </div>
 
             {/* Teams Grid */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
               {dummyTeams.map((team, index) => (
                 <Card key={team.id} className="group hover:shadow-lg transition-all duration-200 border border-gray-200 bg-white">
                   <CardHeader className="pb-6">
@@ -659,7 +510,9 @@ export default function Home() {
                                 const fallback = document.createElement('div');
                                 fallback.className = 'text-xl font-bold text-gray-600';
                                 fallback.textContent = team.name.split(' ').map(n => n[0]).join('');
-                                e.currentTarget.parentElement.appendChild(fallback);
+                                if (e.currentTarget.parentElement) {
+                                  e.currentTarget.parentElement.appendChild(fallback);
+                                }
                               }}
                             />
                           </div>
@@ -875,7 +728,9 @@ export default function Home() {
                               className="w-full h-full object-contain"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
-                                e.currentTarget.parentElement.innerHTML = `<div class="w-full h-full flex items-center justify-center text-xs font-bold bg-gray-100 rounded">${entry.team.split(' ').map(n => n[0]).join('')}</div>`;
+                                if (e.currentTarget.parentElement) {
+                                  e.currentTarget.parentElement.innerHTML = `<div class="w-full h-full flex items-center justify-center text-xs font-bold bg-gray-100 rounded">${entry.team.split(' ').map(n => n[0]).join('')}</div>`;
+                                }
                               }}
                             />
                           </div>
@@ -932,7 +787,7 @@ export default function Home() {
                 {/* League Stats Summary */}
                 <div className="mt-8 p-4 bg-gray-50 rounded-lg">
                   <h4 className="font-semibold text-gray-900 mb-3">League Statistics</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
                     <div className="text-center">
                       <div className="text-lg font-bold text-gray-900">{dummyLeaderboard.length}</div>
                       <div className="text-xs text-gray-500">Teams</div>

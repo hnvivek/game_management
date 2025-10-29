@@ -6,7 +6,8 @@ import next from 'next';
 
 const dev = process.env.NODE_ENV !== 'production';
 const currentPort = 3000;
-const hostname = '127.0.0.1';
+// Use localhost in development to avoid cross-origin issues
+const hostname = dev ? 'localhost' : '127.0.0.1';
 
 // Custom server with Socket.IO integration
 async function createCustomServer() {
@@ -31,12 +32,18 @@ async function createCustomServer() {
       handle(req, res);
     });
 
-    // Setup Socket.IO
+    // Setup Socket.IO with proper CORS configuration
     const io = new Server(server, {
       path: '/api/socketio',
       cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
+        origin: dev ? ["http://localhost:3000", "http://127.0.0.1:3000"] : "*",
+        methods: ["GET", "POST"],
+        credentials: true
+      },
+      // Add connection options for better stability
+      connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000,
+        skipMiddlewares: true,
       }
     });
 
