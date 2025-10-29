@@ -273,8 +273,8 @@ export async function PUT(
   }
 }
 
-// PUT /api/matches/[id]/confirm - Confirm opponent request
-export async function PUT(
+// PATCH /api/matches/[id]/confirm - Confirm opponent request
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
