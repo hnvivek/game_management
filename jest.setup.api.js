@@ -9,7 +9,7 @@ beforeAll(async () => {
   prisma = new PrismaClient({
     datasources: {
       db: {
-        url: 'file:./test.db'
+        url: 'file:./test-new.db'
       }
     }
   })
@@ -21,24 +21,29 @@ beforeAll(async () => {
 // 🧹 CLEAN SLATE BEFORE EACH TEST - Best Practice!
 beforeEach(async () => {
   if (!prisma) return
-  
+
   console.log('🧹 Cleaning test database for fresh start...')
-  
+
   try {
     // Clear all data in dependency order (foreign keys matter!)
     await prisma.booking.deleteMany()
-    await prisma.turfAvailability.deleteMany() 
-    await prisma.turf.deleteMany()
+    await prisma.venue.deleteMany()
     await prisma.vendorSettings.deleteMany()
+    await prisma.vendorLocation.deleteMany()
     await prisma.user.deleteMany()
     await prisma.vendor.deleteMany()
+    await prisma.formatType.deleteMany()
     await prisma.sportType.deleteMany()
-    
+    await prisma.teamMember.deleteMany()
+    await prisma.team.deleteMany()
+    await prisma.match.deleteMany()
+    await prisma.payment.deleteMany()
+
     // Seed fresh data for THIS test
     await seedFreshTestData()
-    
+
     console.log('✅ Fresh test data ready!')
-    
+
   } catch (error) {
     console.error('❌ Failed to prepare test data:', error)
     throw error
@@ -60,10 +65,12 @@ async function seedFreshTestData() {
       id: 'test-vendor-1',
       name: 'Test Sports Hub',
       slug: 'test-sports-hub',
-      location: 'Test City, Test State',
+      description: 'A test sports facility',
       address: '123 Test Street, Test City',
       phone: '+91 9999999999',
       email: 'contact@testsports.com',
+      primaryColor: '#3B82F6',
+      secondaryColor: '#1E40AF',
       isActive: true
     }
   })
@@ -74,29 +81,92 @@ async function seedFreshTestData() {
       id: 'test-admin-1',
       name: 'Test Admin',
       email: 'admin@testsports.com',
-      role: 'vendor_admin',
+      role: 'VENDOR_ADMIN',
       vendorId: vendor.id,
       password: 'test123',
       isActive: true
     }
   })
 
-  // Create customer user  
+  // Create customer user
   await prisma.user.create({
     data: {
       id: 'test-customer-1',
       name: 'Test Customer',
       email: 'customer@example.com',
-      role: 'customer',
+      role: 'CUSTOMER',
       password: 'test123',
       isActive: true
     }
   })
 
+  // Create sport types first
+  const sports = [
+    { name: 'football', displayName: 'Football', icon: '⚽', isActive: true },
+    { name: 'basketball', displayName: 'Basketball', icon: '🏀', isActive: true },
+    { name: 'cricket', displayName: 'Cricket', icon: '🏏', isActive: true }
+  ]
+
+  const createdSports = []
+  for (const sport of sports) {
+    const created = await prisma.sportType.create({
+      data: sport
+    })
+    createdSports.push(created)
+  }
+
+  // Create format types for each sport
+  const formats = [
+    // Football formats
+    { sportId: createdSports[0].id, name: '11-a-side', displayName: '11 a side (Full Field)', minPlayers: 11, maxPlayers: 22 },
+    { sportId: createdSports[0].id, name: '7-a-side', displayName: '7 a side (Small Field)', minPlayers: 7, maxPlayers: 14 },
+    { sportId: createdSports[0].id, name: '5-a-side', displayName: '5 a side (Mini Field)', minPlayers: 5, maxPlayers: 10 },
+    // Basketball formats
+    { sportId: createdSports[1].id, name: 'full-court', displayName: 'Full Court', minPlayers: 5, maxPlayers: 10 },
+    { sportId: createdSports[1].id, name: 'half-court', displayName: 'Half Court', minPlayers: 3, maxPlayers: 6 },
+    // Cricket formats
+    { sportId: createdSports[2].id, name: 't20', displayName: 'T20', minPlayers: 11, maxPlayers: 22 }
+  ]
+
+  const createdFormats = []
+  for (const format of formats) {
+    const created = await prisma.formatType.create({
+      data: format
+    })
+    createdFormats.push(created)
+  }
+
   // Create vendor settings
   await prisma.vendorSettings.create({
     data: {
       vendorId: vendor.id,
+      advanceBookingDays: 30,
+      cancellationPolicy: 'Full refund if cancelled 24 hours before booking',
+      paymentMethods: JSON.stringify(['cash', 'card', 'upi']),
+      bookingTimeSlots: 60,
+      maxConcurrentBookings: 1,
+      basePrice: 1000,
+      showBookingCalendar: true,
+      showPricingPublicly: true,
+      allowOnlinePayments: true,
+      showContactInfo: true,
+      autoApproval: true,
+      availableAmenities: JSON.stringify(['parking', 'changing_rooms', 'floodlights']),
+      sportTypes: JSON.stringify(['football', 'basketball', 'cricket'])
+    }
+  })
+
+  // Create vendor location
+  const location = await prisma.vendorLocation.create({
+    data: {
+      id: 'test-location-1',
+      vendorId: vendor.id,
+      name: 'Test Sports Hub - Main',
+      address: '123 Test Street, Test City',
+      city: 'Test City',
+      area: 'Test Area',
+      pincode: '560001',
+      phone: '+91 9999999999',
       operatingHours: JSON.stringify({
         monday: { open: '09:00', close: '21:00', closed: false },
         tuesday: { open: '09:00', close: '21:00', closed: false },
@@ -106,57 +176,44 @@ async function seedFreshTestData() {
         saturday: { open: '08:00', close: '22:00', closed: false },
         sunday: { open: '08:00', close: '22:00', closed: false }
       }),
-      paymentMethods: JSON.stringify(['cash', 'card', 'upi']),
-      autoApproval: true,
-      advanceBookingDays: 30
+      isActive: true
     }
   })
 
-  // Create test turfs/venues  
-  await prisma.turf.create({
+  // Create test venues (new schema)
+  await prisma.venue.create({
     data: {
-      id: 'test-turf-1',
+      id: 'test-venue-1',
       vendorId: vendor.id,
-      name: vendor.name,
-      venue: vendor.location,
-      sport: 'soccer', 
-      size: '8 a side',
+      locationId: location.id,
+      sportId: createdSports[0].id, // Football
+      formatId: createdFormats[0].id, // 11-a-side
       courtNumber: 'Field 1',
       pricePerHour: 2000,
-      maxPlayers: 16,
+      maxPlayers: 22,
       isActive: true,
-      amenities: JSON.stringify(['parking', 'changing_rooms', 'floodlights'])
+      amenities: JSON.stringify(['parking', 'changing_rooms', 'floodlights']),
+      description: 'Full size football field',
+      images: JSON.stringify(['https://example.com/field1.jpg'])
     }
   })
 
-  await prisma.turf.create({
+  await prisma.venue.create({
     data: {
-      id: 'test-turf-2',
+      id: 'test-venue-2',
       vendorId: vendor.id,
-      name: vendor.name,
-      venue: vendor.location,
-      sport: 'basketball',
-      size: 'Full Court', 
+      locationId: location.id,
+      sportId: createdSports[1].id, // Basketball
+      formatId: createdFormats[3].id, // Full Court
       courtNumber: 'Court 1',
       pricePerHour: 1500,
       maxPlayers: 10,
       isActive: true,
-      amenities: JSON.stringify(['parking', 'changing_rooms'])
+      amenities: JSON.stringify(['parking', 'changing_rooms']),
+      description: 'Full basketball court',
+      images: JSON.stringify(['https://example.com/court1.jpg'])
     }
   })
-
-  // Create sport types catalog
-  const sports = [
-    { name: 'soccer', displayName: 'Football/Soccer', isActive: true },
-    { name: 'basketball', displayName: 'Basketball', isActive: true },
-    { name: 'cricket', displayName: 'Cricket', isActive: true }
-  ]
-
-  for (const sport of sports) {
-    await prisma.sportType.create({
-      data: sport
-    })
-  }
 }
 
 // 🛠️ Test utilities for generating fresh data
@@ -165,17 +222,20 @@ global.testUtils = {
   getBookingData(overrides = {}) {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    
+    const startTime = new Date(tomorrow)
+    startTime.setHours(10, 0, 0, 0) // 10:00 AM
+    const endTime = new Date(startTime)
+    endTime.setHours(startTime.getHours() + 2) // 12:00 PM
+
     return {
-      turfId: 'test-turf-1',
-      vendorId: 'test-vendor-1', 
-      date: tomorrow.toISOString().split('T')[0],
-      startTime: '10:00',
-      endTime: '12:00',
+      venueId: 'test-venue-1',
+      vendorId: 'test-vendor-1',
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
       duration: 2,
       totalAmount: 4000,
-      status: 'confirmed',
-      bookingType: 'match',
+      status: 'CONFIRMED',
+      bookingType: 'MATCH',
       customerName: 'Test Customer',
       customerPhone: '+91 9876543210',
       customerEmail: 'customer@example.com',
@@ -194,7 +254,7 @@ global.testUtils = {
   getTimeSlots() {
     return {
       morning: { start: '09:00', end: '11:00' },
-      afternoon: { start: '14:00', end: '16:00' }, 
+      afternoon: { start: '14:00', end: '16:00' },
       evening: { start: '18:00', end: '20:00' }
     }
   },
@@ -217,17 +277,23 @@ global.testUtils = {
   async createTestBooking(data = {}) {
     const db = global.testPrisma
     if (!db) return null
-    
+
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const startTime = new Date(tomorrow)
+    startTime.setHours(14, 0, 0, 0) // 2:00 PM
+    const endTime = new Date(startTime)
+    endTime.setHours(startTime.getHours() + 2) // 4:00 PM
+
     const defaultData = {
-      turfId: 'test-turf-1',
+      venueId: 'test-venue-1',
       vendorId: 'test-vendor-1',
-      date: this.getFutureDate(1),
-      startTime: '09:00',
-      endTime: '11:00',
+      startTime: startTime,
+      endTime: endTime,
       duration: 2,
       totalAmount: 4000,
-      status: 'confirmed',
-      bookingType: 'match',
+      status: 'CONFIRMED',
+      bookingType: 'MATCH',
       customerName: 'Test Customer',
       customerPhone: '+91 9876543210',
       customerEmail: 'customer@example.com'

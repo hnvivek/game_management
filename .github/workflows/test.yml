@@ -37,7 +37,9 @@ jobs:
       run: npx tsc --noEmit
 
     - name: Run API Tests
-      run: npm run test:api
+      run: NODE_ENV=test npm run test:api
+      env:
+        NODE_ENV: test
 
     - name: Run Component Tests
       run: npm run test:components
@@ -189,7 +191,7 @@ jobs:
         
         # Test API response times (basic)
         echo "Testing API performance..."
-        time curl -f http://localhost:3000/api/turfs
+        time curl -f http://localhost:3000/api/venues
         time curl -f http://localhost:3000/api/vendors
 
     - name: Stop application

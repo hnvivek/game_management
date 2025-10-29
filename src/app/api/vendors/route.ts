@@ -12,14 +12,14 @@ export async function GET(request: NextRequest) {
       const vendor = await db.vendor.findUnique({
         where: { id: vendorId },
         include: {
-          turfs: {
+          venues: {
             where: { isActive: true },
             orderBy: { courtNumber: 'asc' }
           },
           settings: true,
           _count: {
             select: {
-              turfs: true,
+              venues: true,
               bookings: true,
               users: true
             }
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       include: {
         _count: {
           select: {
-            turfs: true,
+            venues: true,
             bookings: true,
             users: true
           }

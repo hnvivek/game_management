@@ -15,14 +15,16 @@ describe('/api/vendors', () => {
       expect(Array.isArray(data.vendors)).toBe(true)
       expect(data.vendors.length).toBeGreaterThan(0)
       expect(data.vendors[0]).toHaveProperty('name')
-      expect(data.vendors[0]).toHaveProperty('location')
+      expect(data.vendors[0]).toHaveProperty('slug')
+      expect(data.vendors[0]).toHaveProperty('primaryColor')
+      expect(data.vendors[0]).toHaveProperty('secondaryColor')
       expect(data.vendors[0]).toHaveProperty('isActive', true)
     })
 
     it('should return specific vendor by ID', async () => {
       const url = new URL('http://localhost:3000/api/vendors')
       url.searchParams.set('vendorId', 'test-vendor-1')
-      
+
       const request = new NextRequest(url)
       const response = await GET(request)
       const data = await response.json()
@@ -30,15 +32,16 @@ describe('/api/vendors', () => {
       expect(response.status).toBe(200)
       expect(data.vendor).toBeDefined()
       expect(data.vendor.name).toBe('Test Sports Hub')
-      expect(data.vendor).toHaveProperty('turfs')
+      expect(data.vendor).toHaveProperty('venues')
       expect(data.vendor).toHaveProperty('settings')
+      expect(data.vendor).toHaveProperty('locations')
       expect(data.vendor).toHaveProperty('_count')
     })
 
     it('should return 404 for non-existent vendor', async () => {
       const url = new URL('http://localhost:3000/api/vendors')
       url.searchParams.set('vendorId', 'non-existent')
-      
+
       const request = new NextRequest(url)
       const response = await GET(request)
       const data = await response.json()
@@ -54,12 +57,14 @@ describe('/api/vendors', () => {
       const timestamp = Date.now()
       return {
         name: `Sports Complex ${timestamp}`,
-        location: 'Bangalore',
+        slug: `sports-complex-${timestamp}`,
+        description: 'A great sports facility',
         address: 'Test Address 123',
         phone: '+91 9876543210',
         email: `info${timestamp}@newsports.com`,
         website: 'https://newsports.com',
-        description: 'A great sports facility',
+        primaryColor: '#3B82F6',
+        secondaryColor: '#1E40AF',
         adminName: 'Admin User',
         adminEmail: `admin${timestamp}@newsports.com`,
         adminPhone: '+91 9876543210'
@@ -68,7 +73,7 @@ describe('/api/vendors', () => {
 
     it('should create a new vendor successfully', async () => {
       const validVendorData = getUniqueVendorData()
-      
+
       const request = new NextRequest('http://localhost:3000/api/vendors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,7 +86,9 @@ describe('/api/vendors', () => {
       expect(response.status).toBe(200)
       expect(data.vendor).toBeDefined()
       expect(data.vendor.name).toBe(validVendorData.name)
-      expect(data.vendor.location).toBe(validVendorData.location)
+      expect(data.vendor.slug).toBe(validVendorData.slug)
+      expect(data.vendor.primaryColor).toBe(validVendorData.primaryColor)
+      expect(data.vendor.secondaryColor).toBe(validVendorData.secondaryColor)
       expect(data.admin).toBeDefined()
       expect(data.admin.email).toBe(validVendorData.adminEmail)
       expect(data.message).toBe('Vendor onboarded successfully')
@@ -90,7 +97,7 @@ describe('/api/vendors', () => {
     it('should reject vendor with missing required fields', async () => {
       const invalidData = {
         name: 'Test Vendor',
-        // Missing location and adminEmail
+        // Missing slug and adminEmail
         adminName: 'Admin User'
       }
 
@@ -104,12 +111,12 @@ describe('/api/vendors', () => {
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data.error).toBe('Name, location, and admin email are required')
+      expect(data.error).toBe('Name, slug, and admin email are required')
     })
 
     it('should reject duplicate vendor names', async () => {
       const validVendorData = getUniqueVendorData()
-      
+
       // Create first vendor
       const request1 = new NextRequest('http://localhost:3000/api/vendors', {
         method: 'POST',
@@ -121,7 +128,8 @@ describe('/api/vendors', () => {
       // Try to create duplicate
       const duplicateData = {
         ...validVendorData,
-        adminEmail: 'different@email.com' // Different email to avoid email conflict
+        adminEmail: 'different@email.com', // Different email to avoid email conflict
+        slug: `${validVendorData.slug}-duplicate` // Different slug
       }
 
       const request2 = new NextRequest('http://localhost:3000/api/vendors', {
@@ -134,7 +142,38 @@ describe('/api/vendors', () => {
       const data = await response.json()
 
       expect(response.status).toBe(409)
-      expect(data.error).toBe('A vendor with similar name already exists')
+      expect(data.error).toBe('A vendor with this name already exists')
+    })
+
+    it('should reject duplicate vendor slugs', async () => {
+      const validVendorData = getUniqueVendorData()
+
+      // Create first vendor
+      const request1 = new NextRequest('http://localhost:3000/api/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validVendorData)
+      })
+      await POST(request1)
+
+      // Try to create duplicate with same slug
+      const duplicateData = {
+        ...validVendorData,
+        name: `Different Name ${Date.now()}`, // Different name
+        adminEmail: 'different2@email.com' // Different email
+      }
+
+      const request2 = new NextRequest('http://localhost:3000/api/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(duplicateData)
+      })
+
+      const response = await POST(request2)
+      const data = await response.json()
+
+      expect(response.status).toBe(409)
+      expect(data.error).toBe('Vendor slug already exists')
     })
   })
 })
