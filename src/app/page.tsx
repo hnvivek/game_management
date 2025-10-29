@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Navbar from '@/components/navbar'
 
 // Enterprise Design System
 const DESIGN_SYSTEM = {
@@ -221,32 +222,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Enterprise Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Trophy className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <span className="text-xl font-bold text-gray-900">GameHub</span>
-                  <span className="text-xs text-gray-500 ml-2">Enterprise</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-50">
-                Sign In
-              </Button>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-medium">
-                Get Started
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Unified Navbar */}
+      <Navbar />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">

@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Calendar, MapPin, Users, Trophy, ArrowLeft, Check, AlertCircle } from 'lucide-react'
-import Link from 'next/link'
+import { Calendar, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import VenueBooking from '@/components/venue-booking'
+import Navbar from '@/components/navbar'
 
 export default function BookVenuePage() {
   const [venueBooking, setVenueBooking] = useState<any>(null)
@@ -87,27 +87,8 @@ export default function BookVenuePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Navigation - Compact */}
-      <header className="bg-white border-b sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center h-12">
-            <div className="flex items-center space-x-2">
-              <Link href="/" className="flex items-center space-x-1.5 group">
-                <Button variant="ghost" size="sm" className="p-1 h-7 w-7">
-                  <ArrowLeft className="h-3.5 w-3.5 text-gray-600 group-hover:text-gray-900" />
-                </Button>
-                <div className="flex items-center space-x-1.5">
-                  <Trophy className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-semibold text-gray-900">Book Venues</span>
-                </div>
-              </Link>
-            </div>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-7 text-xs px-3">
-              Sign In
-            </Button>
-          </div>
-        </div>
-      </header>
+      {/* Unified Navbar */}
+      <Navbar />
 
       {/* Main Content - Compact */}
       <main className="max-w-7xl mx-auto px-4">
