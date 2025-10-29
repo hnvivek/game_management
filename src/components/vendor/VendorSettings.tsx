@@ -52,8 +52,8 @@ export default function VendorSettings({
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Vendor Settings</h1>
-        <p className="text-gray-600">Customize your venue profile and preferences</p>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Vendor Settings</h1>
+        <p className="text-muted-foreground">Customize your venue profile and preferences</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -188,11 +188,11 @@ export default function VendorSettings({
               <div>
                 <Label>Logo</Label>
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
                     {settings.profile.logo ? (
                       <img src={settings.profile.logo} alt="Logo" className="w-full h-full object-cover rounded-lg" />
                     ) : (
-                      <Upload className="h-6 w-6 text-gray-400" />
+                      <Upload className="h-6 w-6 text-muted-foreground" />
                     )}
                   </div>
                   <Button variant="outline" size="sm">
@@ -238,7 +238,7 @@ export default function VendorSettings({
                       </div>
                     )}
                     {hours.closed && (
-                      <span className="text-gray-500 text-sm">Closed</span>
+                      <span className="text-muted-foreground text-sm">Closed</span>
                     )}
                   </div>
                 ))}
@@ -396,7 +396,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Show Booking Calendar</Label>
-                    <p className="text-sm text-gray-600">Display availability calendar to customers</p>
+                    <p className="text-sm text-muted-foreground">Display availability calendar to customers</p>
                   </div>
                   <Switch
                     checked={settings.display.showBookingCalendar}
@@ -407,7 +407,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Show Pricing Publicly</Label>
-                    <p className="text-sm text-gray-600">Display pricing information on your public page</p>
+                    <p className="text-sm text-muted-foreground">Display pricing information on your public page</p>
                   </div>
                   <Switch
                     checked={settings.display.showPricingPublicly}
@@ -418,7 +418,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Allow Online Payments</Label>
-                    <p className="text-sm text-gray-600">Enable customers to pay online during booking</p>
+                    <p className="text-sm text-muted-foreground">Enable customers to pay online during booking</p>
                   </div>
                   <Switch
                     checked={settings.display.allowOnlinePayments}
@@ -429,7 +429,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Show Contact Information</Label>
-                    <p className="text-sm text-gray-600">Display phone and email on public pages</p>
+                    <p className="text-sm text-muted-foreground">Display phone and email on public pages</p>
                   </div>
                   <Switch
                     checked={settings.display.showContactInfo}
@@ -453,7 +453,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Email Notifications</Label>
-                    <p className="text-sm text-gray-600">Receive updates via email</p>
+                    <p className="text-sm text-muted-foreground">Receive updates via email</p>
                   </div>
                   <Switch
                     checked={settings.notifications.emailNotifications}
@@ -464,7 +464,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>SMS Notifications</Label>
-                    <p className="text-sm text-gray-600">Receive updates via SMS</p>
+                    <p className="text-sm text-muted-foreground">Receive updates via SMS</p>
                   </div>
                   <Switch
                     checked={settings.notifications.smsNotifications}
@@ -475,7 +475,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Booking Reminders</Label>
-                    <p className="text-sm text-gray-600">Get reminded about upcoming bookings</p>
+                    <p className="text-sm text-muted-foreground">Get reminded about upcoming bookings</p>
                   </div>
                   <Switch
                     checked={settings.notifications.bookingReminders}
@@ -486,7 +486,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>New Booking Alerts</Label>
-                    <p className="text-sm text-gray-600">Instant alerts for new bookings</p>
+                    <p className="text-sm text-muted-foreground">Instant alerts for new bookings</p>
                   </div>
                   <Switch
                     checked={settings.notifications.newBookingAlerts}
@@ -497,7 +497,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Cancellation Alerts</Label>
-                    <p className="text-sm text-gray-600">Notifications for booking cancellations</p>
+                    <p className="text-sm text-muted-foreground">Notifications for booking cancellations</p>
                   </div>
                   <Switch
                     checked={settings.notifications.cancellationAlerts}
@@ -508,7 +508,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Payment Alerts</Label>
-                    <p className="text-sm text-gray-600">Notifications for payment events</p>
+                    <p className="text-sm text-muted-foreground">Notifications for payment events</p>
                   </div>
                   <Switch
                     checked={settings.notifications.paymentAlerts}
@@ -549,7 +549,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Calendar Sync</Label>
-                    <p className="text-sm text-gray-600">Sync bookings with your calendar</p>
+                    <p className="text-sm text-muted-foreground">Sync bookings with your calendar</p>
                   </div>
                   <Switch
                     checked={settings.integrations.calendarSync}
@@ -560,7 +560,7 @@ export default function VendorSettings({
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Website Embed</Label>
-                    <p className="text-sm text-gray-600">Allow embedding on external websites</p>
+                    <p className="text-sm text-muted-foreground">Allow embedding on external websites</p>
                   </div>
                   <Switch
                     checked={settings.integrations.websiteEmbed}
@@ -642,7 +642,7 @@ function VendorPreview({ settings }: { settings: VendorSettings }) {
             {Object.entries(settings.businessHours).map(([day, hours]) => (
               <div key={day} className="flex justify-between">
                 <span className="capitalize font-medium">{day}</span>
-                <span className="text-gray-600">
+                <span className="text-muted-foreground">
                   {hours.closed ? 'Closed' : `${hours.open} - ${hours.close}`}
                 </span>
               </div>

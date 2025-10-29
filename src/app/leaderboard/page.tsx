@@ -55,7 +55,7 @@ export default function LeaderboardPage() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
       {/* Header */}
@@ -79,13 +79,13 @@ export default function LeaderboardPage() {
         {/* League Statistics - Now at top */}
         <Card className="shadow-lg border-0 bg-white mb-6">
           <CardHeader className="text-center pb-3">
-            <CardTitle className="text-xl font-bold text-gray-900 flex items-center justify-center gap-2">
+            <CardTitle className="text-xl font-bold text-foreground flex items-center justify-center gap-2">
               <div className="p-1.5 bg-secondary-50 rounded-lg">
                 <TrendingUp className="h-4 w-4 text-secondary-600" />
               </div>
               League Overview
             </CardTitle>
-            <CardDescription className="text-sm text-gray-600">
+            <CardDescription className="text-sm text-muted-foreground">
               Performance metrics across all teams and competitions
             </CardDescription>
           </CardHeader>
@@ -97,10 +97,10 @@ export default function LeaderboardPage() {
                     <Users className="h-4 w-4 text-secondary-600" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-foreground">
                   {filteredLeaderboard.length}
                 </div>
-                <div className="text-xs text-gray-600 font-medium">Teams</div>
+                <div className="text-xs text-muted-foreground font-medium">Teams</div>
               </div>
               <div className="text-center group hover:transform hover:scale-105 transition-all duration-200">
                 <div className="flex justify-center mb-2">
@@ -108,10 +108,10 @@ export default function LeaderboardPage() {
                     <Target className="h-4 w-4 text-success-600" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-foreground">
                   {filteredLeaderboard.reduce((sum, team) => sum + team.wins, 0)}
                 </div>
-                <div className="text-xs text-gray-600 font-medium">Total Wins</div>
+                <div className="text-xs text-muted-foreground font-medium">Total Wins</div>
               </div>
               <div className="text-center group hover:transform hover:scale-105 transition-all duration-200">
                 <div className="flex justify-center mb-2">
@@ -119,10 +119,10 @@ export default function LeaderboardPage() {
                     <Activity className="h-4 w-4 text-error-600" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-foreground">
                   {filteredLeaderboard.reduce((sum, team) => sum + team.losses, 0)}
                 </div>
-                <div className="text-xs text-gray-600 font-medium">Total Losses</div>
+                <div className="text-xs text-muted-foreground font-medium">Total Losses</div>
               </div>
               <div className="text-center group hover:transform hover:scale-105 transition-all duration-200">
                 <div className="flex justify-center mb-2">
@@ -130,10 +130,10 @@ export default function LeaderboardPage() {
                     <Trophy className="h-4 w-4 text-warning-600" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-foreground">
                   {filteredLeaderboard.reduce((sum, team) => sum + team.points, 0)}
                 </div>
-                <div className="text-xs text-gray-600 font-medium">Total Points</div>
+                <div className="text-xs text-muted-foreground font-medium">Total Points</div>
               </div>
             </div>
           </CardContent>

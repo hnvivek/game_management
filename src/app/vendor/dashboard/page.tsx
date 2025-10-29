@@ -67,19 +67,19 @@ export default function VendorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Vendor Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+      <header className="bg-card border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-white" />
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <MapPin className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <span className="text-xl font-bold text-gray-900">{mockVendor.name}</span>
-                  <span className="text-sm text-gray-500 block">{mockVendor.location}</span>
+                  <span className="text-xl font-bold text-foreground">{mockVendor.name}</span>
+                  <span className="text-sm text-muted-foreground block">{mockVendor.location}</span>
                 </div>
               </div>
             </div>
@@ -88,7 +88,7 @@ export default function VendorDashboard() {
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
               </Button>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+              <Button size="sm" className="bg-primary hover:bg-primary/90">
                 View Public Page
               </Button>
             </div>
@@ -151,10 +151,10 @@ export default function VendorDashboard() {
           {/* Venues Tab */}
           <TabsContent value="venues" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Manage Venues</h2>
+              <h2 className="text-2xl font-bold text-foreground">Manage Venues</h2>
               <Dialog open={showAddVenue} onOpenChange={setShowAddVenue}>
                 <DialogTrigger asChild>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Button className="bg-primary hover:bg-primary/90">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Venue
                   </Button>
@@ -236,7 +236,7 @@ export default function VendorDashboard() {
                     <Button variant="outline" onClick={() => setShowAddVenue(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={handleAddVenue} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={handleAddVenue} className="bg-primary hover:bg-primary/90">
                       Add Venue
                     </Button>
                   </div>
@@ -256,18 +256,18 @@ export default function VendorDashboard() {
                           {turf.courtNumber}
                         </CardDescription>
                       </div>
-                      <Badge className="bg-green-100 text-green-800">
+                      <Badge className="bg-emerald-100 text-emerald-800">
                         {turf.sport}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Price/hour:</span>
-                      <span className="font-semibold text-green-600">₹{turf.pricePerHour.toLocaleString('en-IN')}</span>
+                      <span className="text-sm text-muted-foreground">Price/hour:</span>
+                      <span className="font-semibold text-emerald-600">₹{turf.pricePerHour.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Max players:</span>
+                      <span className="text-sm text-muted-foreground">Max players:</span>
                       <span className="font-medium">{turf.maxPlayers}</span>
                     </div>
                     <div className="flex justify-end space-x-2 pt-2">
@@ -275,7 +275,7 @@ export default function VendorDashboard() {
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
                       </Button>
-                      <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
+                      <Button variant="outline" size="sm" className="text-destructive border-destructive/20 hover:bg-destructive/10">
                         <Trash2 className="h-3 w-3 mr-1" />
                         Delete
                       </Button>
@@ -288,7 +288,7 @@ export default function VendorDashboard() {
 
           {/* Bookings Tab */}
           <TabsContent value="bookings" className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Recent Bookings</h2>
+            <h2 className="text-2xl font-bold text-foreground">Recent Bookings</h2>
             
             <Card>
               <CardHeader>
@@ -301,16 +301,16 @@ export default function VendorDashboard() {
                       <div className="flex items-center space-x-4">
                         <div className="flex flex-col">
                           <span className="font-medium">{booking.customer}</span>
-                          <span className="text-sm text-gray-500">{booking.court}</span>
+                          <span className="text-sm text-muted-foreground">{booking.court}</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4 text-gray-400" />
+                          <Clock className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">{booking.time}</span>
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
-                        <span className="font-semibold text-green-600">₹{booking.amount.toLocaleString('en-IN')}</span>
-                        <Badge className="bg-green-100 text-green-800">
+                        <span className="font-semibold text-emerald-600">₹{booking.amount.toLocaleString('en-IN')}</span>
+                        <Badge className="bg-emerald-100 text-emerald-800">
                           {booking.status}
                         </Badge>
                       </div>
@@ -323,13 +323,13 @@ export default function VendorDashboard() {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Analytics & Insights</h2>
+            <h2 className="text-2xl font-bold text-foreground">Analytics & Insights</h2>
             <Card>
               <CardHeader>
                 <CardTitle>Coming Soon</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">Detailed analytics and reporting features will be available soon.</p>
+                <p className="text-muted-foreground">Detailed analytics and reporting features will be available soon.</p>
               </CardContent>
             </Card>
           </TabsContent>

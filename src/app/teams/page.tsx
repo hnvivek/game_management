@@ -17,8 +17,8 @@ const teams = [
     id: 1,
     name: 'Arsenal FC',
     logo: 'https://1000logos.net/wp-content/uploads/2016/10/Arsenal-Logo.png',
-    primaryColor: '#EF0107',
-    secondaryColor: '#063672',
+    primaryColor: 'hsl(0, 100%, 47%)',
+    secondaryColor: 'hsl(210, 100%, 22%)',
     members: ['Alex Johnson', 'Sam Wilson', 'Mike Chen', 'David Lee'],
     level: 'Intermediate',
     city: 'Bengaluru',
@@ -28,8 +28,8 @@ const teams = [
     id: 2,
     name: 'Manchester United',
     logo: 'https://1000logos.net/wp-content/uploads/2017/03/Manchester-United-Logo.png',
-    primaryColor: '#DA020E',
-    secondaryColor: '#FBE122',
+    primaryColor: 'hsl(0, 100%, 43%)',
+    secondaryColor: 'hsl(54, 100%, 53%)',
     members: ['Sarah Miller', 'Tom Brown', 'Chris Taylor', 'Jake Davis'],
     level: 'Beginner',
     city: 'Bengaluru',
@@ -39,8 +39,8 @@ const teams = [
     id: 3,
     name: 'Liverpool FC',
     logo: 'https://1000logos.net/wp-content/uploads/2017/04/Liverpool-Logo.png',
-    primaryColor: '#C8102E',
-    secondaryColor: '#00B2A9',
+    primaryColor: 'hsl(352, 100%, 40%)',
+    secondaryColor: 'hsl(177, 100%, 35%)',
     members: ['Carlos Rodriguez', 'James Smith', 'Ryan Garcia', 'Kevin Park'],
     level: 'Advanced',
     city: 'Bengaluru',
@@ -50,8 +50,8 @@ const teams = [
     id: 4,
     name: 'Chelsea FC',
     logo: 'https://1000logos.net/wp-content/uploads/2016/11/Chelsea-Logo.png',
-    primaryColor: '#034694',
-    secondaryColor: '#DBA732',
+    primaryColor: 'hsl(208, 100%, 29%)',
+    secondaryColor: 'hsl(44, 75%, 53%)',
     members: ['Emma Wilson', 'Oliver Brown', 'Sophie Taylor', 'Lucas Davis'],
     level: 'Intermediate',
     city: 'Bengaluru',
@@ -61,8 +61,8 @@ const teams = [
     id: 5,
     name: 'Bayern Munich',
     logo: 'https://1000logos.net/wp-content/uploads/2018/05/Bayern-Munchen-Logo.png',
-    primaryColor: '#DC052D',
-    secondaryColor: '#FFFFFF',
+    primaryColor: 'hsl(356, 100%, 44%)',
+    secondaryColor: 'hsl(0, 0%, 100%)',
     members: ['Hans Mueller', 'Klaus Schmidt', 'Erik Weber', 'Karl Fischer'],
     level: 'Advanced',
     city: 'Bengaluru',
@@ -82,25 +82,25 @@ export default function TeamsPage() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
       {/* Header */}
-      <div className="bg-white border-b">
+      <div className="bg-card border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Teams</h1>
-          <p className="text-gray-600">Discover and connect with local teams in Bengaluru</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Teams</h1>
+          <p className="text-muted-foreground">Discover and connect with local teams in Bengaluru</p>
         </div>
       </div>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+        <div className="bg-card rounded-lg shadow-sm border p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   type="text"
                   placeholder="Search teams..."
@@ -133,7 +133,7 @@ export default function TeamsPage() {
                   <div className="flex items-center gap-3">
                     {/* Team Logo */}
                     <div className="relative">
-                      <div className="w-14 h-14 bg-gray-50 rounded-xl flex items-center justify-center border">
+                      <div className="w-14 h-14 bg-muted rounded-xl flex items-center justify-center border">
                         <img
                           src={team.logo}
                           alt={team.name}
@@ -141,7 +141,7 @@ export default function TeamsPage() {
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
                             const fallback = document.createElement('div')
-                            fallback.className = 'text-lg font-bold text-gray-600'
+                            fallback.className = 'text-lg font-bold text-foreground'
                             fallback.textContent = team.name.split(' ').map(n => n[0]).join('')
                             if (e.currentTarget.parentElement) {
                               e.currentTarget.parentElement.appendChild(fallback)
@@ -161,7 +161,7 @@ export default function TeamsPage() {
                     {/* Team Info */}
                     <div>
                       <CardTitle className="text-base font-semibold">{team.name}</CardTitle>
-                      <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                         <MapPin className="h-3 w-3" />
                         <span>{team.city}</span>
                       </div>
@@ -200,7 +200,7 @@ export default function TeamsPage() {
 
                 {/* Recent Form */}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">Recent Form</span>
+                  <span className="text-xs font-medium text-foreground">Recent Form</span>
                   <div className="flex gap-1">
                     {team.recentForm.map((result, idx) => (
                       <div key={idx} className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
@@ -215,11 +215,11 @@ export default function TeamsPage() {
 
                 {/* Team Members */}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">Squad</span>
+                  <span className="text-xs font-medium text-foreground">Squad</span>
                   <div className="flex -space-x-2">
                     {team.members.slice(0, 4).map((member, idx) => (
-                      <Avatar key={idx} className="h-7 w-7 border-2 border-white">
-                        <AvatarFallback className="text-xs font-semibold bg-gray-100 text-gray-700">
+                      <Avatar key={idx} className="h-7 w-7 border-2 border-background">
+                        <AvatarFallback className="text-xs font-semibold bg-muted text-foreground">
                           {member.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
@@ -230,7 +230,7 @@ export default function TeamsPage() {
                 {/* Action Buttons */}
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <Link href="/team-wall" className="block">
-                    <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-xs h-8">
+                    <Button size="sm" className="w-full bg-primary hover:bg-primary/90 text-xs h-8">
                       <Users className="h-3 w-3 mr-1" />
                       View Team
                     </Button>
@@ -248,9 +248,9 @@ export default function TeamsPage() {
         {/* Empty State */}
         {filteredTeams.length === 0 && (
           <div className="text-center py-16">
-            <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No teams found</h3>
-            <p className="text-gray-600">Try adjusting your search or filters</p>
+            <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">No teams found</h3>
+            <p className="text-muted-foreground">Try adjusting your search or filters</p>
           </div>
         )}
       </main>

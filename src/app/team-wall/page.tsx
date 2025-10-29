@@ -18,9 +18,9 @@ const teamData = {
   id: 1,
   name: 'Arsenal FC',
   logo: 'https://1000logos.net/wp-content/uploads/2016/10/Arsenal-Logo.png',
-  primaryColor: '#EF0107',
-  secondaryColor: '#063672',
-  accentColor: '#9C824A',
+  primaryColor: 'hsl(0, 100%, 47%)',
+  secondaryColor: 'hsl(210, 100%, 22%)',
+  accentColor: 'hsl(35, 40%, 45%)',
   level: 'Intermediate',
   founded: '1886',
   city: 'Bengaluru',
@@ -130,14 +130,14 @@ export default function TeamWall() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Professional Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <header className="bg-card border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <Link href="/">
-                <Button variant="ghost" size="sm" className="p-2 hover:bg-gray-100">
+                <Button variant="ghost" size="sm" className="p-2 hover:bg-muted">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </Link>
@@ -149,19 +149,19 @@ export default function TeamWall() {
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">{teamData.name}</h1>
-                  <p className="text-sm text-gray-500">{teamData.level} • {teamData.city}</p>
+                  <h1 className="text-xl font-bold text-foreground">{teamData.name}</h1>
+                  <p className="text-sm text-muted-foreground">{teamData.level} • {teamData.city}</p>
                 </div>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm" className="p-2 hover:bg-gray-100">
+              <Button variant="ghost" size="sm" className="p-2 hover:bg-muted">
                 <Bell className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="sm" className="p-2 hover:bg-gray-100">
+              <Button variant="ghost" size="sm" className="p-2 hover:bg-muted">
                 <Settings className="h-5 w-5" />
               </Button>
-              <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white font-medium">
+              <Button size="sm" className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Invite
               </Button>
@@ -260,7 +260,7 @@ export default function TeamWall() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             {[
@@ -275,8 +275,8 @@ export default function TeamWall() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border-red-500 text-red-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-destructive text-destructive'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
                 }`}
               >
                 <tab.icon className="h-4 w-4" />
@@ -294,12 +294,12 @@ export default function TeamWall() {
           <div className="space-y-6">
             {/* Next Match Card */}
             <Card className="shadow-lg border-0 overflow-hidden">
-              <div className="h-1 bg-gradient-to-r from-red-500 to-orange-500"></div>
+              <div className="h-1 bg-gradient-to-r from-destructive to-orange-500"></div>
               <CardHeader className="pb-4">
                 <CardTitle className="text-xl font-bold flex items-center">
-                  <Clock className="h-6 w-6 mr-3 text-red-600" />
+                  <Clock className="h-6 w-6 mr-3 text-destructive" />
                   Next Match
-                  <Badge className="ml-3 bg-red-500 text-white animate-pulse">LIVE SOON</Badge>
+                  <Badge className="ml-3 bg-destructive text-destructive-foreground animate-pulse">LIVE SOON</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
