@@ -6,34 +6,67 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       venueId,
-      date,
       startTime,
+      endTime,
       duration,
       totalAmount,
-      bookingType = 'match',
+      bookingType = 'MATCH',
+      customerName,
+      customerPhone,
+      customerEmail,
+      notes,
+      status = 'CONFIRMED',
     } = body
-    
-    if (!venueId || !date || !startTime || !duration || !totalAmount) {
+
+    // Validate required fields
+    if (!venueId || !startTime || !duration || !totalAmount) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: venueId, startTime, duration, totalAmount' },
         { status: 400 }
       )
     }
-    
+
+    // Validate and parse DateTime fields
+    const startDateTime = new Date(startTime)
+    if (isNaN(startDateTime.getTime())) {
+      return NextResponse.json(
+        { error: 'Invalid startTime format. Use ISO DateTime string (e.g., 2025-01-01T10:00:00.000Z)' },
+        { status: 400 }
+      )
+    }
+
     const durationHours = parseInt(duration)
-    const endTime = calculateEndTime(startTime, durationHours)
+    if (durationHours <= 0) {
+      return NextResponse.json(
+        { error: 'Duration must be positive' },
+        { status: 400 }
+      )
+    }
+
+    // Calculate end time if not provided
+    let endDateTime
+    if (endTime) {
+      endDateTime = new Date(endTime)
+      if (isNaN(endDateTime.getTime())) {
+        return NextResponse.json(
+          { error: 'Invalid endTime format. Use ISO DateTime string (e.g., 2025-01-01T12:00:00.000Z)' },
+          { status: 400 }
+        )
+      }
+    } else {
+      endDateTime = new Date(startDateTime.getTime() + durationHours * 60 * 60 * 1000)
+    }
     
     // Check availability
     const isAvailable = await checkVenueAvailability(
       venueId,
-      date,
-      startTime,
-      endTime
+      startDateTime,
+      endDateTime
     )
     
     if (!isAvailable) {
       return NextResponse.json(
-        { error: 'Turf is not available for the selected time slot' },
+        { error: 'Venue is not available for the selected time slot' },
         { status: 409 }
       )
     }
@@ -45,21 +78,24 @@ export async function POST(request: NextRequest) {
     })
 
     if (!venue) {
-      return NextResponse.json({ error: 'Turf not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Venue not found' }, { status: 404 })
     }
 
-    // Create booking
+    // Create booking with proper DateTime objects
     const booking = await db.booking.create({
       data: {
         venueId,
         vendorId: venue.vendorId,
-        date,
-        startTime,
-        endTime,
+        startTime: startDateTime,
+        endTime: endDateTime,
         duration: durationHours,
         totalAmount,
-        bookingType,
-        status: 'confirmed',
+        bookingType: bookingType?.toUpperCase(),
+        status: status?.toUpperCase(),
+        customerName,
+        customerPhone,
+        customerEmail,
+        notes,
       },
       include: {
         venue: {
@@ -68,7 +104,6 @@ export async function POST(request: NextRequest) {
               select: {
                 id: true,
                 name: true,
-                location: true,
                 slug: true
               }
             }
@@ -87,37 +122,34 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function calculateEndTime(startTime: string, durationHours: number): string {
-  const [hours, minutes] = startTime.split(':').map(Number)
-  const endHours = hours + durationHours
-  return `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
-}
 
 async function checkVenueAvailability(
   venueId: string,
-  date: string,
-  startTime: string,
-  endTime: string
+  startTime: Date,
+  endTime: Date
 ): Promise<boolean> {
   try {
-    // Check for existing bookings using simplified overlap detection
+    // Validate DateTime inputs
+    if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+      throw new Error('Invalid DateTime objects provided to checkVenueAvailability')
+    }
+
+    // Check for existing bookings using DateTime overlap detection
     const overlappingBookings = await db.booking.findMany({
       where: {
         venueId,
-        date,
-        status: 'confirmed',
+        status: 'CONFIRMED',
         AND: [
           { startTime: { lt: endTime } },
           { endTime: { gt: startTime } },
         ],
       },
     })
-    
+
     // Check for conflicts using simplified overlap detection
     const overlappingConflicts = await db.conflict.findMany({
       where: {
         venueId,
-        date,
         status: 'active',
         AND: [
           { startTime: { lt: endTime } },
@@ -125,23 +157,9 @@ async function checkVenueAvailability(
         ],
       },
     })
-    
-    // Check for unavailable time slots
-    const unavailableSlots = await db.venueAvailability.findMany({
-      where: {
-        venueId,
-        date,
-        isAvailable: false,
-        AND: [
-          { startTime: { lt: endTime } },
-          { endTime: { gt: startTime } },
-        ],
-      },
-    })
-    
-    return overlappingBookings.length === 0 && 
-           overlappingConflicts.length === 0 && 
-           unavailableSlots.length === 0
+
+    return overlappingBookings.length === 0 &&
+           overlappingConflicts.length === 0
   } catch (error) {
     console.error('Error checking availability in booking:', error)
     return false

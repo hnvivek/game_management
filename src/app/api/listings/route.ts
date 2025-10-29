@@ -6,45 +6,53 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const sport = searchParams.get('sport')
     
-    // Get all active turfs with their pricing
-    const turfs = await db.turf.findMany({
+    // Get all active venues with their pricing
+    const venues = await db.venue.findMany({
       where: {
         isActive: true,
-        ...(sport && { sport }),
+        ...(sport && { sport: { name: sport } }),
+      },
+      include: {
+        sport: true,
+        vendor: true,
+        format: true
       },
       orderBy: [
-        { sport: 'asc' },
+        { sport: { displayName: 'asc' } },
         { pricePerHour: 'asc' },
-        { size: 'desc' },
+        { format: { maxPlayers: 'desc' } },
       ],
     })
-    
-    // Group by size and sport to create a clean listings structure
-    const listings = turfs.reduce((acc, turf) => {
-      const key = `${turf.sport}-${turf.size}`
-      
+
+    // Group by sport and format to create a clean listings structure
+    const listings = venues.reduce((acc, venue) => {
+      const key = `${venue.sport.name}-${venue.format.name}`
+
       if (!acc[key]) {
         acc[key] = {
           id: key,
-          sport: turf.sport,
-          sportLabel: getSportLabel(turf.sport),
-          size: turf.size,
-          pricePerHour: turf.pricePerHour,
-          maxPlayers: turf.maxPlayers,
+          sport: venue.sport.name,
+          sportLabel: venue.sport.displayName,
+          format: venue.format.name,
+          formatLabel: venue.format.displayName,
+          pricePerHour: venue.pricePerHour,
+          maxPlayers: venue.format.maxPlayers,
+          minPlayers: venue.format.minPlayers,
           availableCount: 0,
           totalCount: 0,
           courts: []
         }
       }
-      
+
       acc[key].totalCount++
       acc[key].courts.push({
-        turfId: turf.id,
-        courtNumber: turf.courtNumber,
-        name: turf.name,
-        venue: turf.venue
+        venueId: venue.id,
+        courtNumber: venue.courtNumber,
+        name: `${venue.vendor.name} ${venue.courtNumber}`,
+        vendor: venue.vendor.name,
+        description: venue.description
       })
-      
+
       return acc
     }, {} as Record<string, any>)
     
@@ -60,10 +68,11 @@ export async function GET(request: NextRequest) {
     // Add summary stats
     const summary = {
       totalListings: listingsArray.length,
-      sports: [...new Set(turfs.map(t => t.sport))],
+      sports: [...new Set(venues.map(v => v.sport.displayName))],
+      formats: [...new Set(venues.map(v => v.format.displayName))],
       priceRange: {
-        min: Math.min(...turfs.map(t => t.pricePerHour)),
-        max: Math.max(...turfs.map(t => t.pricePerHour))
+        min: Math.min(...venues.map(v => v.pricePerHour)),
+        max: Math.max(...venues.map(v => v.pricePerHour))
       }
     }
     
@@ -82,10 +91,9 @@ export async function GET(request: NextRequest) {
 
 function getSportLabel(sport: string): string {
   const labels: Record<string, string> = {
-    'soccer': 'Football/Soccer',
-    'box-cricket': 'Box Cricket',
-    'ultimate-frisbee': 'Ultimate Frisbee',
-    'basketball': 'Basketball'
+    'football': 'Football',
+    'basketball': 'Basketball',
+    'cricket': 'Cricket'
   }
   return labels[sport] || sport.charAt(0).toUpperCase() + sport.slice(1)
 }
@@ -99,12 +107,14 @@ function getPriceCategory(pricePerHour: number): string {
 
 function getDescriptionForSize(sport: string, size: string, maxPlayers: number): string {
   const descriptions: Record<string, string> = {
-    'soccer-11 a side': 'Full-field football match with complete teams',
-    'soccer-8 a side': 'Mid-size game, perfect for casual matches',
-    'soccer-6 a side': 'Compact game, great for quick matches and training',
-    'box-cricket-7 a side': 'Indoor cricket with modified rules for smaller spaces'
+    'football-11-a-side': 'Full-field football match with complete teams',
+    'football-7-a-side': 'Mid-size game, perfect for casual matches',
+    'football-5-a-side': 'Compact game, great for quick matches and training',
+    'basketball-full-court': 'Full basketball court game',
+    'basketball-half-court': 'Half basketball court game',
+    'cricket-t20': 'Fast-paced T20 cricket match'
   }
-  
+
   const key = `${sport}-${size}`
   return descriptions[key] || `${size} format for ${maxPlayers} total players`
 }

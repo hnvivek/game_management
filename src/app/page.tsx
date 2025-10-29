@@ -76,23 +76,23 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-background">
       {/* Unified Navbar */}
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white">
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 text-primary-foreground">
         <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <div className="text-center space-y-6">
-            <Badge className="bg-blue-500/20 text-white border-blue-400/30 px-4 py-1">
+            <Badge className="bg-primary-500/20 text-primary-foreground border-primary-400/30 px-3 py-0.5">
               <Zap className="h-3 w-3 mr-1 inline" />
               Sports Hub in Bengaluru
             </Badge>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
               Find Your Perfect Match
             </h1>
-            <p className="text-lg sm:text-xl text-blue-100 max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl text-primary-100 max-w-2xl mx-auto">
               Book venues, challenge teams, and compete in the best sports leagues in Bengaluru
             </p>
 
@@ -105,7 +105,7 @@ export default function Home() {
                   placeholder="Search for teams, venues, or matches..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 pr-4 py-3 text-base h-12 border-0 shadow-xl bg-white text-gray-900"
+                  className="pl-12 pr-4 py-3 text-base h-12 border-0 shadow-xl bg-card text-foreground"
                 />
               </div>
             </div>
@@ -115,7 +115,7 @@ export default function Home() {
               <Link href="/book-venue">
                 <Button
                   size="lg"
-                  className="bg-white text-blue-700 hover:bg-blue-50 px-8 py-6 text-base font-semibold shadow-lg h-auto"
+                  className="bg-card text-primary hover:bg-primary-50 px-6 py-4 text-base font-semibold shadow-lg h-auto"
                 >
                   <Calendar className="h-5 w-5 mr-2" />
                   Book a Venue Now
@@ -125,8 +125,8 @@ export default function Home() {
               <Link href="/teams">
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="border-2 border-white/30 text-white hover:bg-white/10 px-8 py-6 text-base font-semibold h-auto"
+                  variant="secondary"
+                  className="bg-primary-foreground/10 backdrop-blur-sm border-2 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/20 px-6 py-4 text-base font-semibold h-auto"
                 >
                   <Users className="h-5 w-5 mr-2" />
                   Browse Teams
@@ -138,16 +138,16 @@ export default function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => {
             const Icon = stat.icon
             return (
-              <Card key={stat.label} className="bg-white shadow-lg border-0">
+              <Card key={stat.label} className="bg-card shadow-lg border-0">
                 <CardContent className="p-4 text-center">
-                  <Icon className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                  <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-                  <div className="text-xs text-gray-600">{stat.label}</div>
+                  <Icon className="h-8 w-8 mx-auto mb-2 text-primary" />
+                  <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                  <div className="text-xs text-muted-foreground">{stat.label}</div>
                 </CardContent>
               </Card>
             )
@@ -156,8 +156,8 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center mb-12">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">Everything You Need</h2>
           <p className="text-lg text-gray-600">Your complete sports management platform</p>
         </div>
@@ -194,12 +194,12 @@ export default function Home() {
       </section>
 
       {/* Featured Matches Section */}
-      <section className="bg-gray-50 py-16">
+      <section className="bg-muted py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex justify-between items-center mb-6">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Open Match Challenges</h2>
-              <p className="text-gray-600">Join these matches or create your own</p>
+              <h2 className="text-3xl font-bold text-foreground mb-2">Open Match Challenges</h2>
+              <p className="text-muted-foreground">Join these matches or create your own</p>
             </div>
             <Button variant="outline" className="hidden sm:flex">
               View All Matches
@@ -247,7 +247,7 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="text-center mt-8 sm:hidden">
+          <div className="text-center mt-6 sm:hidden">
             <Button variant="outline" className="w-full">
               View All Matches
               <ArrowRight className="h-4 w-4 ml-2" />
@@ -257,22 +257,22 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-16">
+      <section className="bg-gradient-to-r from-primary-600 to-primary-700 text-primary-foreground py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <Target className="h-16 w-16 mx-auto mb-6 opacity-90" />
+          <Target className="h-16 w-16 mx-auto mb-4 opacity-90" />
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             Ready to Start Playing?
           </h2>
-          <p className="text-xl text-blue-100 mb-8">
+          <p className="text-xl text-primary-100 mb-6">
             Join thousands of players in Bengaluru's most active sports community
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/book-venue">
-              <Button size="lg" className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-8 h-12">
+              <Button size="lg" className="bg-card text-primary hover:bg-primary-50 font-semibold px-8 h-12">
                 Book Your First Venue
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 font-semibold px-8 h-12">
+            <Button size="lg" variant="outline" className="border-2 border-primary-foreground text-primary-foreground hover:bg-primary-foreground/20 font-semibold px-8 h-12">
               Learn More
             </Button>
           </div>

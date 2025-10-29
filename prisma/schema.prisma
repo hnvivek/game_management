@@ -52,10 +52,13 @@ model User {
   role      UserRole @default(CUSTOMER)
   vendorId  String?  // Link to vendor for vendor users
   
-  // Auth & profile
+  // Profile & preferences
   password  String?  // Hashed password
   isActive  Boolean  @default(true)
   lastLogin DateTime?
+  country   String?  // User's country for localization
+  timezone  String?  // User's timezone preference
+  locale    String?  // User's language preference
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -78,6 +81,11 @@ model Vendor {
   // Business settings
   isActive    Boolean  @default(true)
   onboardedAt DateTime @default(now())
+
+  // International settings
+  country     String   @default("IN") // ISO 3166-1 alpha-2 country code
+  timezone    String   @default("Asia/Kolkata") // IANA timezone
+  locale      String   @default("en-IN") // Language and locale (en-US, en-GB, etc.)
 
   // Branding & customization (for subdomain white-labeling)
   primaryColor   String?  @default("#f39c12")
@@ -242,10 +250,16 @@ model VendorLocation {
   pincode     String?
   phone       String?
   
+  // Location details
+  country     String?  // Override vendor country if different
+  state       String?  // "Karnataka", "California"
+  pincode     String?
+  phone       String?
+
   // Geolocation for "near me" features
   latitude    Float?
   longitude   Float?
-  
+
   // Operating hours (can be different per location)
   operatingHours Json? // JSON format: {"monday": {"open": "06:00", "close": "23:00", "closed": false}}
   
@@ -275,6 +289,12 @@ model VendorSettings {
   peakHourPrice         Int?    // Peak hour pricing (6 PM - 9 PM)
   weekendPrice          Int?    // Weekend pricing
   currency              String  @default("INR")
+
+  // International pricing
+  currencySymbol        String? // "₹", "$", "€", "£"
+  taxRate               Float?  // Tax rate (0.18 for 18% GST)
+  taxIncluded           Boolean @default(false) // Whether prices include tax
+  currencyConversion   Json?   // Conversion rates to other currencies
 
   // Display preferences
   showBookingCalendar   Boolean @default(true)

@@ -141,11 +141,7 @@ describe('/api/venues', () => {
       const tomorrow = global.testUtils.getTomorrowDate()
 
       // Create a conflicting booking
-      await global.testUtils.createTestBooking({
-        date: tomorrow,
-        startTime: '14:00',
-        endTime: '16:00'
-      })
+      await global.testUtils.createTestBooking()
 
       const url = new URL('http://localhost:3000/api/venues')
       url.searchParams.set('date', tomorrow)

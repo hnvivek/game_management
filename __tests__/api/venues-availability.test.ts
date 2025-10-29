@@ -95,8 +95,12 @@ describe('/api/venues/availability', () => {
     it('should mark slots as unavailable when bookings exist', async () => {
       const tomorrow = global.testUtils.getTomorrowDate()
 
-      // Create a booking that conflicts with some slots
-      await global.testUtils.createTestBooking()
+      // Create a booking that conflicts with some slots (14:00-16:00)
+      await global.testUtils.createTestBooking({
+        // Use the same date as the API query
+        startTime: new Date(tomorrow + 'T14:00:00.000Z'),
+        endTime: new Date(tomorrow + 'T16:00:00.000Z')
+      })
 
       const url = new URL('http://localhost:3000/api/venues/availability')
       url.searchParams.set('venueId', 'test-venue-1')
@@ -191,7 +195,11 @@ describe('/api/venues/availability', () => {
       const tomorrow = global.testUtils.getTomorrowDate()
 
       // Create a booking from 14:00-15:00 (1 hour)
-      await global.testUtils.createTestBooking()
+      await global.testUtils.createTestBooking({
+        startTime: new Date(tomorrow + 'T14:00:00.000Z'),
+        endTime: new Date(tomorrow + 'T15:00:00.000Z'),
+        duration: 1
+      })
 
       const url = new URL('http://localhost:3000/api/venues/availability')
       url.searchParams.set('venueId', 'test-venue-1')
@@ -226,8 +234,8 @@ describe('/api/venues/availability', () => {
       const response = await GET(request)
       const data = await response.json()
 
-      expect(response.status).toBe(200)
-      expect(Array.isArray(data.timeSlots)).toBe(true)
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('Invalid date format')
     })
 
     it('should handle zero or negative duration gracefully', async () => {

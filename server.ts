@@ -5,7 +5,7 @@ import { Server } from 'socket.io';
 import next from 'next';
 
 const dev = process.env.NODE_ENV !== 'production';
-const currentPort = 3000;
+const currentPort = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 // Use localhost in development to avoid cross-origin issues
 const hostname = dev ? 'localhost' : '127.0.0.1';
 
@@ -36,7 +36,7 @@ async function createCustomServer() {
     const io = new Server(server, {
       path: '/api/socketio',
       cors: {
-        origin: dev ? ["http://localhost:3000", "http://127.0.0.1:3000"] : "*",
+        origin: dev ? ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3100", "http://127.0.0.1:3100"] : "*",
         methods: ["GET", "POST"],
         credentials: true
       },

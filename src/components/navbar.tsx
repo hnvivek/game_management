@@ -23,17 +23,17 @@ export default function Navbar() {
   }
 
   return (
-    <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
+    <header className="bg-card border-b border shadow-nav sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex justify-between items-center h-14 md:h-12">
           {/* Logo/Brand */}
           <Link href="/" className="flex items-center space-x-2 group">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105">
-              <Trophy className="h-4 w-4 text-white" />
+            <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center transition-transform group-hover:scale-105">
+              <Trophy className="h-4 w-4 text-primary-foreground" />
             </div>
             <div>
-              <span className="text-base sm:text-lg font-bold text-gray-900">GameHub</span>
-              <span className="text-xs sm:text-sm text-gray-500 ml-1.5">Enterprise</span>
+              <span className="text-base sm:text-lg font-bold text-foreground">GameHub</span>
+              <span className="text-xs sm:text-sm text-muted-foreground ml-1.5">Enterprise</span>
             </div>
           </Link>
 
@@ -48,7 +48,7 @@ export default function Navbar() {
                   href={item.href}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     active
-                      ? 'bg-blue-50 text-blue-700'
+                      ? 'bg-primary-50 text-primary-700'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
@@ -64,7 +64,7 @@ export default function Navbar() {
             <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-7 text-xs px-3">
               Sign In
             </Button>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-7 text-xs px-3">
+            <Button size="sm" className="bg-primary hover:bg-primary-600 text-primary-foreground h-7 text-xs px-3">
               Get Started
             </Button>
           </div>
@@ -86,7 +86,7 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-3 space-y-1 border-t border-gray-200">
+          <div className="md:hidden py-3 space-y-1 border-t border">
             {navigation.map((item) => {
               const Icon = item.icon
               const active = isActive(item.href)
@@ -96,7 +96,7 @@ export default function Navbar() {
                   href={item.href}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${
                     active
-                      ? 'bg-blue-50 text-blue-700'
+                      ? 'bg-primary-50 text-primary-700'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
@@ -106,11 +106,11 @@ export default function Navbar() {
                 </Link>
               )
             })}
-            <div className="pt-2 mt-2 border-t border-gray-200 space-y-2">
+            <div className="pt-2 mt-2 border-t border space-y-2">
               <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-50">
                 Sign In
               </Button>
-              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+              <Button size="sm" className="w-full bg-primary hover:bg-primary-600 text-primary-foreground">
                 Get Started
               </Button>
             </div>

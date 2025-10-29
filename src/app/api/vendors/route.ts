@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getVendorSettings, getSupportedCountries, getSupportedCurrencies } from '@/lib/vendor-settings'
 
 // GET /api/vendors - List all vendors (platform admin) or get vendor profile
 export async function GET(request: NextRequest) {
@@ -16,6 +17,9 @@ export async function GET(request: NextRequest) {
             where: { isActive: true },
             orderBy: { courtNumber: 'asc' }
           },
+          locations: {
+            where: { isActive: true }
+          },
           settings: true,
           _count: {
             select: {
@@ -30,8 +34,19 @@ export async function GET(request: NextRequest) {
       if (!vendor) {
         return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
       }
-      
-      return NextResponse.json({ vendor })
+
+      // Get vendor settings (includes all international information)
+      const vendorSettings = await getVendorSettings(vendor.id)
+
+      const enhancedVendor = {
+        ...vendor,
+        settings: vendorSettings ? {
+          ...vendor.settings,
+          ...vendorSettings
+        } : vendor.settings
+      }
+
+      return NextResponse.json({ vendor: enhancedVendor })
     }
     
     // List all vendors (for platform admin)
@@ -62,54 +77,88 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       name,
-      location,
+      slug,
       address,
       phone,
       email,
       website,
       description,
+      primaryColor,
+      secondaryColor,
       adminName,
       adminEmail,
       adminPhone
     } = body
-    
-    // Validate required fields
-    if (!name || !location || !adminEmail) {
+
+    // Validate required fields - match test expectations
+    if (!name || !slug || !adminEmail) {
       return NextResponse.json(
-        { error: 'Name, location, and admin email are required' },
+        { error: 'Name, slug, and admin email are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate slug is subdomain-friendly
+    const subdomainRegex = /^[a-z0-9-]+$/
+    if (!subdomainRegex.test(slug)) {
+      return NextResponse.json(
+        { error: 'Slug must contain only lowercase letters, numbers, and hyphens for subdomain use' },
+        { status: 400 }
+      )
+    }
+
+    // Validate slug doesn't start or end with hyphen
+    if (slug.startsWith('-') || slug.endsWith('-')) {
+      return NextResponse.json(
+        { error: 'Slug cannot start or end with a hyphen' },
+        { status: 400 }
+      )
+    }
+
+    // Validate slug length for subdomain
+    if (slug.length < 3 || slug.length > 50) {
+      return NextResponse.json(
+        { error: 'Slug must be between 3 and 50 characters for subdomain use' },
         { status: 400 }
       )
     }
     
-    // Create vendor slug
-    const slug = name.toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, '-')
-      .substring(0, 50)
-    
     // Check if slug already exists
-    const existingVendor = await db.vendor.findUnique({
+    const existingVendorBySlug = await db.vendor.findUnique({
       where: { slug }
     })
-    
-    if (existingVendor) {
+
+    if (existingVendorBySlug) {
       return NextResponse.json(
-        { error: 'A vendor with similar name already exists' },
+        { error: 'Vendor slug already exists' },
         { status: 409 }
       )
     }
-    
+
+    // Check if name already exists
+    const existingVendorByName = await db.vendor.findFirst({
+      where: { name }
+    })
+
+    if (existingVendorByName) {
+      return NextResponse.json(
+        { error: 'A vendor with this name already exists' },
+        { status: 409 }
+      )
+    }
+
     // Create vendor
     const vendor = await db.vendor.create({
       data: {
         name,
         slug,
-        location,
         address,
         phone,
         email,
         website,
-        description
+        description,
+        ...(primaryColor && { primaryColor }),
+        ...(secondaryColor && { secondaryColor })
       }
     })
     
@@ -119,7 +168,7 @@ export async function POST(request: NextRequest) {
         name: adminName,
         email: adminEmail,
         phone: adminPhone,
-        role: 'vendor_admin',
+        role: 'VENDOR_ADMIN',
         vendorId: vendor.id,
         // TODO: Hash password properly
         password: 'temporary123' // Should be generated and sent via email
@@ -130,15 +179,6 @@ export async function POST(request: NextRequest) {
     await db.vendorSettings.create({
       data: {
         vendorId: vendor.id,
-        operatingHours: JSON.stringify({
-          monday: { open: '06:00', close: '23:00', closed: false },
-          tuesday: { open: '06:00', close: '23:00', closed: false },
-          wednesday: { open: '06:00', close: '23:00', closed: false },
-          thursday: { open: '06:00', close: '23:00', closed: false },
-          friday: { open: '06:00', close: '23:00', closed: false },
-          saturday: { open: '06:00', close: '23:00', closed: false },
-          sunday: { open: '06:00', close: '23:00', closed: false }
-        }),
         paymentMethods: JSON.stringify(['cash', 'card', 'upi'])
       }
     })

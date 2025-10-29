@@ -220,20 +220,35 @@ async function seedFreshTestData() {
 global.testUtils = {
   // Helper to create unique booking data
   getBookingData(overrides = {}) {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const startTime = new Date(tomorrow)
-    startTime.setHours(10, 0, 0, 0) // 10:00 AM
-    const endTime = new Date(startTime)
-    endTime.setHours(startTime.getHours() + 2) // 12:00 PM
+    // If testNumber is provided, use different dates for different tests
+    const testNumber = overrides.testNumber || 1
+    delete overrides.testNumber // Remove from overrides so it doesn't override other fields
+
+    let baseDateTime
+    if (testNumber > 1) {
+      // Use the test date range for specific test scenarios
+      const targetDate = this.getTestDateRange(testNumber)
+      baseDateTime = new Date(targetDate + 'T10:00:00.000Z')
+    } else {
+      // Default: tomorrow at 10:00 AM
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(10, 0, 0, 0)
+      baseDateTime = tomorrow
+    }
+
+    const startTime = overrides.startTime || baseDateTime
+    const duration = overrides.duration || 2
+    const endTime = overrides.endTime ||
+      new Date(startTime.getTime() + duration * 60 * 60 * 1000)
 
     return {
       venueId: 'test-venue-1',
       vendorId: 'test-vendor-1',
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-      duration: 2,
-      totalAmount: 4000,
+      startTime: startTime.toISOString(), // ISO DateTime string
+      endTime: endTime.toISOString(), // ISO DateTime string
+      duration,
+      totalAmount: overrides.totalAmount || 4000,
       status: 'CONFIRMED',
       bookingType: 'MATCH',
       customerName: 'Test Customer',

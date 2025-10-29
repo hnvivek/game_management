@@ -175,5 +175,65 @@ describe('/api/vendors', () => {
       expect(response.status).toBe(409)
       expect(data.error).toBe('Vendor slug already exists')
     })
+
+    it('should reject invalid subdomain slugs', async () => {
+      const invalidSlugData = {
+        name: 'Test Vendor',
+        slug: 'invalid.slug', // Contains dot - invalid for subdomain
+        adminEmail: 'test@example.com'
+      }
+
+      const request = new NextRequest('http://localhost:3000/api/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invalidSlugData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('Slug must contain only lowercase letters, numbers, and hyphens for subdomain use')
+    })
+
+    it('should reject slugs with uppercase letters', async () => {
+      const invalidSlugData = {
+        name: 'Test Vendor',
+        slug: 'InvalidSlug', // Contains uppercase - invalid for subdomain
+        adminEmail: 'test@example.com'
+      }
+
+      const request = new NextRequest('http://localhost:3000/api/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invalidSlugData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('Slug must contain only lowercase letters, numbers, and hyphens for subdomain use')
+    })
+
+    it('should reject slugs starting with hyphen', async () => {
+      const invalidSlugData = {
+        name: 'Test Vendor',
+        slug: '-invalid-slug', // Starts with hyphen
+        adminEmail: 'test@example.com'
+      }
+
+      const request = new NextRequest('http://localhost:3000/api/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invalidSlugData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('Slug cannot start or end with a hyphen')
+    })
   })
 })

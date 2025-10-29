@@ -25,8 +25,8 @@ describe('/api/bookings', () => {
       expect(response.status).toBe(200)
       expect(data.booking).toBeDefined()
       expect(data.booking.venueId).toBe(bookingData.venueId)
-      expect(data.booking.startTime).toBeInstanceOf(Date)
-      expect(data.booking.endTime).toBeInstanceOf(Date)
+      expect(typeof data.booking.startTime).toBe('string')
+      expect(typeof data.booking.endTime).toBe('string')
       expect(data.booking.duration).toBe(2)
       expect(data.booking.totalAmount).toBe(bookingData.totalAmount)
       expect(data.booking.status).toBe('CONFIRMED')
@@ -39,7 +39,7 @@ describe('/api/bookings', () => {
         venueId: 'test-venue-1',
         startTime: '2025-12-01T09:00:00.000Z',
         endTime: '2025-12-01T11:00:00.000Z'
-        // Missing customerId and duration
+        // Missing duration
       }
 
       const request = new NextRequest('http://localhost:3000/api/bookings', {
@@ -52,7 +52,7 @@ describe('/api/bookings', () => {
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data.error).toBe('Missing required fields')
+      expect(data.error).toBe('Missing required fields: venueId, startTime, duration, totalAmount')
     })
 
     it('should reject booking for non-existent venue', async () => {
@@ -75,8 +75,12 @@ describe('/api/bookings', () => {
     })
 
     it('should reject conflicting bookings', async () => {
-      // Create first booking
-      const firstBooking = getValidBookingData(3) // Test 3: 2025-12-03, 15:00
+      // Create first booking at 15:00-17:00 on 2025-12-03
+      const firstBooking = getValidBookingData({
+        testNumber: 3,
+        startTime: new Date('2025-12-03T15:00:00.000Z'),
+        endTime: new Date('2025-12-03T17:00:00.000Z')
+      })
 
       const request1 = new NextRequest('http://localhost:3000/api/bookings', {
         method: 'POST',
@@ -90,8 +94,8 @@ describe('/api/bookings', () => {
       // Try to create conflicting booking (same date, same venue, overlapping time)
       const conflictingData = {
         ...firstBooking, // Same date and venue
-        startTime: '2025-12-03T16:00:00.000Z', // Overlaps with 15:00-17:00
-        endTime: '2025-12-03T18:00:00.000Z' // Would be 16:00-18:00, overlaps with existing 15:00-17:00
+        startTime: new Date('2025-12-03T16:00:00.000Z'), // Overlaps with 15:00-17:00
+        endTime: new Date('2025-12-03T18:00:00.000Z') // Would be 16:00-18:00, overlaps with existing 15:00-17:00
       }
 
       const request2 = new NextRequest('http://localhost:3000/api/bookings', {
@@ -109,8 +113,17 @@ describe('/api/bookings', () => {
 
     it('should allow non-overlapping bookings', async () => {
       // These use completely different dates, so no conflicts possible!
-      const booking1 = getValidBookingData(4) // Test 4: 2025-12-04, 18:00
-      const booking2 = getValidBookingData(5) // Test 5: 2025-12-05, 09:00
+      const booking1 = getValidBookingData({
+        testNumber: 4,
+        startTime: new Date('2025-12-04T18:00:00.000Z'),
+        endTime: new Date('2025-12-04T20:00:00.000Z')
+      }) // Test 4: 2025-12-04, 18:00-20:00
+
+      const booking2 = getValidBookingData({
+        testNumber: 5,
+        startTime: new Date('2025-12-05T09:00:00.000Z'),
+        endTime: new Date('2025-12-05T11:00:00.000Z')
+      }) // Test 5: 2025-12-05, 09:00-11:00
 
       // Create first booking
       const request1 = new NextRequest('http://localhost:3000/api/bookings', {
@@ -134,8 +147,8 @@ describe('/api/bookings', () => {
 
       expect(response2.status).toBe(200)
       expect(data2.booking).toBeDefined()
-      expect(data2.booking.startTime).toBeInstanceOf(Date)
-      expect(data2.booking.date).toBe(booking2.date)
+      expect(typeof data2.booking.startTime).toBe('string')
+      expect(new Date(data2.booking.startTime)).toEqual(new Date(booking2.startTime))
     })
 
     it('should handle different booking types', async () => {
@@ -198,7 +211,7 @@ describe('/api/bookings', () => {
 
       const response = await POST(request)
 
-      expect(response.status).toBe(500)
+      expect(response.status).toBe(400)
     })
 
     it('should reject negative duration', async () => {
@@ -215,7 +228,7 @@ describe('/api/bookings', () => {
 
       const response = await POST(request)
 
-      expect(response.status).toBe(500)
+      expect(response.status).toBe(400)
     })
 
     it('should handle booking status transitions', async () => {
