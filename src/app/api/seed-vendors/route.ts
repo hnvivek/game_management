@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { seedVendorsAndTurfs } from '@/lib/seed-vendors'
+import { seedVendors } from '@/lib/seed-vendors'
 
 export async function POST(request: NextRequest) {
   try {
-    const result = await seedVendorsAndTurfs()
+    const result = await seedVendors()
     
     return NextResponse.json({
       success: true,
