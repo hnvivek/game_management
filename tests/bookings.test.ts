@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals'
-import { db } from '@/lib/db'
 
-// Test data setup
+// Test data setup - using global test utilities
 let testVendorId: string
 let testVenueId: string
 let testCustomerId: string
@@ -9,38 +8,10 @@ let testBookingId: string
 
 describe('Bookings API Tests', () => {
   beforeAll(async () => {
-    // Setup test data
-    const vendor = await db.vendor.findFirst()
-    const venue = await db.venue.findFirst({ where: { vendorId: vendor?.id } })
-
-    if (!vendor || !venue) {
-      throw new Error('Required test data not found. Please seed database first.')
-    }
-
-    testVendorId = vendor.id
-    testVenueId = venue.id
-
-    // Create test customer
-    const customer = await db.user.create({
-      data: {
-        email: 'test-customer@example.com',
-        name: 'Test Customer',
-        phone: '+919876543214',
-        role: 'CUSTOMER'
-      }
-    })
-
-    testCustomerId = customer.id
-  })
-
-  afterAll(async () => {
-    // Cleanup test data
-    try {
-      await db.booking.deleteMany({ where: { customerId: testCustomerId } })
-      await db.user.delete({ where: { id: testCustomerId } })
-    } catch (error) {
-      console.log('Cleanup error:', error)
-    }
+    // Use globally seeded test data
+    testVendorId = 'test-vendor-1'
+    testVenueId = 'test-venue-1'
+    testCustomerId = 'test-customer-1'
   })
 
   describe('POST /api/bookings', () => {

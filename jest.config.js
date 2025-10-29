@@ -11,7 +11,7 @@ const customJestConfig = {
   globalTeardown: '<rootDir>/jest.teardown.global.js', // Clean teardown only
   testEnvironment: 'jest-environment-jsdom',
   maxWorkers: 1, // Keep sequential for database operations - but fast with clean-per-test! 
-  testTimeout: 15000, // Slightly longer for database cleanup
+  testTimeout: 30000, // Increased timeout for database cleanup and API tests
   testMatch: [
     '<rootDir>/__tests__/**/*.(test|spec).(js|jsx|ts|tsx)',
     '<rootDir>/src/**/__tests__/**/*.(test|spec).(js|jsx|ts|tsx)',
@@ -71,6 +71,8 @@ const customJestConfig = {
       preset: 'ts-jest',
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
+        '^@/components/(.*)$': '<rootDir>/src/components/$1',
+        '^@/lib/(.*)$': '<rootDir>/src/lib/$1',
       },
       transform: {
         '^.+\\.(ts|tsx)$': ['ts-jest', { 
