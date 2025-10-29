@@ -17,12 +17,12 @@ const mockVendor = {
   id: 'vendor-1',
   name: '3Lok Sports Hub',
   location: 'Whitefield, Bengaluru',
-  turfs: 7,
+  venues: 7,
   bookings: 156,
   revenue: 450000
 }
 
-const mockTurfs = [
+const mockVenues = [
   { id: '1', sport: 'soccer', size: '11 a side', courtNumber: 'Field 1', pricePerHour: 4000, maxPlayers: 22 },
   { id: '2', sport: 'soccer', size: '8 a side', courtNumber: 'Field 2', pricePerHour: 2600, maxPlayers: 16 },
   { id: '3', sport: 'basketball', size: 'Full Court', courtNumber: 'Court 1', pricePerHour: 2000, maxPlayers: 10 },
@@ -106,7 +106,7 @@ export default function VendorDashboard() {
               <MapPin className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockVendor.turfs}</div>
+              <div className="text-2xl font-bold">{mockVendor.venues}</div>
               <p className="text-xs text-muted-foreground">
                 Across multiple sports
               </p>
@@ -245,30 +245,30 @@ export default function VendorDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {mockTurfs.map((turf) => (
-                <Card key={turf.id}>
+              {mockVenues.map((venue) => (
+                <Card key={venue.id}>
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="text-lg">{turf.size}</CardTitle>
+                        <CardTitle className="text-lg">{venue.size}</CardTitle>
                         <CardDescription className="flex items-center mt-1">
                           <MapPin className="h-3 w-3 mr-1" />
-                          {turf.courtNumber}
+                          {venue.courtNumber}
                         </CardDescription>
                       </div>
                       <Badge className="bg-emerald-100 text-emerald-800">
-                        {turf.sport}
+                        {venue.sport}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Price/hour:</span>
-                      <span className="font-semibold text-emerald-600">₹{turf.pricePerHour.toLocaleString('en-IN')}</span>
+                      <span className="font-semibold text-emerald-600">₹{venue.pricePerHour.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Max players:</span>
-                      <span className="font-medium">{turf.maxPlayers}</span>
+                      <span className="font-medium">{venue.maxPlayers}</span>
                     </div>
                     <div className="flex justify-end space-x-2 pt-2">
                       <Button variant="outline" size="sm">
