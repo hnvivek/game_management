@@ -122,11 +122,16 @@ jobs:
         export PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="I consent to run this dangerous database operation in CI/CD"
         npx prisma db push --force-reset
 
-        # Verify tables were created
-        if [ -f "./test-migration.db" ]; then
-          echo "Database migration test passed"
+        # Verify database creation - check multiple possible locations
+        echo "Checking for database file..."
+        ls -la *.db 2>/dev/null || echo "No .db files found in current directory"
+        find . -name "test-migration.db" -type f 2>/dev/null || echo "Database file not found with find"
+
+        # More robust database verification
+        if npx prisma db pull --force 2>/dev/null; then
+          echo "✅ Database migration test passed - schema successfully synchronized"
         else
-          echo "Database migration test failed"
+          echo "❌ Database migration test failed - could not verify schema"
           exit 1
         fi
 
