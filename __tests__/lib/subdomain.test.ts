@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 jest.mock('@/lib/db', () => ({
   db: {
     vendor: {
-      findUnique: jest.fn()
+      findUnique: jest.fn() as jest.MockedFunction<typeof db.vendor.findUnique>
     }
   }
 }))

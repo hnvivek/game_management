@@ -131,16 +131,12 @@ describe('Venue Conflict Resolution Tests', () => {
     try {
       await db.matchSchedule.deleteMany({
         where: {
-          or: [
-            { homeTeamId: testTeamId1 }, { awayTeamId: testTeamId1 },
-            { homeTeamId: testTeamId2 }, { awayTeamId: testTeamId2 },
-            { homeTeamId: testTeamId3 }, { awayTeamId: testTeamId3 }
-          ]
+          teamId: { in: [testTeamId1, testTeamId2, testTeamId3] }
         }
       })
       await db.match.deleteMany({
         where: {
-          or: [
+          OR: [
             { homeTeamId: testTeamId1 }, { awayTeamId: testTeamId1 },
             { homeTeamId: testTeamId2 }, { awayTeamId: testTeamId2 },
             { homeTeamId: testTeamId3 }, { awayTeamId: testTeamId3 }
@@ -351,36 +347,35 @@ describe('Venue Conflict Resolution Tests', () => {
       const suggestions = await Promise.all([
         db.matchSchedule.create({
           data: {
-            homeTeamId: testTeamId1,
+            teamId: testTeamId1,
             awayTeamId: testTeamId2,
             venueId: testVenueId,
             vendorId: testVendorId,
             scheduledTime: suggestedTime,
-            status: 'PENDING',
+            status: 'SUGGESTED',
             aiScore: 0.85
           }
         }),
         db.matchSchedule.create({
           data: {
-            homeTeamId: testTeamId1,
+            teamId: testTeamId1,
             awayTeamId: testTeamId3,
             venueId: testVenueId,
             vendorId: testVendorId,
             scheduledTime: suggestedTime,
-            status: 'PENDING',
+            status: 'SUGGESTED',
             aiScore: 0.82
           }
         })
       ])
 
       expect(suggestions.length).toBe(2)
-      expect(suggestions.every(s => s.status === 'PENDING')).toBe(true)
+      expect(suggestions.every(s => s.status === 'SUGGESTED')).toBe(true)
 
       // Verify both can coexist (non-blocking)
       const allSuggestions = await db.matchSchedule.findMany({
         where: {
-          venueId: testVenueId,
-          scheduledTime: suggestedTime
+          scheduledDate: suggestedTime
         }
       })
 
@@ -399,24 +394,24 @@ describe('Venue Conflict Resolution Tests', () => {
       // Create two conflicting AI suggestions
       const suggestion1 = await db.matchSchedule.create({
         data: {
-          homeTeamId: testTeamId1,
+          teamId: testTeamId1,
           awayTeamId: testTeamId2,
           venueId: testVenueId,
           vendorId: testVendorId,
           scheduledTime: suggestedTime,
-          status: 'PENDING',
+          status: 'SUGGESTED',
           aiScore: 0.88
         }
       })
 
       const suggestion2 = await db.matchSchedule.create({
         data: {
-          homeTeamId: testTeamId1,
+          teamId: testTeamId1,
           awayTeamId: testTeamId3,
           venueId: testVenueId,
           vendorId: testVendorId,
           scheduledTime: suggestedTime,
-          status: 'PENDING',
+          status: 'SUGGESTED',
           aiScore: 0.85
         }
       })
@@ -439,10 +434,9 @@ describe('Venue Conflict Resolution Tests', () => {
       await db.matchSchedule.update({
         where: { id: suggestion1.id },
         data: {
-          status: 'SCHEDULED',
-          homeTeamAccepted: true,
-          awayTeamAccepted: true,
-          acceptedAt: new Date()
+          status: 'CONFIRMED',
+          teamResponse: 'accepted',
+          respondedAt: new Date()
         }
       })
 
@@ -450,8 +444,7 @@ describe('Venue Conflict Resolution Tests', () => {
       await db.matchSchedule.update({
         where: { id: suggestion2.id },
         data: {
-          status: 'CANCELLED',
-          cancellationReason: 'Venue no longer available'
+          status: 'CANCELLED'
         }
       })
 
@@ -464,7 +457,7 @@ describe('Venue Conflict Resolution Tests', () => {
         where: { id: suggestion2.id }
       })
 
-      expect(finalSuggestion1?.status).toBe('SCHEDULED')
+      expect(finalSuggestion1?.status).toBe('CONFIRMED')
       expect(finalSuggestion2?.status).toBe('CANCELLED')
 
       // Cleanup
@@ -528,36 +521,36 @@ describe('Venue Conflict Resolution Tests', () => {
       // Create multiple dependent suggestions
       const mainSuggestion = await db.matchSchedule.create({
         data: {
-          homeTeamId: testTeamId1,
+          teamId: testTeamId1,
           awayTeamId: testTeamId2,
           venueId: testVenueId,
           vendorId: testVendorId,
           scheduledTime: cascadeTime,
-          status: 'PENDING',
+          status: 'SUGGESTED',
           aiScore: 0.9
         }
       })
 
       const dependentSuggestion1 = await db.matchSchedule.create({
         data: {
-          homeTeamId: testTeamId1,
+          teamId: testTeamId1,
           awayTeamId: testTeamId3,
           venueId: testVenueId,
           vendorId: testVendorId,
           scheduledTime: new Date(cascadeTime.getTime() + 2 * 60 * 60 * 1000), // 2 hours later
-          status: 'PENDING',
+          status: 'SUGGESTED',
           aiScore: 0.85
         }
       })
 
       const dependentSuggestion2 = await db.matchSchedule.create({
         data: {
-          homeTeamId: testTeamId2,
+          teamId: testTeamId2,
           awayTeamId: testTeamId3,
           venueId: testVenueId,
           vendorId: testVendorId,
           scheduledTime: cascadeTime,
-          status: 'PENDING',
+          status: 'SUGGESTED',
           aiScore: 0.8
         }
       })
@@ -582,8 +575,7 @@ describe('Venue Conflict Resolution Tests', () => {
           id: { in: [mainSuggestion.id, dependentSuggestion2.id] } // Same time conflicts
         },
         data: {
-          status: 'CANCELLED',
-          cancellationReason: 'Venue unavailable due to maintenance'
+          status: 'CANCELLED'
         }
       })
 

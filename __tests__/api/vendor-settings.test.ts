@@ -30,7 +30,7 @@ describe('/api/vendor-settings', () => {
       const url = new URL('http://localhost:3000/api/vendor-settings')
       url.searchParams.set('vendorId', 'non-existent-vendor')
 
-      const request = new Request(url)
+      const request = new NextRequest(url)
       const response = await GET(request)
       const data = await response.json()
 

@@ -52,8 +52,8 @@ export default function Navbar() {
                   href={item.href}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     active
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-primary/10 text-primary dark:bg-primary/20'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -79,7 +79,7 @@ export default function Navbar() {
           {/* Mobile Menu Button */}
           <button
             type="button"
-            className="md:hidden p-1.5 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            className="md:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             <span className="sr-only">Toggle menu</span>
@@ -103,8 +103,8 @@ export default function Navbar() {
                   href={item.href}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${
                     active
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-primary/10 text-primary dark:bg-primary/20'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -115,7 +115,7 @@ export default function Navbar() {
             })}
             <div className="pt-2 mt-2 border-t border">
               {user ? (
-                <div className="px-3 py-2 text-sm text-gray-600">
+                <div className="px-3 py-2 text-sm text-muted-foreground">
                   Signed in as {user.name}
                 </div>
               ) : (

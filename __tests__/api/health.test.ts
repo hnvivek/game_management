@@ -5,8 +5,7 @@ import { GET } from '@/app/api/health/route'
 describe('/api/health', () => {
   describe('GET /api/health', () => {
     it('should return health status', async () => {
-      const request = new NextRequest('http://localhost:3000/api/health')
-      const response = await GET(request)
+      const response = await GET()
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -15,8 +14,7 @@ describe('/api/health', () => {
     })
 
     it('should return response with proper headers', async () => {
-      const request = new NextRequest('http://localhost:3000/api/health')
-      const response = await GET(request)
+      const response = await GET()
 
       expect(response.status).toBe(200)
       expect(response.headers.get('content-type')).toContain('application/json')

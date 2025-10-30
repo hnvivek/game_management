@@ -7,8 +7,7 @@ describe('/api/sports', () => {
 
   describe('GET /api/sports', () => {
     it('should return all active sports with their formats', async () => {
-      const request = new NextRequest('http://localhost:3000/api/sports')
-      const response = await GET(request)
+      const response = await GET()
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -36,8 +35,7 @@ describe('/api/sports', () => {
     })
 
     it('should include format information for each sport', async () => {
-      const request = new NextRequest('http://localhost:3000/api/sports')
-      const response = await GET(request)
+      const response = await GET()
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -59,8 +57,7 @@ describe('/api/sports', () => {
     })
 
     it('should order formats by maxPlayers descending, then name ascending', async () => {
-      const request = new NextRequest('http://localhost:3000/api/sports')
-      const response = await GET(request)
+      const response = await GET()
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -87,8 +84,7 @@ describe('/api/sports', () => {
     })
 
     it('should only return active sports and formats', async () => {
-      const request = new NextRequest('http://localhost:3000/api/sports')
-      const response = await GET(request)
+      const response = await GET()
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -105,8 +101,7 @@ describe('/api/sports', () => {
     })
 
     it('should return correct count matching array length', async () => {
-      const request = new NextRequest('http://localhost:3000/api/sports')
-      const response = await GET(request)
+      const response = await GET()
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -114,8 +109,7 @@ describe('/api/sports', () => {
     })
 
     it('should include expected test sports', async () => {
-      const request = new NextRequest('http://localhost:3000/api/sports')
-      const response = await GET(request)
+      const response = await GET()
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -129,8 +123,7 @@ describe('/api/sports', () => {
     })
 
     it('should include expected formats for each sport', async () => {
-      const request = new NextRequest('http://localhost:3000/api/sports')
-      const response = await GET(request)
+      const response = await GET()
       const data = await response.json()
 
       expect(response.status).toBe(200)

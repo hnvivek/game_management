@@ -412,6 +412,9 @@ describe('Subdomain Filtering Tests', () => {
               vendorId: testVendorId
             }
           }
+        },
+        include: {
+          homeVenues: true
         }
       })
 

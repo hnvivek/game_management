@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from '@jest/globals'
 import { NextRequest } from 'next/server'
 import { GET, POST } from '@/app/api/teams/route'
-import { PUT, DELETE } from '@/app/api/teams/[id]/route'
+import { GET as GetTeam, PUT, DELETE } from '@/app/api/teams/[id]/route'
 import { GET as GetMembers, POST as AddMember } from '@/app/api/teams/[id]/members/route'
 
 describe('/api/teams', () => {
@@ -133,12 +133,13 @@ describe('/api/teams', () => {
       })
 
       const createResponse = await POST(createRequest)
-      const createdTeam = createResponse.json().team
+      const createData = await createResponse.json()
+      const createdTeam = createData.team
 
       // Now get team details
-      const getResponse = await PUT(
+      const getResponse = await GetTeam(
         new NextRequest(`http://localhost:3000/api/teams/${createdTeam.id}`),
-        { params: { id: createdTeam.id } }
+        { params: Promise.resolve({ id: createdTeam.id }) }
       )
 
       const data = await getResponse.json()
@@ -165,7 +166,8 @@ describe('/api/teams', () => {
       })
 
       const createResponse = await POST(createRequest)
-      const createdTeam = createResponse.json().team
+      const createData = await createResponse.json()
+      const createdTeam = createData.team
 
       // Add a team member
       const memberData = {
@@ -182,7 +184,7 @@ describe('/api/teams', () => {
         }
       )
 
-      const response = await AddMember(addMemberRequest)
+      const response = await AddMember(addMemberRequest, { params: Promise.resolve({ id: createdTeam.id }) })
       const data = await response.json()
 
       expect(response.status).toBe(201)
