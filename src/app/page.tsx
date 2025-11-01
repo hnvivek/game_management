@@ -278,50 +278,59 @@ export default function Home() {
       {/* Unified Navbar */}
       <Navbar />
 
-      {/* Hero Section */}
+      {/* Hero Section - Optimized for Mobile */}
       <section
-        className="relative overflow-hidden text-primary-foreground"
+        className="relative overflow-hidden text-primary-foreground hero-mobile-compact"
         style={{
           background: 'linear-gradient(to bottom right, var(--primary-600), var(--primary-700), var(--primary-800))'
         }}
       >
         <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
-        <div className="relative w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          <div className="text-center space-y-6">
-            <Badge className="bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30 px-3 py-0.5">
-              <Zap className="h-3 w-3 mr-1 inline" />
-              Sports Hub in Bengaluru
-            </Badge>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
-              Bengaluru's Premier Sports Platform
+        <div className="relative w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 md:py-12">
+          <div className="text-center space-y-4 sm:space-y-6">
+            {/* Mobile-optimized Badge */}
+            <div className="flex justify-center">
+              <Badge className="bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30 px-3 py-0.5 text-xs sm:text-sm">
+                <Zap className="h-3 w-3 mr-1 inline" />
+                Sports Hub in Bengaluru
+              </Badge>
+            </div>
+
+            {/* Mobile-optimized Title */}
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight">
+              <span className="block sm:hidden">GameHub Sports</span>
+              <span className="hidden sm:block">Bengaluru's Premier Sports Platform</span>
             </h1>
-            <p className="text-lg sm:text-xl text-primary-foreground/90 max-w-2xl mx-auto">
-              Discover venues, join teams, and elevate your game with the city's most active sports community
+
+            {/* Mobile-optimized Description */}
+            <p className="text-sm sm:text-base md:text-lg text-primary-foreground/90 max-w-xl mx-auto px-2">
+              Discover venues, join teams, and elevate your game
             </p>
 
-            {/* Simple Search */}
-            <div className="max-w-xl mx-auto pt-6">
+            {/* Compact Search - Always Visible */}
+            <div className="max-w-md sm:max-w-xl mx-auto pt-2 sm:pt-6">
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-primary-foreground/60 h-5 w-5" />
+                <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-primary-foreground/60 h-4 w-4 sm:h-5 sm:w-5" />
                 <Input
                   type="text"
-                  placeholder="Search venues, teams, or activities..."
+                  placeholder="Search venues, teams..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 pr-4 py-3 text-base h-12 border border-primary-foreground/20 bg-primary-foreground/10 backdrop-blur-sm text-primary-foreground placeholder:text-primary-foreground/60"
+                  className="pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 text-sm sm:text-base h-10 sm:h-12 border border-primary-foreground/20 bg-primary-foreground/10 backdrop-blur-sm text-primary-foreground placeholder:text-primary-foreground/60"
                 />
               </div>
             </div>
 
-            {/* Single CTA */}
-            <div className="pt-8">
+            {/* Mobile-optimized CTA */}
+            <div className="pt-4 sm:pt-8">
               <Link href="/book-venue">
                 <Button
-                  size="lg"
-                  className="bg-card text-primary hover:bg-muted px-8 py-4 text-base font-semibold shadow-xl h-auto transition-all hover:scale-105"
+                  size="sm"
+                  className="bg-card text-primary hover:bg-muted px-4 sm:px-8 py-2 sm:py-4 text-sm sm:text-base font-semibold shadow-lg sm:shadow-xl h-10 sm:h-auto transition-all hover:scale-105"
                 >
-                  Get Started
-                  <ArrowRight className="h-5 w-5 ml-2" />
+                  <span className="hidden sm:inline">Get Started</span>
+                  <span className="sm:hidden">Book Now</span>
+                  <ArrowRight className="h-4 w-4 ml-1 sm:ml-2" />
                 </Button>
               </Link>
             </div>
@@ -329,17 +338,17 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="w-full px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Section - Mobile Optimized */}
+      <section className="w-full px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 relative z-10">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 stats-mobile-compact">
           {stats.map((stat) => {
             const Icon = stat.icon
             return (
-              <Card key={stat.label} className="bg-card shadow-lg border-0">
-                <CardContent className="p-4 text-center">
-                  <Icon className="h-8 w-8 mx-auto mb-2 text-primary" />
-                  <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-                  <div className="text-xs text-muted-foreground">{stat.label}</div>
+              <Card key={stat.label} className="bg-card shadow-md sm:shadow-lg border-0 card-mobile-compact">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <Icon className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1 sm:mb-2 text-primary" />
+                  <div className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</div>
+                  <div className="text-xs sm:text-xs text-muted-foreground">{stat.label}</div>
                 </CardContent>
               </Card>
             )

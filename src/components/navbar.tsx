@@ -8,11 +8,16 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/auth/AuthProvider'
 import UserMenu from '@/components/auth/UserMenu'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { useResponsive } from '@/components/theme-provider'
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const pathname = usePathname()
   const { user } = useAuth()
+  const { isMobile, isTablet } = useResponsive()
+
+  // Hide mobile menu button when bottom navigation is active
+  const showMobileMenu = !isMobile
 
   const navigation = [
     { name: 'Home', href: '/', icon: Trophy },
@@ -83,24 +88,26 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            type="button"
-            className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0 relative z-10"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            <span className="sr-only">Toggle menu</span>
-            {mobileMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </button>
+          {/* Mobile Menu Button - Only show on tablet and up when bottom nav is not active */}
+          {showMobileMenu && (
+            <button
+              type="button"
+              className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0 relative z-10"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span className="sr-only">Toggle menu</span>
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Mobile Menu */}
-        {mobileMenuOpen && (
+        {mobileMenuOpen && showMobileMenu && (
           <div className="md:hidden py-3 space-y-1 border-t border relative z-30 bg-card">
             <div className="max-h-96 overflow-y-auto">
               {navigation.map((item) => {
