@@ -29,11 +29,20 @@ class BookingSummaryVerificationTest {
 
     this.browser = await chromium.launch({
       headless: false,
-      slowMo: 600
+      slowMo: 600,
+      args: [
+        '--start-maximized',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process'
+      ]
     })
 
+    // Test with responsive desktop viewport (common laptop size)
     const context = await this.browser.newContext({
-      viewport: { width: 1920, height: 1080 }
+      viewport: { width: 1366, height: 768 }, // More realistic laptop size
+      deviceScaleFactor: 1,
+      isMobile: false,
+      hasTouch: false
     })
 
     this.page = await context.newPage()

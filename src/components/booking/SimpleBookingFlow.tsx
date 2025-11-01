@@ -366,23 +366,23 @@ export default function SimpleBookingFlow({
 
       case 2:
         return (
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Header */}
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Booking Details</h3>
-              <p className="text-gray-600">
+            <div className="text-center mb-6 sm:mb-8">
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Booking Details</h3>
+              <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto">
                 Provide details about your court booking and review your selection
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 lg:gap-8">
               {/* Left Side - User Input Form */}
-              <div className="lg:col-span-3">
-                <Card className="border-0 shadow-sm bg-white">
-                  <CardContent className="p-6 lg:p-8">
-                    <div className="mb-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-2">Booking Information</h4>
-                      <p className="text-sm text-gray-600">
+              <div className="lg:col-span-3 xl:col-span-3">
+                <Card className="border-0 shadow-sm bg-card overflow-hidden">
+                  <CardContent className="p-4 sm:p-6 lg:p-8">
+                    <div className="mb-4 sm:mb-6">
+                      <h4 className="text-lg font-semibold text-foreground mb-2">Booking Information</h4>
+                      <p className="text-sm text-muted-foreground">
                         Tell us more about your booking
                       </p>
                     </div>
@@ -484,32 +484,32 @@ export default function SimpleBookingFlow({
               </div>
 
               {/* Right Side - Professional Booking Summary */}
-              <div className="lg:col-span-2">
-                <div className="sticky top-4">
+              <div className="lg:col-span-2 xl:col-span-2 order-first lg:order-last">
+                <div className="sticky top-20 lg:top-4">
                   <Card className="border-0 shadow-lg bg-gradient-to-br from-primary/5 to-primary/10">
-                    <CardHeader className="pb-4 border-b border-primary/10">
-                      <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <div className="w-3 h-3 bg-primary rounded-full"></div>
+                    <CardHeader className="pb-4 border-b border-primary/10 px-4 sm:px-6">
+                      <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                        <div className="w-3 h-3 bg-primary rounded-full flex-shrink-0"></div>
                         Booking Summary
                       </CardTitle>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Review your booking details
                       </p>
                       {selectedCourt?.venue?.vendor?.timezone && (
-                        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="flex items-center gap-2 text-sm text-blue-800">
-                            <Globe className="w-4 h-4 text-blue-600" />
-                            <span className="font-medium">All times in {selectedCourt.venue.vendor.timezone}</span>
+                        <div className="mt-3 p-2 sm:p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-200">
+                            <Globe className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                            <span className="font-medium truncate">All times in {selectedCourt.venue.vendor.timezone}</span>
                           </div>
-                          <p className="text-xs text-blue-600 mt-1">
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                             Booking times are displayed in the vendor's local timezone
                           </p>
                         </div>
                       )}
                     </CardHeader>
-                    <CardContent className="p-6 space-y-4">
+                    <CardContent className="p-4 sm:p-6 space-y-4">
                       {/* Court & Venue */}
-                      <div className="bg-white rounded-lg p-4 border border-primary/10">
+                      <div className="bg-white dark:bg-gray-950 rounded-lg p-3 sm:p-4 border border-primary/10">
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium text-gray-600">Court</span>

@@ -218,3 +218,106 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Safari and Chrome */
 }
+
+/* Responsive fixes to prevent horizontal scrolling */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Prevent images and media from causing horizontal scroll */
+img, svg, video, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Fix table overflow */
+table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Ensure all containers respect viewport */
+* {
+  box-sizing: border-box;
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 768px) {
+  /* Prevent horizontal scroll on mobile */
+  body {
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+  }
+
+  /* Fix text overflow */
+  * {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Prevent fixed elements from causing issues */
+  .fixed, .sticky {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* Ensure containers don't overflow */
+  .container, .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    overflow-x: hidden;
+  }
+}
+
+/* Tablet-specific fixes */
+@media (min-width: 769px) and (max-width: 1024px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .container, .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    overflow-x: hidden;
+  }
+}
+
+/* Fix z-index issues with navigation */
+header, nav {
+  z-index: 40;
+}
+
+/* Ensure overlays don't interfere */
+[role="dialog"], .modal, .dropdown {
+  z-index: 50;
+}
+
+/* Fix button and link interactions */
+button, a, [role="button"] {
+  position: relative;
+  z-index: 1;
+}
+
+/* Prevent long text from causing overflow */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Responsive grid fixes */
+@media (max-width: 640px) {
+  .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+  .grid-cols-2 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+  .grid-cols-3 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+  .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
