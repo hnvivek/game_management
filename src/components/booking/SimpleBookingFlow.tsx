@@ -306,10 +306,18 @@ export default function SimpleBookingFlow({
 
         if (paymentResponse.ok) {
           const payment = await paymentResponse.json()
-          onBookingComplete({ booking: booking.booking, payment: payment.payment })
+          onBookingComplete({
+            booking: booking.booking,
+            payment: payment.payment,
+            court: selectedCourt
+          })
         } else {
           // Booking created but payment failed
-          onBookingComplete({ booking: booking.booking, payment: null })
+          onBookingComplete({
+            booking: booking.booking,
+            payment: null,
+            court: selectedCourt
+          })
         }
       }
 

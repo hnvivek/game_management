@@ -13,7 +13,7 @@ import Navbar from '@/components/navbar'
 
 export default function BookVenuePage() {
   const [bookingComplete, setBookingComplete] = useState(false)
-  const [bookingData, setBookingData] = useState<any>(null)
+  const [bookingData, setBookingData] = useState<{ booking: any; payment: any; court?: any } | null>(null)
 
   const handleBookingComplete = (data: any) => {
     setBookingData(data)
@@ -157,14 +157,14 @@ export default function BookVenuePage() {
                             {new Date(bookingData.booking.startTime).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
-                              timeZone: bookingData.court?.venue?.timezone || 'UTC'
+                              timeZone: bookingData.booking.court?.venue?.timezone || bookingData.court?.venue?.timezone || 'UTC'
                             })}
                             {' - '}
                             {new Date(bookingData.booking.endTime).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
-                              timeZone: bookingData.court?.venue?.timezone || 'UTC'
-                            })} ({bookingData.court?.venue?.timezone})
+                              timeZone: bookingData.booking.court?.venue?.timezone || bookingData.court?.venue?.timezone || 'UTC'
+                            })} ({bookingData.booking.court?.venue?.timezone || bookingData.court?.venue?.timezone || 'UTC'})
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -181,18 +181,18 @@ export default function BookVenuePage() {
                           <span className="text-muted-foreground">Total Amount:</span>
                           <span className="font-medium text-success">
                             {new Intl.NumberFormat(
-                              bookingData.court?.venue?.currencyCode === 'INR' ? 'en-IN' :
-                              bookingData.court?.venue?.currencyCode === 'GBP' ? 'en-GB' :
-                              bookingData.court?.venue?.currencyCode === 'EUR' ? 'en-IE' :
-                              bookingData.court?.venue?.currencyCode === 'AED' ? 'en-AE' :
-                              bookingData.court?.venue?.currencyCode === 'CAD' ? 'en-CA' : 'en-US',
+                              (bookingData.booking.court?.venue?.currencyCode || bookingData.court?.venue?.currencyCode) === 'INR' ? 'en-IN' :
+                              (bookingData.booking.court?.venue?.currencyCode || bookingData.court?.venue?.currencyCode) === 'GBP' ? 'en-GB' :
+                              (bookingData.booking.court?.venue?.currencyCode || bookingData.court?.venue?.currencyCode) === 'EUR' ? 'en-IE' :
+                              (bookingData.booking.court?.venue?.currencyCode || bookingData.court?.venue?.currencyCode) === 'AED' ? 'en-AE' :
+                              (bookingData.booking.court?.venue?.currencyCode || bookingData.court?.venue?.currencyCode) === 'CAD' ? 'en-CA' : 'en-US',
                               {
                                 style: 'currency',
-                                currency: bookingData.court?.venue?.currencyCode || 'USD',
+                                currency: bookingData.booking.court?.venue?.currencyCode || bookingData.court?.venue?.currencyCode || 'USD',
                                 minimumFractionDigits: 0,
                                 maximumFractionDigits: 0,
                               }
-                            ).format(bookingData.booking.totalAmount)} ({bookingData.court?.venue?.currencyCode})
+                            ).format(bookingData.booking.totalAmount)} ({bookingData.booking.court?.venue?.currencyCode || bookingData.court?.venue?.currencyCode || 'USD'})
                           </span>
                         </div>
                         {bookingData.payment && (
