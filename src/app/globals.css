@@ -321,3 +321,186 @@ button, a, [role="button"] {
   .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Fluid Typography with CSS Clamp */
+:root {
+  /* Responsive font sizes using clamp() */
+  --font-size-xs: clamp(0.625rem, 0.6rem + 0.125vw, 0.75rem);
+  --font-size-sm: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --font-size-base: clamp(0.875rem, 0.8rem + 0.375vw, 1rem);
+  --font-size-lg: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+  --font-size-xl: clamp(1.125rem, 1rem + 0.625vw, 1.25rem);
+  --font-size-2xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
+  --font-size-3xl: clamp(1.5rem, 1.3rem + 1vw, 1.875rem);
+  --font-size-4xl: clamp(1.875rem, 1.6rem + 1.375vw, 2.25rem);
+  --font-size-5xl: clamp(2.25rem, 1.9rem + 1.75vw, 3rem);
+  --font-size-6xl: clamp(3rem, 2.5rem + 2.5vw, 3.75rem);
+
+  /* Responsive spacing using clamp() */
+  --spacing-xs: clamp(0.25rem, 0.2rem + 0.25vw, 0.5rem);
+  --spacing-sm: clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem);
+  --spacing-md: clamp(0.75rem, 0.6rem + 0.75vw, 1rem);
+  --spacing-lg: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+  --spacing-xl: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
+  --spacing-2xl: clamp(2rem, 1.6rem + 2vw, 3rem);
+  --spacing-3xl: clamp(3rem, 2.4rem + 3vw, 4rem);
+
+  /* Responsive border radius */
+  --radius-xs: clamp(0.125rem, 0.1rem + 0.125vw, 0.25rem);
+  --radius-sm: clamp(0.25rem, 0.2rem + 0.25vw, 0.375rem);
+  --radius-md: clamp(0.375rem, 0.3rem + 0.375vw, 0.5rem);
+  --radius-lg: clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem);
+  --radius-xl: clamp(0.75rem, 0.6rem + 0.75vw, 1rem);
+  --radius-2xl: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+
+  /* Responsive container max-widths */
+  --container-sm: clamp(100%, 90vw, 640px);
+  --container-md: clamp(100%, 90vw, 768px);
+  --container-lg: clamp(100%, 90vw, 1024px);
+  --container-xl: clamp(100%, 90vw, 1280px);
+  --container-2xl: clamp(100%, 90vw, 1536px);
+}
+
+/* Fluid typography utility classes */
+.text-fluid-xs { font-size: var(--font-size-xs); }
+.text-fluid-sm { font-size: var(--font-size-sm); }
+.text-fluid-base { font-size: var(--font-size-base); }
+.text-fluid-lg { font-size: var(--font-size-lg); }
+.text-fluid-xl { font-size: var(--font-size-xl); }
+.text-fluid-2xl { font-size: var(--font-size-2xl); }
+.text-fluid-3xl { font-size: var(--font-size-3xl); }
+.text-fluid-4xl { font-size: var(--font-size-4xl); }
+.text-fluid-5xl { font-size: var(--font-size-5xl); }
+.text-fluid-6xl { font-size: var(--font-size-6xl); }
+
+/* Fluid spacing utility classes */
+.p-fluid-xs { padding: var(--spacing-xs); }
+.p-fluid-sm { padding: var(--spacing-sm); }
+.p-fluid-md { padding: var(--spacing-md); }
+.p-fluid-lg { padding: var(--spacing-lg); }
+.p-fluid-xl { padding: var(--spacing-xl); }
+.p-fluid-2xl { padding: var(--spacing-2xl); }
+.p-fluid-3xl { padding: var(--spacing-3xl); }
+
+.px-fluid-xs { padding-left: var(--spacing-xs); padding-right: var(--spacing-xs); }
+.px-fluid-sm { padding-left: var(--spacing-sm); padding-right: var(--spacing-sm); }
+.px-fluid-md { padding-left: var(--spacing-md); padding-right: var(--spacing-md); }
+.px-fluid-lg { padding-left: var(--spacing-lg); padding-right: var(--spacing-lg); }
+.px-fluid-xl { padding-left: var(--spacing-xl); padding-right: var(--spacing-xl); }
+.px-fluid-2xl { padding-left: var(--spacing-2xl); padding-right: var(--spacing-2xl); }
+
+.py-fluid-xs { padding-top: var(--spacing-xs); padding-bottom: var(--spacing-xs); }
+.py-fluid-sm { padding-top: var(--spacing-sm); padding-bottom: var(--spacing-sm); }
+.py-fluid-md { padding-top: var(--spacing-md); padding-bottom: var(--spacing-md); }
+.py-fluid-lg { padding-top: var(--spacing-lg); padding-bottom: var(--spacing-lg); }
+.py-fluid-xl { padding-top: var(--spacing-xl); padding-bottom: var(--spacing-xl); }
+.py-fluid-2xl { padding-top: var(--spacing-2xl); padding-bottom: var(--spacing-2xl); }
+
+.m-fluid-xs { margin: var(--spacing-xs); }
+.m-fluid-sm { margin: var(--spacing-sm); }
+.m-fluid-md { margin: var(--spacing-md); }
+.m-fluid-lg { margin: var(--spacing-lg); }
+.m-fluid-xl { margin: var(--spacing-xl); }
+.m-fluid-2xl { margin: var(--spacing-2xl); }
+
+.gap-fluid-xs { gap: var(--spacing-xs); }
+.gap-fluid-sm { gap: var(--spacing-sm); }
+.gap-fluid-md { gap: var(--spacing-md); }
+.gap-fluid-lg { gap: var(--spacing-lg); }
+.gap-fluid-xl { gap: var(--spacing-xl); }
+.gap-fluid-2xl { gap: var(--spacing-2xl); }
+
+/* Fluid border radius utility classes */
+.rounded-fluid-xs { border-radius: var(--radius-xs); }
+.rounded-fluid-sm { border-radius: var(--radius-sm); }
+.rounded-fluid-md { border-radius: var(--radius-md); }
+.rounded-fluid-lg { border-radius: var(--radius-lg); }
+.rounded-fluid-xl { border-radius: var(--radius-xl); }
+.rounded-fluid-2xl { border-radius: var(--radius-2xl); }
+
+/* Performance optimizations */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+.content-visibility-hidden {
+  content-visibility: hidden;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* CSS containment for better performance */
+.contain-layout {
+  contain: layout;
+}
+
+.contain-paint {
+  contain: paint;
+}
+
+.contain-size {
+  contain: size;
+}
+
+.contain-layout-paint {
+  contain: layout paint;
+}
+
+.contain-layout-paint-size {
+  contain: layout paint size;
+}
+
+/* Enhanced mobile typography */
+@media (max-width: 768px) {
+  /* Larger touch targets on mobile */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Better line height for mobile reading */
+  .mobile-readable {
+    line-height: 1.6;
+    letter-spacing: 0.01em;
+  }
+
+  /* Prevent text overflow on mobile */
+  h1, h2, h3, h4, h5, h6 {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+  }
+}
+
+/* Smooth responsive transitions */
+* {
+  transition: font-size 0.2s ease-out, padding 0.2s ease-out, margin 0.2s ease-out;
+}
+
+/* Container queries support */
+@supports (container-type: inline-size) {
+  .container-query {
+    container-type: inline-size;
+  }
+
+  @container (max-width: 400px) {
+    .container-responsive {
+      font-size: var(--font-size-sm);
+      padding: var(--spacing-sm);
+    }
+  }
+
+  @container (min-width: 401px) and (max-width: 768px) {
+    .container-responsive {
+      font-size: var(--font-size-base);
+      padding: var(--spacing-md);
+    }
+  }
+
+  @container (min-width: 769px) {
+    .container-responsive {
+      font-size: var(--font-size-lg);
+      padding: var(--spacing-lg);
+    }
+  }
+}
