@@ -205,11 +205,11 @@ export default function MatchesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'OPEN': return 'bg-green-50 text-green-700 border-green-200'
-      case 'CONFIRMED': return 'bg-blue-50 text-blue-700 border-blue-200'
-      case 'COMPLETED': return 'bg-gray-50 text-gray-700 border-gray-200'
-      case 'CANCELLED': return 'bg-red-50 text-red-700 border-red-200'
-      default: return 'bg-gray-50 text-gray-700 border-gray-200'
+      case 'OPEN': return 'bg-success/10 text-success border-success/20'
+      case 'CONFIRMED': return 'bg-primary/10 text-primary border-primary/20'
+      case 'COMPLETED': return 'bg-muted text-foreground border-border'
+      case 'CANCELLED': return 'bg-destructive/10 text-destructive border-destructive/20'
+      default: return 'bg-muted text-foreground border-border'
     }
   }
 
@@ -247,7 +247,7 @@ export default function MatchesPage() {
               Discover matches looking for opponents and join the action
             </p>
             <div className="flex items-center justify-center gap-2 mt-4">
-              <Badge className="bg-green-50 text-green-700 border-green-200">
+              <Badge className="bg-success/10 text-success border-success/20">
                 <Zap className="h-3 w-3 mr-1" />
                 {openMatchesCount} Open Matches
               </Badge>
@@ -265,7 +265,7 @@ export default function MatchesPage() {
           </div>
         ) : error ? (
           <div className="text-center py-16">
-            <div className="text-red-500 mb-4">❌</div>
+            <div className="text-destructive mb-4">❌</div>
             <h3 className="text-lg font-semibold text-foreground mb-2">Error loading matches</h3>
             <p className="text-muted-foreground mb-4">{error}</p>
             <Button onClick={fetchMatches} variant="outline">
@@ -366,19 +366,19 @@ export default function MatchesPage() {
                       {/* Match Details */}
                       {dateTime && (
                         <div className="grid grid-cols-2 gap-3 text-center">
-                          <div className="bg-blue-50 rounded p-3 border border-blue-200">
-                            <div className="flex items-center justify-center gap-1 text-blue-700 mb-1">
+                          <div className="bg-primary/10 rounded p-3 border border-primary/20">
+                            <div className="flex items-center justify-center gap-1 text-primary mb-1">
                               <Calendar className="h-4 w-4" />
                               <div className="text-sm font-bold">{dateTime.date}</div>
                             </div>
-                            <div className="text-xs text-blue-600">{dateTime.time}</div>
+                            <div className="text-xs text-primary">{dateTime.time}</div>
                           </div>
-                          <div className="bg-green-50 rounded p-3 border border-green-200">
-                            <div className="flex items-center justify-center gap-1 text-green-700 mb-1">
+                          <div className="bg-success/10 rounded p-3 border border-success/20">
+                            <div className="flex items-center justify-center gap-1 text-success mb-1">
                               <MapPin className="h-4 w-4" />
                               <div className="text-sm font-bold">Venue</div>
                             </div>
-                            <div className="text-xs text-green-600">
+                            <div className="text-xs text-success">
                               {match.booking?.venue?.courtNumber}
                             </div>
                           </div>
@@ -388,8 +388,8 @@ export default function MatchesPage() {
                       {/* Cost & Format */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1">
-                          <DollarSign className="h-4 w-4 text-green-600" />
-                          <span className="font-semibold text-green-700">
+                          <DollarSign className="h-4 w-4 text-success" />
+                          <span className="font-semibold text-success">
                             ₹{match.splitCostPerTeam || 0}/team
                           </span>
                         </div>

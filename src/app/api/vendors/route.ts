@@ -2,6 +2,38 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getVendorSettings, getSupportedCountries, getSupportedCurrencies } from '@/lib/vendor-settings'
 
+/**
+ * @swagger
+ * /api/vendors:
+ *   get:
+ *     summary: Get list of vendors or specific vendor profile
+ *     description: Retrieve a list of all vendors (for platform admin) or get a specific vendor's profile with settings
+ *     tags:
+ *       - Vendors
+ *     parameters:
+ *       - in: query
+ *         name: vendorId
+ *         schema:
+ *           type: string
+ *         description: Get specific vendor profile by ID
+ *     responses:
+ *       200:
+ *         description: List of vendors or vendor profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Vendor'
+ *                 - $ref: '#/components/schemas/Vendor'
+ *       500:
+ *         description: Failed to fetch vendors
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/vendors - List all vendors (platform admin) or get vendor profile
 export async function GET(request: NextRequest) {
   try {

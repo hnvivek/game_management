@@ -1,266 +1,308 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { addVendorFiltering, extractSubdomain, getVendorBySubdomain } from '@/lib/subdomain'
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 
-// GET /api/matches - List matches with filtering
+const prisma = new PrismaClient();
+
+// Validation schema
+const matchCreateSchema = z.object({
+  homeTeamId: z.string(),
+  awayTeamId: z.string().optional(),
+  sportId: z.string(),
+  formatId: z.string(),
+  courtId: z.string(),
+  scheduledDate: z.string().datetime(),
+  duration: z.number().positive(),
+  totalAmount: z.number().positive(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  createdBy: z.string(),
+});
+
+// GET /api/matches - List all matches
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const sportId = searchParams.get('sportId')
-    const status = searchParams.get('status') // OPEN, CONFIRMED, COMPLETED
-    const homeTeamId = searchParams.get('homeTeamId')
-    const city = searchParams.get('city')
-    const lookingForOpponent = searchParams.get('lookingForOpponent') === 'true'
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const sportId = searchParams.get('sportId');
+    const status = searchParams.get('status');
+    const homeTeamId = searchParams.get('homeTeamId');
+    const awayTeamId = searchParams.get('awayTeamId');
+    const fromDate = searchParams.get('fromDate');
+    const toDate = searchParams.get('toDate');
 
-    // Build filter conditions with automatic subdomain filtering
-    const whereConditions: any = {}
+    const skip = (page - 1) * limit;
 
-    if (sportId) whereConditions.sportId = sportId
-    if (status) whereConditions.status = status.toUpperCase() as any
-    if (homeTeamId) whereConditions.homeTeamId = homeTeamId
+    const where: any = {};
 
-    // Filter for teams looking for opponents
-    if (lookingForOpponent) {
-      whereConditions.awayTeamId = null
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { homeTeam: { name: { contains: search, mode: 'insensitive' } } },
+        { awayTeam: { name: { contains: search, mode: 'insensitive' } } },
+      ];
     }
 
-    // Add automatic vendor filtering based on subdomain
-    // Filter matches by venue vendor when on vendor subdomain
-    const vendor = await getVendorBySubdomain(extractSubdomain(request))
-    if (vendor) {
-      whereConditions.booking = {
-        venue: {
-          vendorId: vendor.id
-        }
-      }
+    if (sportId) where.sportId = sportId;
+    if (status) where.status = status;
+    if (homeTeamId) where.homeTeamId = homeTeamId;
+    if (awayTeamId) where.awayTeamId = awayTeamId;
+
+    if (fromDate || toDate) {
+      where.scheduledDate = {};
+      if (fromDate) where.scheduledDate.gte = new Date(fromDate);
+      if (toDate) where.scheduledDate.lte = new Date(toDate);
     }
 
-    // Filter by city through home team
-    if (city) {
-      whereConditions.homeTeam = {
-        city
-      }
-    }
-
-    const matches = await db.match.findMany({
-      where: whereConditions,
-      include: {
-        homeTeam: {
-          select: {
-            id: true,
-            name: true,
-            captain: {
-              select: {
-                id: true,
-                name: true,
-                phone: true
-              }
+    const [matches, total] = await Promise.all([
+      prisma.match.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { scheduledDate: 'desc' },
+        include: {
+          homeTeam: {
+            select: {
+              id: true,
+              name: true,
+              logoUrl: true,
+              city: true,
             },
-            city: true,
-            area: true,
-            _count: {
-              select: { members: true }
-            }
-          }
-        },
-        awayTeam: {
-          select: {
-            id: true,
-            name: true,
-            captain: {
-              select: {
-                id: true,
-                name: true,
-                phone: true
-              }
+          },
+          awayTeam: {
+            select: {
+              id: true,
+              name: true,
+              logoUrl: true,
+              city: true,
             },
-            city: true,
-            area: true,
-            _count: {
-              select: { members: true }
-            }
-          }
-        },
-        sport: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            icon: true
-          }
-        },
-        format: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            minPlayers: true,
-            maxPlayers: true
-          }
-        },
-        booking: {
-          select: {
-            id: true,
-            startTime: true,
-            endTime: true,
-            totalAmount: true,
-            venue: {
-              select: {
-                id: true,
-                courtNumber: true,
-                pricePerHour: true,
-                vendor: {
-                  select: {
-                    id: true,
-                    name: true,
-                    slug: true
-                  }
+          },
+          sport: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              icon: true,
+            },
+          },
+          format: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              minPlayers: true,
+              maxPlayers: true,
+            },
+          },
+          court: {
+            select: {
+              id: true,
+              courtNumber: true,
+              venue: {
+                select: {
+                  id: true,
+                  name: true,
+                  city: true,
                 },
-                sport: {
-                  select: {
-                    displayName: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      orderBy: [
-        { status: 'asc' }, // OPEN first
-        { booking: { startTime: 'asc' } }
-      ]
-    })
-
-    // Add split cost for matches looking for opponents
-    const matchesWithCostSplit = matches.map(match => {
-      if (match.awayTeamId === null && match.booking) {
-        const totalCost = match.booking.totalAmount || 0
-        return {
-          ...match,
-          splitCostPerTeam: totalCost / 2
-        }
-      }
-      return match
-    })
+              },
+            },
+          },
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+            },
+          },
+          matchResults: {
+            select: {
+              id: true,
+              homeScore: true,
+              awayScore: true,
+              status: true,
+              verifiedAt: true,
+            },
+          },
+          payments: {
+            select: {
+              id: true,
+              amount: true,
+              currency: true,
+              paymentMethod: true,
+              status: true,
+              processedAt: true,
+            },
+          },
+        },
+      }),
+      prisma.match.count({ where }),
+    ]);
 
     return NextResponse.json({
-      matches: matchesWithCostSplit,
-      count: matches.length,
-      filters: { sportId, status, homeTeamId, city, lookingForOpponent }
-    })
-
+      matches,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
-    console.error('Error fetching matches:', error)
+    console.error('Error fetching matches:', error);
     return NextResponse.json(
       { error: 'Failed to fetch matches' },
       { status: 500 }
-    )
+    );
   }
 }
 
 // POST /api/matches - Create new match
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const {
-      bookingId,
-      title,
-      description,
-      homeTeamId,
-      sportId,
-      formatId,
-      maxPlayers
-    } = body
+    const body = await request.json();
+    const validatedData = matchCreateSchema.parse(body);
 
-    // Validate required fields
-    if (!bookingId || !homeTeamId || !sportId || !formatId || !maxPlayers) {
-      return NextResponse.json(
-        { error: 'Missing required fields: bookingId, homeTeamId, sportId, formatId, maxPlayers' },
-        { status: 400 }
-      )
-    }
-
-    // Check if booking exists
-    const booking = await db.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        venue: true
-      }
-    })
-
-    if (!booking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
-    }
-
-    // Check if match already exists for this booking
-    const existingMatch = await db.match.findUnique({
-      where: { bookingId }
-    })
-
-    if (existingMatch) {
-      return NextResponse.json(
-        { error: 'Match already exists for this booking' },
-        { status: 409 }
-      )
-    }
-
-    // Validate home team
-    const homeTeam = await db.team.findUnique({
-      where: { id: homeTeamId }
-    })
+    // Validate related entities exist
+    const [homeTeam, sport, format, court] = await Promise.all([
+      prisma.team.findUnique({
+        where: { id: validatedData.homeTeamId },
+      }),
+      prisma.sportType.findUnique({
+        where: { id: validatedData.sportId },
+      }),
+      prisma.formatType.findUnique({
+        where: { id: validatedData.formatId },
+      }),
+      prisma.court.findUnique({
+        where: { id: validatedData.courtId },
+        include: {
+          venue: true,
+        },
+      }),
+    ]);
 
     if (!homeTeam) {
-      return NextResponse.json({ error: 'Home team not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Home team not found' },
+        { status: 404 }
+      );
     }
 
-    // Validate sport and format
-    const [sport, format] = await Promise.all([
-      db.sportType.findUnique({ where: { id: sportId } }),
-      db.formatType.findUnique({ where: { id: formatId } })
-    ])
-
     if (!sport) {
-      return NextResponse.json({ error: 'Sport not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Sport not found' },
+        { status: 404 }
+      );
     }
 
     if (!format) {
-      return NextResponse.json({ error: 'Format not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Format not found' },
+        { status: 404 }
+      );
     }
 
-    // Create match (looking for opponent by default)
-    const match = await db.match.create({
-      data: {
-        bookingId,
-        title,
-        description,
-        sportId,
-        formatId,
-        maxPlayers,
-        homeTeamId,
-        status: 'OPEN' // Open for opponents to join
+    if (!court) {
+      return NextResponse.json(
+        { error: 'Court not found' },
+        { status: 404 }
+      );
+    }
+
+    // Validate sport and format compatibility
+    if (format.sportId !== validatedData.sportId) {
+      return NextResponse.json(
+        { error: 'Format does not belong to the specified sport' },
+        { status: 400 }
+      );
+    }
+
+    // Validate court sport compatibility
+    if (court.sportId !== validatedData.sportId) {
+      return NextResponse.json(
+        { error: 'Court does not support the specified sport' },
+        { status: 400 }
+      );
+    }
+
+    // Check for court availability
+    const scheduledStart = new Date(validatedData.scheduledDate);
+    const scheduledEnd = new Date(scheduledStart.getTime() + validatedData.duration * 60000);
+
+    const conflictingBookings = await prisma.booking.findMany({
+      where: {
+        courtId: validatedData.courtId,
+        status: { in: ['CONFIRMED'] },
+        OR: [
+          {
+            AND: [
+              { startTime: { lte: scheduledStart } },
+              { endTime: { gt: scheduledStart } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { lt: scheduledEnd } },
+              { endTime: { gte: scheduledEnd } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { gte: scheduledStart } },
+              { endTime: { lte: scheduledEnd } },
+            ],
+          },
+        ],
       },
+    });
+
+    const conflictingMatches = await prisma.match.findMany({
+      where: {
+        courtId: validatedData.courtId,
+        status: { in: ['CONFIRMED'] },
+        scheduledDate: {
+          gte: new Date(scheduledStart.getTime() - 30 * 60000), // 30 min buffer
+          lte: new Date(scheduledEnd.getTime() + 30 * 60000), // 30 min buffer
+        },
+      },
+    });
+
+    if (conflictingBookings.length > 0 || conflictingMatches.length > 0) {
+      return NextResponse.json(
+        { error: 'Court is already booked for this time slot' },
+        { status: 409 }
+      );
+    }
+
+    const match = await prisma.match.create({
+      data: validatedData,
       include: {
         homeTeam: {
           select: {
             id: true,
             name: true,
-            captain: {
-              select: {
-                id: true,
-                name: true,
-                phone: true
-              }
-            }
-          }
+            logoUrl: true,
+            city: true,
+          },
+        },
+        awayTeam: {
+          select: {
+            id: true,
+            name: true,
+            logoUrl: true,
+            city: true,
+          },
         },
         sport: {
           select: {
             id: true,
             name: true,
             displayName: true,
-            icon: true
-          }
+            icon: true,
+          },
         },
         format: {
           select: {
@@ -268,35 +310,46 @@ export async function POST(request: NextRequest) {
             name: true,
             displayName: true,
             minPlayers: true,
-            maxPlayers: true
-          }
+            maxPlayers: true,
+          },
         },
-        booking: {
+        court: {
           select: {
             id: true,
-            startTime: true,
-            endTime: true,
-            totalAmount: true,
+            courtNumber: true,
             venue: {
               select: {
                 id: true,
                 name: true,
-                courtNumber: true,
-                pricePerHour: true
-              }
-            }
-          }
-        }
-      }
-    })
+                city: true,
+              },
+            },
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
 
-    return NextResponse.json({ match }, { status: 201 })
-
+    return NextResponse.json(match, { status: 201 });
   } catch (error) {
-    console.error('Error creating match:', error)
+    console.error('Error creating match:', error);
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.errors },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to create match' },
       { status: 500 }
-    )
+    );
   }
 }

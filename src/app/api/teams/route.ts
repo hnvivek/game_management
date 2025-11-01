@@ -1,214 +1,162 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { addVendorFiltering, extractSubdomain, getVendorBySubdomain } from '@/lib/subdomain'
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { z } from 'zod';
 
-// GET /api/teams - List teams with filtering
+// Validation schema
+const teamCreateSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+  logoUrl: z.string().url().optional(),
+  sportId: z.string(),
+  formatId: z.string(),
+  city: z.string().optional(),
+  area: z.string().optional(),
+  level: z.string().optional(),
+  maxPlayers: z.number().positive(),
+  isActive: z.boolean().optional(),
+});
+
+// GET /api/teams - List all teams
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const sportId = searchParams.get('sportId')
-    const city = searchParams.get('city')
-    const formatId = searchParams.get('formatId')
-    const captainId = searchParams.get('captainId')
-    const isActive = searchParams.get('isActive') !== 'false'
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const sportId = searchParams.get('sportId');
+    const city = searchParams.get('city');
+    const isActive = searchParams.get('isActive');
 
-    // Build filter conditions with automatic subdomain filtering
-    const whereConditions: any = {
-      isActive,
-      isPublic: true // Only show public teams by default
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { city: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
-    if (sportId) whereConditions.sportId = sportId
-    if (city) whereConditions.city = city
-    if (formatId) whereConditions.formatId = formatId
-    if (captainId) whereConditions.captainId = captainId
+    if (sportId) where.sportId = sportId;
+    if (city) where.city = { contains: city, mode: 'insensitive' };
+    if (isActive !== null) where.isActive = isActive === 'true';
 
-    // Add automatic vendor filtering based on subdomain
-    // Show teams that play at this vendor (through TeamVendor relationship)
-    const vendor = await getVendorBySubdomain(extractSubdomain(request))
-    if (vendor) {
-      whereConditions.homeVenues = {
-        some: {
-          vendorId: vendor.id
-        }
-      }
-    }
-    // If no vendor (global context), show all public teams without vendor filtering
-
-    const teams = await db.team.findMany({
-      where: whereConditions,
-      include: {
-        homeVenues: {
-          select: {
-            vendorId: true,
-            isPrimary: true,
-            vendor: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                primaryColor: true,
-                secondaryColor: true
-              }
-            }
-          }
+    const [teams, total] = await Promise.all([
+      db.team.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          sport: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              icon: true,
+            },
+          },
+          format: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              minPlayers: true,
+              maxPlayers: true,
+            },
+          },
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              members: true,
+              homeMatches: true,
+              awayMatches: true,
+              teamInvites: true,
+            },
+          },
         },
-        captain: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
-        },
-        sport: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            icon: true
-          }
-        },
-        format: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            minPlayers: true,
-            maxPlayers: true
-          }
-        },
-        _count: {
-          select: {
-            members: true,
-            homeMatches: true,
-            awayMatches: true
-          }
-        }
-      },
-      orderBy: [
-        { sport: { displayName: 'asc' } },
-        { city: 'asc' },
-        { name: 'asc' }
-      ]
-    })
+      }),
+      db.team.count({ where }),
+    ]);
 
     return NextResponse.json({
       teams,
-      count: teams.length,
-      filters: { sportId, city, formatId, captainId, isActive }
-    })
-
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
-    console.error('Error fetching teams:', error)
+    console.error('Error fetching teams:', error);
     return NextResponse.json(
       { error: 'Failed to fetch teams' },
       { status: 500 }
-    )
+    );
   }
 }
 
 // POST /api/teams - Create new team
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const {
-      name,
-      description,
-      logoUrl,
-      captainId,
-      sportId,
-      formatId,
-      maxPlayers,
-      city,
-      area,
-      isPublic = true,
-      vendorId
-    } = body
-
-    // Validate required fields
-    if (!name || !captainId || !sportId || !formatId || !maxPlayers) {
-      return NextResponse.json(
-        { error: 'Missing required fields: name, captainId, sportId, formatId, maxPlayers' },
-        { status: 400 }
-      )
-    }
-
-    // Validate captain exists
-    const captain = await db.user.findUnique({
-      where: { id: captainId }
-    })
-
-    if (!captain) {
-      return NextResponse.json(
-        { error: 'Captain not found' },
-        { status: 404 }
-      )
-    }
+    const body = await request.json();
+    const validatedData = teamCreateSchema.parse(body);
 
     // Validate sport and format exist
     const [sport, format] = await Promise.all([
-      db.sportType.findUnique({ where: { id: sportId } }),
-      db.formatType.findUnique({ where: { id: formatId } })
-    ])
+      db.sportType.findUnique({
+        where: { id: validatedData.sportId },
+      }),
+      db.formatType.findUnique({
+        where: { id: validatedData.formatId },
+      }),
+    ]);
 
     if (!sport) {
       return NextResponse.json(
         { error: 'Sport not found' },
-        { status: 404 }
-      )
+        { status: 400 }
+      );
     }
 
     if (!format) {
       return NextResponse.json(
         { error: 'Format not found' },
-        { status: 404 }
-      )
+        { status: 400 }
+      );
     }
 
-    // Create team (now global - no direct vendor association)
+    // Validate format belongs to sport
+    if (format.sportId !== validatedData.sportId) {
+      return NextResponse.json(
+        { error: 'Format does not belong to the specified sport' },
+        { status: 400 }
+      );
+    }
+
     const team = await db.team.create({
-      data: {
-        name,
-        description,
-        logoUrl,
-        captainId,
-        sportId,
-        formatId,
-        maxPlayers,
-        city,
-        area,
-        isPublic
-      },
+      data: validatedData,
       include: {
-        homeVenues: {
-          include: {
-            vendor: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                primaryColor: true,
-                secondaryColor: true
-              }
-            }
-          }
-        },
-        captain: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
-        },
         sport: {
           select: {
             id: true,
             name: true,
             displayName: true,
-            icon: true
-          }
+            icon: true,
+          },
         },
         format: {
           select: {
@@ -216,28 +164,26 @@ export async function POST(request: NextRequest) {
             name: true,
             displayName: true,
             minPlayers: true,
-            maxPlayers: true
-          }
-        }
-      }
-    })
+            maxPlayers: true,
+          },
+        },
+      },
+    });
 
-    // Add captain as team member automatically
-    await db.teamMember.create({
-      data: {
-        teamId: team.id,
-        userId: captainId,
-        role: 'captain'
-      }
-    })
-
-    return NextResponse.json({ team }, { status: 201 })
-
+    return NextResponse.json(team, { status: 201 });
   } catch (error) {
-    console.error('Error creating team:', error)
+    console.error('Error creating team:', error);
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.errors },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to create team' },
       { status: 500 }
-    )
+    );
   }
 }

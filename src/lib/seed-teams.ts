@@ -7,16 +7,15 @@ const teams = [
     description: 'Passionate soccer team looking for competitive matches',
     sportId: 'soccer', // Will be replaced with actual ID
     formatId: '5-a-side', // Will be replaced with actual ID
-    captainId: 'capt_1', // Will be replaced with actual user ID
     maxPlayers: 10,
     city: 'Bengaluru',
     area: 'Indiranagar',
     isActive: true,
     isPublic: true,
     members: [
-      { name: 'Rahul Sharma', phone: '+919876543210', role: 'captain' },
-      { name: 'Amit Kumar', phone: '+918765432109', role: 'member' },
-      { name: 'Priya Singh', phone: '+917654321098', role: 'member' },
+      { name: 'Rahul Sharma', phone: '+919876543210', role: 'admin' },
+      { name: 'Amit Kumar', phone: '+918765432109', role: 'admin' },
+      { name: 'Priya Singh', phone: '+917654321098', role: 'admin' },
       { name: 'Karthik Reddy', phone: '+916543210987', role: 'member' },
       { name: 'Neha Patel', phone: '+915432109876', role: 'member' },
       { name: 'Vikram Rao', phone: '+914321098765', role: 'member' },
@@ -32,15 +31,14 @@ const teams = [
     description: 'Friendly but competitive cricket team',
     sportId: 'cricket',
     formatId: 'tape-ball',
-    captainId: 'capt_2',
     maxPlayers: 12,
     city: 'Bengaluru',
     area: 'Koramangala',
     isActive: true,
     isPublic: true,
     members: [
-      { name: 'Amit Patel', phone: '+918765432109', role: 'captain' },
-      { name: 'Sanjay Kumar', phone: '+917654321098', role: 'member' },
+      { name: 'Amit Patel', phone: '+918765432109', role: 'admin' },
+      { name: 'Sanjay Kumar', phone: '+917654321098', role: 'admin' },
       { name: 'Rajesh Singh', phone: '+916543210987', role: 'member' },
       { name: 'Manoj Reddy', phone: '+915432109876', role: 'member' },
       { name: 'Suresh Babu', phone: '+914321098765', role: 'member' },
@@ -59,15 +57,14 @@ const teams = [
     description: 'Corporate badminton enthusiasts',
     sportId: 'badminton',
     formatId: 'doubles',
-    captainId: 'capt_3',
     maxPlayers: 8,
     city: 'Bengaluru',
     area: 'Whitefield',
     isActive: true,
     isPublic: true,
     members: [
-      { name: 'Arjun Mehta', phone: '+919876543213', role: 'captain' },
-      { name: 'Pooja Sharma', phone: '+918765432214', role: 'member' },
+      { name: 'Arjun Mehta', phone: '+919876543213', role: 'admin' },
+      { name: 'Pooja Sharma', phone: '+918765432214', role: 'admin' },
       { name: 'Rohit Verma', phone: '+917654321215', role: 'member' },
       { name: 'Kavita Nair', phone: '+916543210216', role: 'member' },
       { name: 'Sanjay Gupta', phone: '+915432109217', role: 'member' },
@@ -82,15 +79,14 @@ const teams = [
     description: 'Basketball team with competitive spirit',
     sportId: 'basketball',
     formatId: '5v5',
-    captainId: 'capt_4',
     maxPlayers: 10,
     city: 'Bengaluru',
     area: 'HSR Layout',
     isActive: true,
     isPublic: true,
     members: [
-      { name: 'Michael Johnson', phone: '+919876543219', role: 'captain' },
-      { name: 'David Lee', phone: '+918765432220', role: 'member' },
+      { name: 'Michael Johnson', phone: '+919876543219', role: 'admin' },
+      { name: 'David Lee', phone: '+918765432220', role: 'admin' },
       { name: 'James Wilson', phone: '+917654321221', role: 'member' },
       { name: 'Chris Brown', phone: '+916543210222', role: 'member' },
       { name: 'Kevin Davis', phone: '+915432109223', role: 'member' },
@@ -108,15 +104,14 @@ const teams = [
     description: 'Football club focused on skill development',
     sportId: 'soccer',
     formatId: '7-a-side',
-    captainId: 'capt_5',
     maxPlayers: 14,
     city: 'Bengaluru',
     area: 'Indiranagar',
     isActive: true,
     isPublic: true,
     members: [
-      { name: 'Carlos Rodriguez', phone: '+919876543228', role: 'captain' },
-      { name: 'James Smith', phone: '+918765432229', role: 'member' },
+      { name: 'Carlos Rodriguez', phone: '+919876543228', role: 'admin' },
+      { name: 'James Smith', phone: '+918765432229', role: 'admin' },
       { name: 'Ryan Garcia', phone: '+917654321230', role: 'member' },
       { name: 'Kevin Park', phone: '+916543210231', role: 'member' },
       { name: 'Lucas Silva', phone: '+915432109232', role: 'member' },
@@ -136,15 +131,14 @@ const teams = [
     description: 'Badminton enthusiasts seeking competitive play',
     sportId: 'badminton',
     formatId: 'singles',
-    captainId: 'capt_6',
     maxPlayers: 6,
     city: 'Bengaluru',
     area: 'Jayanagar',
     isActive: true,
     isPublic: true,
     members: [
-      { name: 'Saina Nehwal', phone: '+919876543239', role: 'captain' },
-      { name: 'PV Sindhu', phone: '+918765432240', role: 'member' },
+      { name: 'Saina Nehwal', phone: '+919876543239', role: 'admin' },
+      { name: 'PV Sindhu', phone: '+918765432240', role: 'admin' },
       { name: 'Kidambi Srikanth', phone: '+917654321241', role: 'member' },
       { name: 'HS Prannoy', phone: '+916543210242', role: 'member' },
       { name: 'Sameer Verma', phone: '+915432109243', role: 'member' }
@@ -158,15 +152,14 @@ const teams = [
     description: 'Weekend cricket team for fun and fitness',
     sportId: 'cricket',
     formatId: 'tennis-ball',
-    captainId: 'capt_7',
     maxPlayers: 14,
     city: 'Bengaluru',
     area: 'Marathahalli',
     isActive: true,
     isPublic: true,
     members: [
-      { name: 'Virat Kohli', phone: '+919876543244', role: 'captain' },
-      { name: 'Rohit Sharma', phone: '+918765432245', role: 'member' },
+      { name: 'Virat Kohli', phone: '+919876543244', role: 'admin' },
+      { name: 'Rohit Sharma', phone: '+918765432245', role: 'admin' },
       { name: 'KL Rahul', phone: '+917654321246', role: 'member' },
       { name: 'Rishabh Pant', phone: '+916543210247', role: 'member' },
       { name: 'Hardik Pandya', phone: '+915432109248', role: 'member' },
@@ -187,15 +180,14 @@ const teams = [
     description: 'Basketball team for all skill levels',
     sportId: 'basketball',
     formatId: '3x3',
-    captainId: 'capt_8',
     maxPlayers: 6,
     city: 'Bengaluru',
     area: 'Bellandur',
     isActive: true,
     isPublic: true,
     members: [
-      { name: 'Stephen Curry', phone: '+919876543256', role: 'captain' },
-      { name: 'LeBron James', phone: '+918765432257', role: 'member' },
+      { name: 'Stephen Curry', phone: '+919876543256', role: 'admin' },
+      { name: 'LeBron James', phone: '+918765432257', role: 'admin' },
       { name: 'Kevin Durant', phone: '+917654321258', role: 'member' },
       { name: 'Giannis Antetokounmpo', phone: '+916543210259', role: 'member' },
       { name: 'Luka Dončić', phone: '+915432109260', role: 'member' }
@@ -250,22 +242,7 @@ export async function seedTeams() {
       throw new Error('No vendors found. Please seed vendors first.')
     }
 
-    // Create users for captains
-    const captainUsers = []
-    for (let i = 1; i <= teams.length; i++) {
-      const captainUser = await db.user.upsert({
-        where: { email: `captain${i}@example.com` },
-        update: {},
-        create: {
-          email: `captain${i}@example.com`,
-          name: teams[i - 1].members[0].name,
-          phone: teams[i - 1].members[0].phone,
-          role: 'CUSTOMER'
-        }
-      })
-      captainUsers.push(captainUser)
-    }
-
+    
     // Create teams (now global, will be associated with vendors through TeamVendor)
     for (let i = 0; i < teams.length; i++) {
       const teamData = teams[i]
@@ -281,10 +258,10 @@ export async function seedTeams() {
           description: teamData.description,
           sportId: sport.id,
           formatId: format.id,
-          captainId: captainUsers[i].id,
           maxPlayers: teamData.maxPlayers,
           city: teamData.city,
           area: teamData.area,
+          level: teamData.level.toLowerCase(),
           isActive: teamData.isActive,
           isPublic: teamData.isPublic
         }

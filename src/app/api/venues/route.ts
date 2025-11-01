@@ -3,6 +3,68 @@ import { db } from '@/lib/db'
 import { addVendorFiltering } from '@/lib/subdomain'
 import { getVendorSettings, getDefaultVendorSettings } from '@/lib/vendor-settings'
 
+/**
+ * @swagger
+ * /api/venues:
+ *   get:
+ *     summary: Get list of venues
+ *     description: Retrieve a list of sports venues with optional filtering by sport, date, time, location, and availability
+ *     tags:
+ *       - Venues
+ *     parameters:
+ *       - in: query
+ *         name: sport
+ *         schema:
+ *           type: string
+ *         description: Filter by sport name (e.g., soccer, cricket, basketball)
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter by date (YYYY-MM-DD format)
+ *       - in: query
+ *         name: startTime
+ *         schema:
+ *           type: string
+ *           format: time
+ *         description: Filter by start time (HH:MM format)
+ *       - in: query
+ *         name: duration
+ *         schema:
+ *           type: string
+ *         description: Filter by duration in hours
+ *       - in: query
+ *         name: vendorId
+ *         schema:
+ *           type: string
+ *         description: Filter by specific vendor ID
+ *       - in: query
+ *         name: city
+ *         schema:
+ *           type: string
+ *         description: Filter by city
+ *       - in: query
+ *         name: area
+ *         schema:
+ *           type: string
+ *         description: Filter by specific area
+ *     responses:
+ *       200:
+ *         description: List of venues
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Venue'
+ *       500:
+ *         description: Failed to fetch venues
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -29,21 +91,25 @@ export async function GET(request: NextRequest) {
       whereConditions.vendorId = vendorId
     }
 
-    // Add sport filter (convert sport name to sportId)
+    // Add sport filter (venues that have courts for this sport)
     if (sport) {
-      whereConditions.sport = {
-        name: sport,
-        isActive: true
+      whereConditions.courts = {
+        some: {
+          sport: {
+            name: sport,
+            isActive: true
+          },
+          isActive: true
+        }
       }
     }
 
-    // Add location filters
-    if (city || area) {
-      whereConditions.location = {
-        ...(city && { city }),
-        ...(area && { area }),
-        isActive: true
-      }
+    // Add location filters (direct venue fields)
+    if (city) {
+      whereConditions.city = city
+    }
+    if (area) {
+      whereConditions.surfaceArea = area
     }
 
     // Validate date if provided
@@ -65,44 +131,47 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             slug: true,
-            logo: true,
+            logoUrl: true,
             primaryColor: true,
             secondaryColor: true
           }
         },
-        location: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            city: true,
-            area: true,
-            latitude: true,
-            longitude: true
+        courts: {
+          where: {
+            isActive: true
+          },
+          include: {
+            sport: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                icon: true
+              }
+            },
+            format: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                minPlayers: true,
+                maxPlayers: true
+              }
+            }
           }
         },
-        sport: {
+        operatingHours: {
           select: {
             id: true,
-            name: true,
-            displayName: true,
-            icon: true
-          }
-        },
-        format: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            minPlayers: true,
-            maxPlayers: true
+            dayOfWeek: true,
+            openingTime: true,
+            closingTime: true,
+            isOpen: true
           }
         }
       },
       orderBy: [
-        { sport: { displayName: 'asc' } },
-        { format: { displayName: 'desc' } },
-        { courtNumber: 'asc' },
+        { name: 'asc' },
       ],
     })
 
@@ -112,7 +181,7 @@ export async function GET(request: NextRequest) {
     // Fetch vendor settings for all vendors in one query
     const vendorsWithSettings = await db.vendor.findMany({
       where: { id: { in: vendorIds } },
-      include: { settings: true }
+      include: { vendorSettings: true }
     })
 
     // Create a map of vendorId -> settings

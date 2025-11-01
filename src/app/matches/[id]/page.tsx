@@ -236,7 +236,7 @@ export default function MatchDetailsPage() {
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-16">
-            <div className="text-red-500 mb-4">❌</div>
+            <div className="text-destructive mb-4">❌</div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
               {error || 'Match not found'}
             </h3>
@@ -260,11 +260,11 @@ export default function MatchDetailsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'OPEN': return 'bg-green-50 text-green-700 border-green-200'
-      case 'CONFIRMED': return 'bg-blue-50 text-blue-700 border-blue-200'
-      case 'COMPLETED': return 'bg-gray-50 text-gray-700 border-gray-200'
-      case 'CANCELLED': return 'bg-red-50 text-red-700 border-red-200'
-      default: return 'bg-gray-50 text-gray-700 border-gray-200'
+      case 'OPEN': return 'bg-success/10 text-success border-success/20'
+      case 'CONFIRMED': return 'bg-primary/10 text-primary border-primary/20'
+      case 'COMPLETED': return 'bg-muted text-foreground border-border'
+      case 'CANCELLED': return 'bg-destructive/10 text-destructive border-destructive/20'
+      default: return 'bg-muted text-foreground border-border'
     }
   }
 
@@ -372,10 +372,10 @@ export default function MatchDetailsPage() {
               <CardContent>
                 <div className="space-y-6">
                   {/* Home Team */}
-                  <div className="flex items-center justify-between p-4 border rounded-lg bg-blue-50">
+                  <div className="flex items-center justify-between p-4 border rounded-lg bg-primary/10">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-12 w-12">
-                        <AvatarFallback className="text-lg font-semibold bg-blue-100 text-blue-700">
+                        <AvatarFallback className="text-lg font-semibold bg-primary/20 text-primary">
                           {match.homeTeam?.name.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
@@ -393,7 +393,7 @@ export default function MatchDetailsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-medium text-blue-700">Home Team</div>
+                      <div className="text-sm font-medium text-primary">Home Team</div>
                       <div className="text-xs text-muted-foreground">
                         {match.homeTeam?._count?.members || 0} members
                       </div>
@@ -407,10 +407,10 @@ export default function MatchDetailsPage() {
 
                   {/* Away Team */}
                   {match.awayTeam ? (
-                    <div className="flex items-center justify-between p-4 border rounded-lg bg-red-50">
+                    <div className="flex items-center justify-between p-4 border rounded-lg bg-destructive/10">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-12 w-12">
-                          <AvatarFallback className="text-lg font-semibold bg-red-100 text-red-700">
+                          <AvatarFallback className="text-lg font-semibold bg-destructive/20 text-destructive">
                             {match.awayTeam.name.split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
@@ -428,7 +428,7 @@ export default function MatchDetailsPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-medium text-red-700">Away Team</div>
+                        <div className="text-sm font-medium text-destructive">Away Team</div>
                         <div className="text-xs text-muted-foreground">
                           {match.awayTeam._count?.members || 0} members
                         </div>

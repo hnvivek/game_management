@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Trophy, Menu, X, Calendar, Users, BarChart3, Target, Bot } from 'lucide-react'
+import { Trophy, Menu, X, Calendar, Users, BarChart3, Target, Bot, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/auth/AuthProvider'
 import UserMenu from '@/components/auth/UserMenu'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -18,6 +19,7 @@ export default function Navbar() {
     { name: 'Book Venues', href: '/book-venue', icon: Calendar },
     { name: 'Teams', href: '/teams', icon: Users },
     { name: 'Matches', href: '/matches', icon: Target },
+    { name: 'API Docs', href: '/api-docs', icon: FileText },
     ...(user ? [{ name: 'AI Suggestions', href: '/ai-suggestions', icon: Bot }] : []),
   ]
 
@@ -28,7 +30,7 @@ export default function Navbar() {
 
   return (
     <header className="bg-card border-b border shadow-nav sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-14 md:h-12">
           {/* Logo/Brand */}
           <Link href="/" className="flex items-center space-x-2 group">
@@ -65,6 +67,7 @@ export default function Navbar() {
 
           {/* User Actions */}
           <div className="hidden md:flex items-center space-x-2">
+            <ThemeToggle />
             {user ? (
               <UserMenu />
             ) : (
@@ -114,6 +117,10 @@ export default function Navbar() {
               )
             })}
             <div className="pt-2 mt-2 border-t border">
+              <div className="flex items-center justify-between px-3 py-2">
+                <span className="text-sm text-muted-foreground">Theme</span>
+                <ThemeToggle />
+              </div>
               {user ? (
                 <div className="px-3 py-2 text-sm text-muted-foreground">
                   Signed in as {user.name}

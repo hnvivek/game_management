@@ -64,12 +64,12 @@ export default function LeaderboardPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
           <div className="flex justify-center mb-4">
             <div className="relative">
-              <Crown className="h-12 w-12 text-white drop-shadow-lg" />
+              <Crown className="h-12 w-12 text-primary-foreground drop-shadow-lg" />
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-300 rounded-full animate-pulse"></div>
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Leaderboard</h1>
-          <p className="text-base text-white/90 font-medium">Bengaluru Sports League Rankings</p>
+          <h1 className="text-3xl font-bold text-primary-foreground mb-2 tracking-tight">Leaderboard</h1>
+          <p className="text-base text-primary-foreground/90 font-medium">Bengaluru Sports League Rankings</p>
         </div>
       </div>
 
@@ -77,7 +77,7 @@ export default function LeaderboardPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-10">
 
         {/* League Statistics - Now at top */}
-        <Card className="shadow-lg border-0 bg-white mb-6">
+        <Card className="shadow-lg border-0 bg-card mb-6">
           <CardHeader className="text-center pb-3">
             <CardTitle className="text-xl font-bold text-foreground flex items-center justify-center gap-2">
               <div className="p-1.5 bg-secondary-50 rounded-lg">
@@ -140,10 +140,10 @@ export default function LeaderboardPage() {
         </Card>
 
         {/* Enhanced Filters Section */}
-        <Card className="shadow-md border-0 bg-white mb-6">
+        <Card className="shadow-md border-0 bg-card mb-6">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-600" />
+            <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
               Filter Teams
               {(sportFilter !== 'all' || levelFilter !== 'all') && (
                 <Badge variant="secondary" className="ml-2 text-xs">
@@ -155,12 +155,12 @@ export default function LeaderboardPage() {
           <CardContent className="pt-0">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <label className="text-sm font-medium text-foreground flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-secondary-500 rounded-full"></div>
                   Sport Type
                 </label>
                 <Select value={sportFilter} onValueChange={setSportFilter} disabled={loading}>
-                  <SelectTrigger className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                  <SelectTrigger className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                     <SelectValue placeholder={loading ? "Loading sports..." : "All Sports"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -183,12 +183,12 @@ export default function LeaderboardPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <label className="text-sm font-medium text-foreground flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-success-500 rounded-full"></div>
                   Skill Level
                 </label>
                 <Select value={levelFilter} onValueChange={setLevelFilter}>
-                  <SelectTrigger className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                  <SelectTrigger className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                     <SelectValue placeholder="All Levels" />
                   </SelectTrigger>
                   <SelectContent>
@@ -225,7 +225,7 @@ export default function LeaderboardPage() {
             {(sportFilter !== 'all' || levelFilter !== 'all') && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-gray-600">Active filters:</span>
+                  <span className="text-xs text-muted-foreground">Active filters:</span>
                   {sportFilter !== 'all' && (
                     <Badge variant="outline" className="text-xs">
                       Sport: {sports.find(s => s.id.toString() === sportFilter)?.displayName || sportFilter}
@@ -245,11 +245,11 @@ export default function LeaderboardPage() {
         {/* Results Header */}
         <div className="mb-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
               <Trophy className="h-4 w-4 text-warning-500" />
               Team Rankings
             </h2>
-            <div className="text-xs text-gray-600">
+            <div className="text-xs text-muted-foreground">
               Showing {filteredLeaderboard.length} of {mockLeaderboardData.length} teams
             </div>
           </div>
@@ -261,22 +261,22 @@ export default function LeaderboardPage() {
             <Card className="text-center py-8">
               <CardContent>
                 <div className="animate-spin w-8 h-8 border-4 border-secondary-600 border-t-transparent rounded-full mx-auto mb-3"></div>
-                <h3 className="text-base font-semibold text-gray-900 mb-1">Loading Leaderboard</h3>
-                <p className="text-sm text-gray-600">Fetching the latest rankings...</p>
+                <h3 className="text-base font-semibold text-foreground mb-1">Loading Leaderboard</h3>
+                <p className="text-sm text-muted-foreground">Fetching the latest rankings...</p>
               </CardContent>
             </Card>
           ) : filteredLeaderboard.length === 0 ? (
             <Card className="text-center py-8">
               <CardContent>
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Trophy className="h-6 w-6 text-gray-400" />
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Trophy className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <h3 className="text-base font-semibold text-gray-900 mb-1">No teams found</h3>
-                <p className="text-sm text-gray-600 mb-3">Try adjusting your filters to see more teams.</p>
+                <h3 className="text-base font-semibold text-foreground mb-1">No teams found</h3>
+                <p className="text-sm text-muted-foreground mb-3">Try adjusting your filters to see more teams.</p>
                 <div className="flex justify-center gap-2">
                   <Badge
                     variant="outline"
-                    className="cursor-pointer hover:bg-gray-50 text-xs"
+                    className="cursor-pointer hover:bg-muted text-xs"
                     onClick={() => {
                       setSportFilter('all')
                       setLevelFilter('all')
@@ -291,9 +291,9 @@ export default function LeaderboardPage() {
             filteredLeaderboard.map((entry) => (
             <Card key={entry.rank} className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 ${
               entry.rank === 1 ? 'bg-gradient-to-r from-warning-50 via-warning-100 to-warning-50 border border-warning-300' :
-              entry.rank === 2 ? 'bg-gradient-to-r from-gray-50 via-gray-100 to-gray-50 border border-gray-300' :
+              entry.rank === 2 ? 'bg-gradient-to-r from-gray-50 via-gray-100 to-gray-50 border border-border' :
               entry.rank === 3 ? 'bg-gradient-to-r from-orange-50 via-orange-100 to-orange-50 border border-orange-300' :
-              'bg-white border border-gray-200 hover:border-gray-300'
+              'bg-card border border-border hover:border-border'
             }`}>
               {/* Top 3 Decorative Border */}
               {entry.rank <= 3 && (
@@ -307,7 +307,7 @@ export default function LeaderboardPage() {
                 <div className="flex items-center gap-3">
                   {/* Rank Circle */}
                   <div className="relative">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-md ${
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-primary-foreground shadow-md ${
                       entry.rank === 1 ? 'bg-gradient-to-br from-warning-400 via-warning-500 to-warning-600' :
                       entry.rank === 2 ? 'bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600' :
                       entry.rank === 3 ? 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600' :
@@ -321,7 +321,7 @@ export default function LeaderboardPage() {
                         entry.rank === 1 ? 'bg-warning-300' :
                         entry.rank === 2 ? 'bg-gray-300' : 'bg-orange-300'
                       }`}>
-                        <Crown className="h-1.5 w-1.5 text-white" />
+                        <Crown className="h-1.5 w-1.5 text-primary-foreground" />
                       </div>
                     )}
                   </div>
@@ -332,7 +332,7 @@ export default function LeaderboardPage() {
                       {/* Team Section */}
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {/* Team Logo */}
-                        <div className="w-8 h-8 bg-white rounded-lg p-1 shadow-sm border border-gray-100 flex-shrink-0">
+                        <div className="w-8 h-8 bg-card rounded-lg p-1 shadow-sm border border-gray-100 flex-shrink-0">
                           <img
                             src={entry.logo}
                             alt={entry.team}
@@ -340,7 +340,7 @@ export default function LeaderboardPage() {
                             onError={(e) => {
                               e.currentTarget.style.display = 'none'
                               if (e.currentTarget.parentElement) {
-                                e.currentTarget.parentElement.innerHTML = `<div class="w-full h-full flex items-center justify-center text-xs font-bold bg-gray-100 rounded">${entry.team.split(' ').map(n => n[0]).join('')}</div>`
+                                e.currentTarget.parentElement.innerHTML = `<div class="w-full h-full flex items-center justify-center text-xs font-bold bg-muted rounded">${entry.team.split(' ').map(n => n[0]).join('')}</div>`
                               }
                             }}
                           />
@@ -348,7 +348,7 @@ export default function LeaderboardPage() {
 
                         {/* Team Info */}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-sm text-gray-900 truncate mb-1">{entry.team}</h3>
+                          <h3 className="font-bold text-sm text-foreground truncate mb-1">{entry.team}</h3>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <Badge variant="secondary" className="text-xs px-1.5 py-0.5 bg-secondary-100 text-secondary-800 border-secondary-200 font-medium">
                               {entry.sportName}
@@ -360,7 +360,7 @@ export default function LeaderboardPage() {
                             }`}>
                               {entry.level}
                             </Badge>
-                            <span className="text-xs text-gray-600 font-medium">
+                            <span className="text-xs text-muted-foreground font-medium">
                               {entry.wins}W • {entry.losses}L
                             </span>
                           </div>
@@ -374,9 +374,9 @@ export default function LeaderboardPage() {
                           <div className="flex items-center gap-1">
                             {entry.recentForm.map((result, idx) => (
                               <div key={idx} className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${
-                                result === 'W' ? 'bg-success-500 text-white' :
-                                result === 'D' ? 'bg-warning-500 text-white' :
-                                'bg-error-500 text-white'
+                                result === 'W' ? 'bg-success-500 text-primary-foreground' :
+                                result === 'D' ? 'bg-warning-500 text-primary-foreground' :
+                                'bg-error-500 text-primary-foreground'
                               }`}>
                                 {result}
                               </div>
@@ -388,12 +388,12 @@ export default function LeaderboardPage() {
                         <div className="text-center">
                           <div className={`text-lg font-bold ${
                             entry.rank === 1 ? 'text-warning-600' :
-                            entry.rank === 2 ? 'text-gray-600' :
-                            entry.rank === 3 ? 'text-orange-600' : 'text-gray-900'
+                            entry.rank === 2 ? 'text-muted-foreground' :
+                            entry.rank === 3 ? 'text-orange-600' : 'text-foreground'
                           }`}>
                             {entry.points}
                           </div>
-                          <div className="text-xs text-gray-500 font-medium">pts</div>
+                          <div className="text-xs text-muted-foreground font-medium">pts</div>
                         </div>
                       </div>
                     </div>
@@ -401,13 +401,13 @@ export default function LeaderboardPage() {
                     {/* Mobile Form */}
                     <div className="flex sm:hidden items-center justify-between mt-3 pt-3 border-t border-gray-100">
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Form</div>
+                        <div className="text-xs text-muted-foreground mb-1">Form</div>
                         <div className="flex items-center gap-1">
                           {entry.recentForm.map((result, idx) => (
                             <div key={idx} className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold ${
-                              result === 'W' ? 'bg-success-500 text-white' :
-                              result === 'D' ? 'bg-warning-500 text-white' :
-                              'bg-error-500 text-white'
+                              result === 'W' ? 'bg-success-500 text-primary-foreground' :
+                              result === 'D' ? 'bg-warning-500 text-primary-foreground' :
+                              'bg-error-500 text-primary-foreground'
                             }`}>
                               {result}
                             </div>

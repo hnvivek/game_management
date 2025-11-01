@@ -1,0 +1,702 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Enums for better type safety
+enum UserRole {
+  CUSTOMER
+  VENDOR_ADMIN
+  VENDOR_STAFF
+  PLATFORM_ADMIN
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  PENDING_PAYMENT
+  PENDING_APPROVAL
+}
+
+enum BookingType {
+  MATCH
+  PRACTICE
+  EVENT
+  TRAINING
+  TOURNAMENT
+}
+
+enum MatchStatus {
+  OPEN
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  phone     String?
+  role      UserRole @default(CUSTOMER)
+  vendorId  String?  // Link to vendor for vendor users
+  
+  // Profile & preferences
+  password  String?  // Hashed password
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  country   String?  // User's country for localization
+  timezone  String?  // User's timezone preference
+  locale    String?  // User's language preference
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
+  bookings        Booking[] // Bookings made by this user
+  captainedTeams  Team[]    // Teams where this user is captain
+  teamMemberships TeamMember[] // Teams this user belongs to
+  performances    MatchPerformance[] // Player performance in matches
+}
+
+model Vendor {
+  id          String   @id @default(cuid())
+  name        String   // "3Lok Sports Hub"
+  slug        String   @unique // "3lok" for subdomain URLs (3lok.gamehub.com)
+  description String?
+  logo        String?  // Logo URL for vendor branding
+  website     String?
+
+  // Business settings
+  isActive    Boolean  @default(true)
+  onboardedAt DateTime @default(now())
+
+  // International settings
+  country     String   @default("IN") // ISO 3166-1 alpha-2 country code
+  timezone    String   @default("Asia/Kolkata") // IANA timezone
+  locale      String   @default("en-IN") // Language and locale (en-US, en-GB, etc.)
+
+  // Branding & customization (for subdomain white-labeling)
+  primaryColor   String?  @default("#f39c12")
+  secondaryColor String?  @default("#0ea5e9")
+  accentColor    String?  @default("#f39c12")
+
+  // Contact info (can be different per location)
+  phone       String?
+  email       String?
+  address     String? // Main address
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users       User[]
+  venues      Venue[]  // Renamed from turfs
+  bookings    Booking[]
+  settings    VendorSettings?
+  locations   VendorLocation[] // Support multiple outlets
+  homeTeams   TeamVendor[] // Teams that play at this vendor
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Venue {
+  id             String   @id @default(cuid())
+  vendorId       String   // Link to vendor
+  locationId     String?  // Link to specific vendor location (for multi-outlet support)
+
+  // Venue details
+  sportId        String   // Link to SportType
+  formatId       String   // Link to FormatType (e.g., "11-a-side", "Full Court")
+  courtNumber    String   // e.g., "Court 1", "Field A", "Hall 2"
+  pricePerHour   Int      // in INR (vendor-configurable, can be overridden by VendorSettings)
+  maxPlayers     Int      // Maximum capacity (should match formatType.maxPlayers)
+  isActive       Boolean  @default(true)
+
+  // Venue-specific pricing (overrides vendor defaults)
+  peakHourPrice  Int?     // Peak hour pricing for this specific venue
+  weekendPrice   Int?     // Weekend pricing for this specific venue
+
+  // Vendor-configurable features
+  amenities      Json?    // JSON array: ["parking", "changing_rooms", "lights"]
+  description    String?
+  images         Json?    // JSON array of image URLs
+
+  // Venue configuration
+  bookingTimeSlots Int?   // Minutes per booking slot (overrides vendor default)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  vendor         Vendor              @relation(fields: [vendorId], references: [id])
+  location       VendorLocation?     @relation(fields: [locationId], references: [id])
+  sport          SportType           @relation(fields: [sportId], references: [id])
+  format         FormatType          @relation(fields: [formatId], references: [id])
+  bookings       Booking[]
+  availabilities VenueAvailability[]
+  conflicts      Conflict[]
+
+  // Performance indexes
+  @@index([vendorId])
+  @@index([sportId, isActive])
+  @@index([vendorId, sportId])
+  @@index([locationId])
+}
+
+model VenueAvailability {
+  id          String   @id @default(cuid())
+  venueId     String
+  date        DateTime // Full date
+  startTime   DateTime // Full timestamp 
+  endTime     DateTime // Full timestamp
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  venue       Venue    @relation(fields: [venueId], references: [id])
+  
+  // Performance indexes
+  @@index([venueId, date])
+  @@index([date, isAvailable])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  vendorId      String        // For vendor-specific queries
+  venueId       String        // Renamed from turfId
+  customerId    String?       // Link to customer (User)
+  matchId       String?       // Link to match if created
+  
+  // Booking details - IMPROVED: proper DateTime types
+  startTime     DateTime      // Full timestamp with date and time
+  endTime       DateTime      // Full timestamp with date and time  
+  duration      Int           // in hours
+  totalAmount   Int           // in INR
+  
+  // Status & type - IMPROVED: use enums
+  status        BookingStatus @default(CONFIRMED)
+  bookingType   BookingType   @default(MATCH)
+  
+  // Customer info (for walk-ins)
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
+  
+  // Additional details
+  notes         String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  vendor        Vendor   @relation(fields: [vendorId], references: [id])
+  venue         Venue    @relation(fields: [venueId], references: [id])
+  customer      User?    @relation(fields: [customerId], references: [id])
+  match         Match?   // Remove @relation from this side (it's defined on Match side)
+  payments      Payment[]
+  
+  // Performance indexes
+  @@index([vendorId])
+  @@index([venueId, startTime])
+  @@index([customerId])
+  @@index([status])
+}
+
+model Conflict {
+  id          String   @id @default(cuid())
+  venueId     String   // Renamed from turfId
+  startTime   DateTime // Full timestamp
+  endTime     DateTime // Full timestamp 
+  reason      String   // maintenance, weather, private_event
+  status      String   @default("active") // active, resolved
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  venue       Venue    @relation(fields: [venueId], references: [id])
+  
+  // Performance indexes
+  @@index([venueId, startTime])
+}
+
+// Support for vendors with multiple outlets/locations
+model VendorLocation {
+  id          String   @id @default(cuid())
+  vendorId    String
+  name        String   // "3Lok Whitefield", "3Lok Koramangala"
+  address     String   // Full address
+  city        String   // "Bengaluru"
+  area        String   // "Whitefield", "Koramangala"
+
+  // Location details
+  country     String?  // Override vendor country if different
+  state       String?  // "Karnataka", "California"
+  pincode     String?
+  phone       String?
+
+  // Geolocation for "near me" features
+  latitude    Float?
+  longitude   Float?
+
+  // Operating hours (can be different per location)
+  operatingHours Json? // JSON format: {"monday": {"open": "06:00", "close": "23:00", "closed": false}}
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  venues      Venue[]  // Venues at this location
+}
+
+// Vendor business settings (comprehensive vendor configuration)
+model VendorSettings {
+  id              String   @id @default(cuid())
+  vendorId        String   @unique
+
+  // Booking settings
+  advanceBookingDays    Int     @default(30) // How far in advance bookings can be made
+  cancellationPolicy    String? // Cancellation policy text
+  paymentMethods        Json?   // JSON array ["cash", "card", "upi"]
+  bookingTimeSlots      Int     @default(60) // Minutes per booking slot (30, 60, 90, 120)
+  maxConcurrentBookings Int     @default(1) // Max simultaneous bookings per venue
+
+  // Pricing settings (overrides venue-specific pricing)
+  basePrice             Int?    // Default base price per hour
+  peakHourPrice         Int?    // Peak hour pricing (6 PM - 9 PM)
+  weekendPrice          Int?    // Weekend pricing
+  currency              String  @default("INR")
+
+  // International pricing
+  currencySymbol        String? // "₹", "$", "€", "£"
+  taxRate               Float?  // Tax rate (0.18 for 18% GST)
+  taxIncluded           Boolean @default(false) // Whether prices include tax
+  currencyConversion   Json?   // Conversion rates to other currencies
+
+  // Display preferences
+  showBookingCalendar   Boolean @default(true)
+  showPricingPublicly   Boolean @default(true)
+  allowOnlinePayments   Boolean @default(true)
+  showContactInfo       Boolean @default(true)
+  themePreference       String  @default("light") // "light", "dark", "auto"
+  customCSS             String? // Vendor's custom CSS
+
+  // Notification settings
+  emailNotifications     Boolean @default(true)
+  smsNotifications       Boolean @default(false)
+  bookingReminders       Boolean @default(true)
+  newBookingAlerts       Boolean @default(true)
+  cancellationAlerts     Boolean @default(true)
+  paymentAlerts          Boolean @default(true)
+
+  // Integration settings
+  paymentProvider        String? // "stripe", "razorpay", "paypal"
+  calendarSync           Boolean @default(false)
+  websiteEmbed           Boolean @default(false)
+  socialMediaLinks       Json?   // JSON object with social media URLs
+
+  // Auto-settings
+  autoApproval           Boolean @default(true)
+  requiresDeposit        Boolean @default(false)
+  depositPercentage      Int?    @default(25)
+
+  // Venue-specific settings
+  availableAmenities     Json?   // JSON array of available amenities
+  venueImages            Json?   // JSON array of venue image URLs
+  sportTypes             Json?   // JSON array of available sports
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  vendor          Vendor   @relation(fields: [vendorId], references: [id])
+}
+
+// Sports catalog for vendors to choose from
+model SportType {
+  id          String       @id @default(cuid())
+  name        String       @unique // "soccer", "basketball", "cricket"
+  displayName String       // "Football/Soccer", "Basketball", "Cricket"
+  icon        String?      // Icon identifier
+  isActive    Boolean      @default(true)
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Relations
+  formats     FormatType[] // Available formats for this sport
+  venues      Venue[]      // Venues using this sport
+  teams       Team[]       // Teams playing this sport
+  matches     Match[]      // Matches in this sport
+  standings   TeamStanding[] // Team standings/rankings
+}
+
+// NEW: Format types for each sport (vendor-configurable)
+model FormatType {
+  id          String   @id @default(cuid())
+  sportId     String   // Link to sport
+  name        String   // "11-a-side", "7-a-side", "Full Court"
+  displayName String   // "11 a side (Full Field)", "7 a side (Small Field)"
+  
+  // Format specifications
+  minPlayers  Int      // Minimum players required
+  maxPlayers  Int      // Maximum players allowed
+  description String?  // "Standard FIFA 11v11 format"
+  
+  // Vendor who created this format (null = system default)
+  createdBy   String?  // vendorId (null = platform defaults)
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  sport       SportType @relation(fields: [sportId], references: [id])
+  venues      Venue[]   // Venues using this format
+  teams       Team[]    // Teams using this format
+  matches     Match[]   // Matches using this format
+  standings   TeamStanding[] // Team standings/rankings
+
+  @@unique([sportId, name]) // Unique format name per sport
+  @@index([sportId, isActive])
+}
+
+// NEW: Team management for organized matches
+model Team {
+  id          String   @id @default(cuid())
+  name        String   // "Arsenal FC Local"
+  description String?
+  logoUrl     String?
+
+  // Team management
+  captainId   String   // Team captain (User)
+  sportId     String   // Link to SportType
+  formatId    String   // Link to FormatType
+  maxPlayers  Int      // Maximum team size
+
+  // Team location/area (where team is based, not where they play)
+  city        String?  // "Bengaluru"
+  area        String?  // "Whitefield", "Koramangala"
+
+  // Team status
+  isActive    Boolean  @default(true)
+  isPublic    Boolean  @default(true) // Can others find and challenge this team?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  captain     User           @relation(fields: [captainId], references: [id])
+  sport       SportType      @relation(fields: [sportId], references: [id])
+  format      FormatType     @relation(fields: [formatId], references: [id])
+  members     TeamMember[]
+  homeMatches Match[]        @relation("HomeTeam")
+  awayMatches Match[]        @relation("AwayTeam")
+  homeVenues  TeamVendor[]   // Vendors where this team plays regularly
+  performances MatchPerformance[] // Player performances in matches
+  standings   TeamStanding[] // Team standings/rankings
+  availabilities TeamAvailability[] // Team's time availability
+  schedules   MatchSchedule[] // AI match suggestions
+
+  @@index([sportId, city, isActive])
+  @@index([captainId])
+  @@index([formatId])
+}
+
+// NEW: Team membership (many-to-many User ↔ Team)
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  userId   String
+  role     String   @default("member") // "member", "admin", "captain"
+  joinedAt DateTime @default(now())
+  
+  // Relations
+  team     Team     @relation(fields: [teamId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  
+  @@unique([teamId, userId]) // User can only be in team once
+  @@index([userId])
+  @@index([teamId])
+}
+
+// NEW: Team-Vendor relationship (many-to-many)
+model TeamVendor {
+  id        String   @id @default(cuid())
+  teamId    String   // Team that plays at this vendor
+  vendorId  String   // Vendor where team plays
+  isPrimary Boolean  @default(false) // Is this their primary home venue?
+
+  // Play history and preferences
+  matchesPlayed Int @default(0)    // Number of matches played here
+  firstPlayedAt DateTime?         // When they first played here
+  lastPlayedAt  DateTime?         // When they last played here
+
+  // Venue preference data
+  venueRating        Int?         // 1-5 rating from team
+  lastVisitRating    Int?         // Rating from last visit
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  matchPerformances MatchPerformance[] // Performance tracking at this venue
+  availabilities TeamAvailability[] // Team's time availability at this venue
+
+  @@unique([teamId, vendorId]) // Team can only have one record per vendor
+  @@index([vendorId]) // For finding teams that play at a vendor
+  @@index([teamId]) // For finding vendors where a team plays
+}
+
+// NEW: Team availability with specific time ranges
+model TeamAvailability {
+  id          String   @id @default(cuid())
+  teamId      String   // Team
+  teamVendorId String?  // If vendor-specific preference (null = global preference)
+
+  // Specific time ranges
+  dayOfWeek   String   // "monday", "tuesday", etc.
+  startTime   String   // "18:00" (6 PM) - HH:mm format
+  endTime     String   // "20:00" (8 PM) - HH:mm format
+
+  // Scheduling frequency constraints
+  maxMatchesPerWeek Int @default(2) // Team's preference (can override default)
+  isActive    Boolean @default(true)
+
+  // Recurring patterns
+  isRecurring Boolean @default(true)  // Every week on this day?
+  validFrom   DateTime @default(now())
+  validUntil  DateTime? // Temporary availability periods
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  team        Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamVendor  TeamVendor? @relation(fields: [teamVendorId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, teamVendorId, dayOfWeek, startTime, endTime])
+  @@index([teamId]) // For finding team's availability
+  @@index([teamVendorId]) // For vendor-specific availability
+}
+
+// NEW: Match scheduling and AI suggestions
+model MatchSchedule {
+  id            String   @id @default(cuid())
+  teamId        String   // Team being offered this match
+  proposedMatchId String? // Links to actual match when created
+  scheduledDate DateTime  // Proposed match date/time
+
+  // Scheduling status
+  status        MatchScheduleStatus @default(SUGGESTED)
+
+  // AI scoring metrics (public-facing)
+  matchScore    Float?   // 0-100 simple score for teams
+  confidence    String?  // "High", "Medium", "Low"
+  reasons       Json?    // Human-readable reasons for suggestion
+
+  // Internal AI metrics (for admins)
+  timeMatchScore    Float? // Time preference matching
+  skillMatchScore   Float? // Skill level compatibility
+  venuePreferenceScore Float? // Venue history/performance
+  availabilityScore Float? // Both teams available
+
+  // Scheduling metadata
+  suggestedBy   String?  // "AI", "captain", "vendor", "manual"
+  suggestedReason String? // Why this match was suggested
+
+  // Response tracking
+  teamResponse  String?  // "accepted", "declined", "pending"
+  respondedAt   DateTime?
+  responseNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  proposedMatch Match? @relation(fields: [proposedMatchId], references: [id])
+
+  @@index([teamId, status])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+enum MatchScheduleStatus {
+  SUGGESTED      // AI suggested this match
+  TEAM_ACCEPTED  // Team accepted the suggestion
+  VENDOR_CONFIRMED // Venue confirmed availability
+  CONFIRMED      // Match is scheduled
+  DECLINED       // Match was declined
+  CANCELLED      // Match was cancelled
+}
+
+// NEW: Player performance tracking per match
+model MatchPerformance {
+  id       String   @id @default(cuid())
+  matchId  String   // Link to match
+  teamId   String   // Team the player plays for
+  userId   String   // Player
+  teamVendorId String? // Link to TeamVendor (where match was played)
+
+  // Basic performance metrics
+  minutesPlayed Int @default(0)    // Minutes played in this match
+  goalsScored   Int @default(0)    // Goals scored
+  assists       Int @default(0)    // Assists provided
+
+  // Sport-specific metrics (JSON for flexibility)
+  sportStats Json?  // Soccer: shots, passes, tackles; Basketball: points, rebounds, etc.
+
+  // Match admin confirmation (both teams need to confirm)
+  isHomeTeamConfirmed  Boolean @default(false)
+  isAwayTeamConfirmed  Boolean @default(false)
+  confirmedByUserId    String?  // User who confirmed the stats
+  confirmedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  match        Match      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team         Team       @relation(fields: [teamId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
+  teamVendor   TeamVendor? @relation(fields: [teamVendorId], references: [id])
+
+  @@unique([matchId, userId]) // Player can only have one performance record per match
+  @@index([teamId, userId]) // For player's team performance history
+  @@index([userId, matchId]) // For player's match history
+  @@index([teamVendorId]) // For venue performance analysis
+}
+
+// NEW: Team standings/rankings based on performance
+model TeamStanding {
+  id           String   @id @default(cuid())
+  teamId       String   // Team
+  sportId      String   // Sport
+  formatId     String   // Format
+
+  // Performance metrics
+  totalMatches Int      @default(0)
+  wins         Int      @default(0)
+  draws        Int      @default(0)
+  losses       Int      @default(0)
+  points       Int      @default(0) // Win=3, Draw=1, Loss=0
+
+  // Scoring metrics
+  goalsFor     Int      @default(0)
+  goalsAgainst Int      @default(0)
+  goalDifference Int    @default(0)
+
+  // Rankings
+  cityRanking  Int?     // Ranking within city
+  overallRanking Int?   // Global ranking
+
+  lastCalculatedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  team   Team      @relation(fields: [teamId], references: [id])
+  sport  SportType @relation(fields: [sportId], references: [id])
+  format FormatType @relation(fields: [formatId], references: [id])
+
+  @@unique([teamId, sportId, formatId]) // One standing per team-sport-format combination
+  @@index([sportId, points]) // For leaderboards
+  @@index([cityRanking]) // For city rankings
+}
+
+// NEW: Organized matches between teams
+model Match {
+  id          String      @id @default(cuid())
+  bookingId   String      @unique // Links to venue booking
+  
+  // Match details
+  sportId     String      // Link to SportType
+  formatId    String      // Link to FormatType
+  maxPlayers  Int         // Players per team
+  
+  // Teams
+  homeTeamId  String      // Requesting team
+  awayTeamId  String?     // Opponent team (null = looking for opponent)
+  
+  // Match status and results
+  status      MatchStatus @default(OPEN)
+  homeScore   Int?        // Final score
+  awayScore   Int?        // Final score
+  
+  // Match description
+  title       String?     // "Friendly Match", "Tournament Semi-Final"
+  description String?
+  notes       String?     // Post-match notes
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  booking       Booking           @relation(fields: [bookingId], references: [id])
+  sport         SportType         @relation(fields: [sportId], references: [id])
+  format        FormatType        @relation(fields: [formatId], references: [id])
+  homeTeam      Team              @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam      Team?             @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  performances  MatchPerformance[] // Player performances in this match
+  schedules     MatchSchedule[]   // AI scheduling suggestions that became matches
+
+  @@index([status])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([sportId, status])
+  @@index([formatId])
+}
+
+// NEW: Payment tracking and history
+model Payment {
+  id          String   @id @default(cuid())
+  bookingId   String   // Links to booking
+  
+  // Payment details
+  amount      Int      // Amount in INR
+  currency    String   @default("INR")
+  method      String   // "cash", "card", "upi", "wallet"
+  status      String   @default("pending") // "pending", "completed", "failed", "refunded"
+  
+  // Payment gateway details
+  gatewayId   String?  // Payment gateway transaction ID
+  gatewayData Json?    // Gateway response data
+  
+  // Timestamps
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  
+  @@index([bookingId])
+  @@index([status])
+}

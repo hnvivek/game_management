@@ -1,0 +1,893 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// ENUMS
+// ========================================
+
+enum UserRole {
+  CUSTOMER
+  VENDOR_ADMIN
+  VENDOR_STAFF
+  PLATFORM_ADMIN
+}
+
+enum TeamRole {
+  ADMIN
+  MEMBER
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum BookingType {
+  DIRECT    // Simple venue booking
+  MATCH     // Team match booking
+  TOURNAMENT // Tournament booking
+}
+
+enum MatchStatus {
+  OPEN
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum TournamentStatus {
+  UPCOMING
+  REGISTRATION_OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PlayerSkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+// ========================================
+// CORE MODELS
+// ========================================
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
+  phone             String?
+  avatarUrl         String?
+
+  // Authentication & Profile
+  password          String?   // Hashed password
+  role              UserRole  @default(CUSTOMER)
+  isActive          Boolean   @default(true)
+  isEmailVerified   Boolean   @default(false)
+  lastLoginAt       DateTime?
+
+  // International Preferences
+  countryCode       String?   // ISO country code
+  currencyCode      String?   // ISO currency code
+  timezone          String?   // User timezone
+  locale            String?   // User language/locale
+
+  // Dates
+  dateOfBirth       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  playerSkills      PlayerSkill[]
+  teamMemberships   TeamMember[]
+  createdBookings   Booking[]
+  createdMatches    Match[]
+  createdTournaments Tournament[]
+  tournamentParticipations TournamentParticipant[]
+  teamInvitesSent   TeamInvite[]  @relation("TeamInvitesSent")
+  teamInvitesReceived TeamInvite[]
+  vendorStaff       VendorStaff[]
+  payments          Payment[]
+  matchResults      MatchResult[]
+  playerContributions PlayerContribution[]
+
+  @@index([email])
+  @@index([role, isActive])
+  @@map("users")
+}
+
+model PlayerSkill {
+  id                String           @id @default(cuid())
+  userId            String
+  sportId           String
+  level             PlayerSkillLevel
+  yearsExperience   Int?
+  preferredPosition String?
+  selfRating        Int?             // 1-10 self assessment
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  // Relations
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sport             SportType        @relation(fields: [sportId], references: [id])
+
+  @@unique([userId, sportId])
+  @@index([sportId, level])
+  @@map("player_skills")
+}
+
+model SportType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  displayName String
+  icon        String?  // Emoji or icon
+  description String?
+
+  // Sport Configuration
+  teamSize    Int      @default(11)
+  duration    Int      @default(90)    // Default duration in minutes
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  teams       Team[]
+  playerSkills PlayerSkill[]
+  formats     FormatType[]
+  courts      Court[]
+  matches     Match[]
+  tournaments Tournament[]
+  bookings        Booking[]
+
+  @@index([isActive])
+  @@map("sport_types")
+}
+
+model FormatType {
+  id          String   @id @default(cuid())
+  sportId     String
+  name        String
+  displayName String
+  description String?
+
+  // Format Configuration
+  minPlayers  Int
+  maxPlayers  Int
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  sport       SportType @relation(fields: [sportId], references: [id], onDelete: Cascade)
+
+  teams       Team[]
+  matches     Match[]
+  courts      Court[]
+
+  @@unique([sportId, name])
+  @@index([sportId])
+  @@map("format_types")
+}
+
+// ========================================
+// VENDOR SYSTEM
+// ========================================
+
+model Vendor {
+  id              String    @id @default(cuid())
+  name            String    @unique
+  slug            String    @unique // For subdomains
+  description     String?
+  logoUrl         String?
+  website         String?
+
+  // Business Details
+  email           String    @unique
+  phone           String?
+  isActive        Boolean   @default(true)
+  onboardedAt     DateTime  @default(now())
+
+  // International Settings
+  countryCode     String    // ISO country code
+  currencyCode    String    // ISO currency code
+  timezone        String    // IANA timezone
+  locale          String    // Language/locale
+
+  // Branding & Theming
+  primaryColor    String?   @default("#3B82F6")
+  secondaryColor  String?   @default("#64748B")
+  accentColor     String?   @default("#F59E0B")
+
+  // Dates
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  venues          Venue[]
+  vendorStaff     VendorStaff[]
+  vendorSettings  VendorSettings?
+  domains         Domain[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("vendors")
+}
+
+model VendorStaff {
+  id          String   @id @default(cuid())
+  vendorId    String
+  userId      String
+  role        UserRole @default(VENDOR_STAFF)
+  permissions String?  // JSON string for SQLite compatibility
+  isActive    Boolean  @default(true)
+  hiredAt     DateTime @default(now())
+
+  // Relations
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, userId])
+  @@index([userId])
+  @@map("vendor_staff")
+}
+
+model VendorSettings {
+  id                String   @id @default(cuid())
+  vendorId          String   @unique
+
+  // Booking Settings
+  advanceBookingDays Int     @default(30)
+  maxConcurrentBookings Int @default(10)
+  requiresDeposit    Boolean  @default(false)
+  depositPercentage  Int?
+
+  // Pricing Settings
+  basePrice          Int?
+  taxRate            Float?
+  taxIncluded        Boolean  @default(true)
+
+  // Display Settings
+  showBookingCalendar Boolean @default(true)
+  showPricingPublicly Boolean @default(true)
+  allowOnlinePayments Boolean @default(true)
+
+  // Notification Settings
+  emailNotifications Boolean @default(true)
+  bookingReminders   Boolean @default(true)
+  newBookingAlerts   Boolean @default(true)
+
+  // Advanced Settings
+  autoApproval       Boolean @default(false)
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  vendor             Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_settings")
+}
+
+model Domain {
+  id          String   @id @default(cuid())
+  vendorId    String?
+  domain      String   @unique
+  isPrimary   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  vendor      Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([domain])
+  @@index([vendorId, isPrimary])
+  @@map("domains")
+}
+
+// ========================================
+// VENUE & COURTS
+// ========================================
+
+model Venue {
+  id              String   @id @default(cuid())
+  vendorId        String
+  name            String
+  description     String?
+  address         String?
+  city            String?
+  postalCode      String?
+
+  // Location
+  latitude        Float?
+  longitude       Float?
+
+  // Contact
+  phone           String?
+  email           String?
+  website         String?
+
+  // Operations
+  isActive        Boolean  @default(true)
+
+  // International
+  countryCode     String   // ISO country code
+  currencyCode    String   // ISO currency code
+  timezone        String?  // IANA timezone
+
+  // Media
+  featuredImage   String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  courts          Court[]
+  bookings        Booking[]
+  matches         Match[]
+  tournaments     Tournament[]
+  operatingHours  VenueOperatingHours[]
+
+  @@index([vendorId, isActive])
+  @@index([city, isActive])
+  @@map("venues")
+}
+
+model Court {
+  id              String   @id @default(cuid())
+  venueId         String
+  sportId         String
+  formatId        String?
+  name            String
+  courtNumber     String
+  description     String?
+
+  // Court Configuration
+  surface         String?  // "grass", "artificial", "hard", "clay", etc.
+  pricePerHour    Int      // In venue's currency
+  maxPlayers      Int
+  isActive        Boolean  @default(true)
+
+  // Features & Amenities
+  features        String?  // JSON string for SQLite compatibility
+
+  // Media
+  images          String?  // JSON string for SQLite compatibility
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  venue           Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  sport           SportType  @relation(fields: [sportId], references: [id])
+  format          FormatType? @relation(fields: [formatId], references: [id])
+
+  bookings        Booking[]
+  matches         Match[]
+  tournaments     Tournament[]
+
+  @@unique([venueId, courtNumber])
+  @@index([venueId, sportId, isActive])
+  @@index([sportId, isActive])
+  @@map("courts")
+}
+
+model VenueOperatingHours {
+  id          String   @id @default(cuid())
+  venueId     String
+  dayOfWeek   Int      // 0 = Sunday, 6 = Saturday
+
+  openingTime String   // "HH:MM" format
+  closingTime String   // "HH:MM" format
+  isOpen      Boolean  @default(true)
+
+  notes       String?
+
+  effectiveFrom DateTime @default(now())
+  effectiveTo DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, dayOfWeek])
+  @@map("venue_operating_hours")
+}
+
+// ========================================
+// TEAM MANAGEMENT
+// ========================================
+
+model Team {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  logoUrl         String?
+
+  // Sport & Format
+  sportId         String
+  formatId        String
+
+  // Team Details
+  city            String?
+  level           String?  // "beginner", "intermediate", "advanced"
+  maxPlayers      Int      @default(11)
+  minPlayers      Int      @default(5)
+
+  // Operations
+  isActive        Boolean  @default(true)
+  isRecruiting    Boolean  @default(true)
+
+  // Preferences
+  homeVenue       String?  // Preferred home venue ID
+  practiceDay     String?  // "monday", "tuesday", etc.
+  practiceTime    String?  // "19:00" format
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  sport           SportType  @relation(fields: [sportId], references: [id])
+  format          FormatType @relation(fields: [formatId], references: [id])
+
+  members         TeamMember[]
+  homeMatches     Match[]    @relation("HomeTeam")
+  awayMatches     Match[]    @relation("AwayTeam")
+  teamInvites     TeamInvite[]
+  playerContributions PlayerContribution[]
+  tournamentParticipants TournamentParticipant[]
+
+  @@index([sportId, city, isActive])
+  @@index([formatId])
+  @@index([isActive, isRecruiting])
+  @@map("teams")
+}
+
+model TeamMember {
+  id                String    @id @default(cuid())
+  teamId            String
+  userId            String
+  role              TeamRole  @default(MEMBER)
+
+  // Player Details
+  jerseyNumber      Int?
+  preferredPosition String?
+
+  // Permissions
+  canBookMatches    Boolean   @default(false)  // Only ADMIN = true
+  canApproveMatches Boolean   @default(false)  // Only ADMIN = true
+
+  // Status
+  isActive          Boolean   @default(true)
+  joinedAt          DateTime  @default(now())
+  leftAt            DateTime?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  team              Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@index([teamId, role])
+  @@index([teamId, isActive])
+  @@map("team_members")
+}
+
+model TeamInvite {
+  id          String    @id @default(cuid())
+  teamId      String
+  senderId    String    // Who sent the invite
+  receiverId  String    // Who received the invite
+  message     String?
+  role        TeamRole  @default(MEMBER)
+
+  status      String    @default("PENDING") // "PENDING", "ACCEPTED", "DECLINED", "EXPIRED"
+
+  expiresAt   DateTime  @default(dbgenerated("(datetime('now', '+7 days'))"))
+  respondedAt DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sender      User      @relation("TeamInvitesSent", fields: [senderId], references: [id])
+  receiver    User      @relation("TeamInvitesReceived", fields: [receiverId], references: [id])
+
+  @@index([receiverId, status])
+  @@index([teamId, status])
+  @@index([expiresAt])
+  @@map("team_invites")
+}
+
+// ========================================
+// BOOKING SYSTEM
+// ========================================
+
+model Booking {
+  id              String        @id @default(cuid())
+
+  // Booking Type
+  type            BookingType
+
+  // Core Details
+  courtId         String
+  userId          String    // Who created the booking
+  sportId         String
+  startTime       DateTime
+  endTime         DateTime
+  duration        Int       // In minutes
+
+  // Booking Details
+  title           String?
+  description     String?
+  maxPlayers      Int?
+  notes           String?
+
+  // Pricing
+  totalAmount     Int       // In venue's currency
+
+  // Status
+  status          BookingStatus @default(PENDING_PAYMENT)
+
+  // Cancellation
+  cancelledAt     DateTime?
+  cancellationReason String?
+  refundedAmount  Int?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  court           Court     @relation(fields: [courtId], references: [id], onDelete: Restrict)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sport           SportType @relation(fields: [sportId], references: [id])
+
+  payments        Payment[]
+
+  @@index([courtId, startTime])
+  @@index([courtId, startTime, status])
+  @@index([userId, createdAt])
+  @@index([status, startTime])
+  @@index([type, status])
+  @@map("bookings")
+}
+
+// ========================================
+// MATCH SYSTEM
+// ========================================
+
+model Match {
+  id               String       @id @default(cuid())
+
+  // Teams
+  homeTeamId       String
+  awayTeamId       String?      // NULL = Open match
+
+  // Sport & Format
+  sportId          String
+  formatId         String
+
+  // Venue & Schedule
+  courtId          String
+  scheduledDate    DateTime
+  duration         Int          // In minutes
+
+  // Match Creation & Approval
+  createdBy        String
+  awayApproved     Boolean      @default(false)
+  approvedBy       String?
+  approvedAt       DateTime?
+
+  // Payment Tracking
+  totalAmount      Int
+  homeAmountPaid   Int          @default(0)
+  awayAmountPaid   Int          @default(0)
+  homePaymentStatus String      @default("PENDING")
+  awayPaymentStatus String      @default("PENDING")
+
+  // Match Details
+  title            String?
+  description      String?
+  homeScore        Int?
+  awayScore        Int?
+
+  // Status
+  status           MatchStatus  @default(OPEN)
+
+  // Cancellation
+  cancelledAt      DateTime?
+  cancellationReason String?
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Relations
+  homeTeam         Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam         Team?        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  court            Court        @relation(fields: [courtId], references: [id])
+  sport            SportType    @relation(fields: [sportId], references: [id])
+  format           FormatType   @relation(fields: [formatId], references: [id])
+  creator          User         @relation(fields: [createdBy], references: [id])
+
+  venue           Venue         @relation(fields: [courtId], references: [id])
+  payments         Payment[]
+  matchResults     MatchResult[]
+  playerContributions PlayerContribution[]
+
+  @@index([status])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([courtId, scheduledDate])
+  @@index([courtId, scheduledDate, status])
+  @@index([createdBy])
+  @@index([sportId, status, scheduledDate])
+  @@map("matches")
+}
+
+// ========================================
+// TOURNAMENT SYSTEM
+// ========================================
+
+model Tournament {
+  id                  String           @id @default(cuid())
+  name                String
+  description         String?
+
+  // Sport & Format
+  sportId             String
+  preferredFormatId   String?          // Desired format
+  actualFormatId      String?          // Actual format used
+
+  // Tournament Details
+  format              String           // "KNOCKOUT", "LEAGUE", "ROUND_ROBIN"
+  maxTeams            Int
+  targetPlayersPerTeam Int?
+
+  // Schedule
+  startDate           DateTime
+  endDate             DateTime
+  registrationDeadline DateTime
+  matchDuration       Int              @default(90) // minutes per match
+
+  // Venue
+  venueId             String?
+
+  // Pricing
+  entryFee            Int              @default(0)
+  prizePool           Int              @default(0)
+
+  // Organization
+  createdBy           String
+
+  // Status
+  status              TournamentStatus @default(UPCOMING)
+
+  // Rules & Settings
+  rules               String?
+  autoFormTeams       Boolean          @default(false) // Smart team formation
+
+  // Cancellation
+  cancelledAt         DateTime?
+  cancellationReason  String?
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  // Relations
+  sport               SportType        @relation(fields: [sportId], references: [id])
+  preferredFormat     FormatType?      @relation(fields: [preferredFormatId], references: [id])
+  actualFormat        FormatType?      @relation(fields: [actualFormatId], references: [id])
+  venue               Venue?           @relation(fields: [venueId], references: [id])
+  creator             User             @relation(fields: [createdBy], references: [id])
+
+  participants        TournamentParticipant[]
+  courts              Court[]
+
+  @@index([status, startDate])
+  @@index([sportId, status])
+  @@index([createdBy])
+  @@index([venueId])
+  @@map("tournaments")
+}
+
+model TournamentParticipant {
+  id              String    @id @default(cuid())
+  tournamentId    String
+  userId          String
+  teamId          String?   // If joining as team
+  playerLevel     String?   // "beginner", "intermediate", "advanced"
+  preferredRole   String?   // Player's preferred position
+
+  status          String    @default("REGISTERED") // "REGISTERED", "CONFIRMED", "WAITLIST", "CANCELLED"
+
+  // Team Formation (for auto-form tournaments)
+  assignedTeamId  String?   // Auto-assigned team number
+  teamColor       String?   // Team color/name
+
+  // Payment
+  feePaid         Boolean   @default(false)
+  feeAmount       Int?
+  paidAt          DateTime?
+
+  registeredAt    DateTime  @default(now())
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  tournament      Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team            Team?      @relation("TournamentTeam", fields: [teamId], references: [id])
+
+  @@unique([tournamentId, userId])
+  @@index([tournamentId, status])
+  @@index([userId, status])
+  @@map("tournament_participants")
+}
+
+// ========================================
+// PAYMENT SYSTEM
+// ========================================
+
+model Payment {
+  id                  String        @id @default(cuid())
+
+  // Payment Association
+  bookingId           String?
+  matchId             String?
+  tournamentId        String?
+
+  // Payment Details
+  amount              Int           // In currency
+  currency            String        // ISO currency code
+  paymentMethod       String        // "card", "cash", "online", "wallet"
+  paymentGateway      String?       // "stripe", "paypal", "manual"
+
+  // Gateway Details
+  gatewayTransactionId String?
+  gatewayResponse     String?       // JSON string for SQLite compatibility
+
+  // Status
+  status              PaymentStatus @default(PENDING)
+
+  // Refunds
+  refundedAmount      Int           @default(0)
+  refundReason        String?
+  refundedAt          DateTime?
+
+  // User
+  userId              String
+
+  // Timestamps
+  processedAt         DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // Relations
+  booking             Booking?      @relation(fields: [bookingId], references: [id])
+  match               Match?        @relation(fields: [matchId], references: [id])
+  user                User          @relation(fields: [userId], references: [id])
+
+  @@index([bookingId])
+  @@index([matchId])
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@index([gatewayTransactionId])
+  @@map("payments")
+}
+
+// ========================================
+// MATCH STATISTICS
+// ========================================
+
+model MatchResult {
+  id              String    @id @default(cuid())
+  matchId         String    @unique
+  homeScore       Int
+  awayScore       Int
+  status          String    @default("OFFICIAL") // "OFFICIAL", "PROVISIONAL", "DISPUTED"
+
+  // Match Duration
+  actualStartTime DateTime?
+  actualEndTime   DateTime?
+
+  // Verification
+  submittedBy     String    // User who submitted the result
+  verifiedBy      String?   // User who verified the result
+  verifiedAt      DateTime?
+
+  // Notes
+  notes           String?
+  highlights      String?   // Key moments of the match
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  match           Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  submitter       User      @relation(fields: [submittedBy], references: [id])
+  verifier        User?     @relation(fields: [verifiedBy], references: [id])
+
+  contributions   PlayerContribution[]
+
+  @@index([matchId])
+  @@index([submittedBy])
+  @@index([status])
+  @@map("match_results")
+}
+
+model PlayerContribution {
+  id              String    @id @default(cuid())
+  matchResultId   String
+  userId          String
+  teamId          String
+  sportId         String
+
+  // Performance Metrics
+  goals           Int       @default(0)
+  assists         Int       @default(0)
+  saves           Int       @default(0)
+  yellowCards     Int       @default(0)
+  redCards        Int       @default(0)
+
+  // Overall Rating
+  rating          Int?      // 1-10 rating
+
+  // Additional Stats (sport-specific)
+  customStats     String?   // JSON string for SQLite compatibility
+
+  // Position played in this match
+  position        String?
+
+  // Submission
+  submittedBy     String
+  verifiedBy      String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  matchResult     MatchResult @relation(fields: [matchResultId], references: [id], onDelete: Cascade)
+  user            User        @relation("ContributionSubmitter", fields: [userId], references: [id])
+  team            Team        @relation(fields: [teamId], references: [id])
+  sport           SportType   @relation(fields: [sportId], references: [id])
+  verifier        User?       @relation("ContributionVerifier", fields: [verifiedBy], references: [id])
+
+  @@unique([matchResultId, userId])
+  @@index([matchResultId])
+  @@index([userId])
+  @@index([teamId])
+  @@index([sportId])
+  @@map("player_contributions")
+}

@@ -103,12 +103,12 @@ export default function AISuggestionsPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-muted">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Sign In Required</h2>
-          <p className="text-gray-600 mb-6">Please sign in to view AI-powered match suggestions</p>
+          <h2 className="text-2xl font-bold text-foreground mb-4">Sign In Required</h2>
+          <p className="text-muted-foreground mb-6">Please sign in to view AI-powered match suggestions</p>
           <Link href="/signin">
-            <button className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+            <button className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90">
               Sign In
             </button>
           </Link>
@@ -122,17 +122,17 @@ export default function AISuggestionsPage() {
     switch (status) {
       case 'PENDING':
         if (homeAccepted && awayAccepted) {
-          return { text: 'Scheduled', color: 'bg-green-100 text-green-800', icon: CheckCircle }
+          return { text: 'Scheduled', color: 'bg-success/20 text-success-foreground', icon: CheckCircle }
         } else if (homeAccepted || awayAccepted) {
-          return { text: 'Partial Accept', color: 'bg-yellow-100 text-yellow-800', icon: Clock }
+          return { text: 'Partial Accept', color: 'bg-warning/20 text-yellow-800', icon: Clock }
         }
-        return { text: 'Pending', color: 'bg-blue-100 text-blue-800', icon: Clock }
+        return { text: 'Pending', color: 'bg-primary/20 text-primary-foreground', icon: Clock }
       case 'SCHEDULED':
-        return { text: 'Scheduled', color: 'bg-green-100 text-green-800', icon: CheckCircle }
+        return { text: 'Scheduled', color: 'bg-success/20 text-success-foreground', icon: CheckCircle }
       case 'EXPIRED':
-        return { text: 'Expired', color: 'bg-red-100 text-red-800', icon: XCircle }
+        return { text: 'Expired', color: 'bg-destructive/20 text-destructive-foreground', icon: XCircle }
       default:
-        return { text: status, color: 'bg-gray-100 text-gray-800', icon: Clock }
+        return { text: status, color: 'bg-muted text-foreground', icon: Clock }
     }
   }
 
@@ -149,70 +149,70 @@ export default function AISuggestionsPage() {
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 0.9) return 'text-green-600 bg-green-50'
-    if (score >= 0.8) return 'text-blue-600 bg-blue-50'
-    if (score >= 0.7) return 'text-yellow-600 bg-yellow-50'
-    return 'text-red-600 bg-red-50'
+    if (score >= 0.9) return 'text-success bg-success/10'
+    if (score >= 0.8) return 'text-primary bg-primary/10'
+    if (score >= 0.7) return 'text-warning bg-warning/10'
+    return 'text-destructive bg-destructive/10'
   }
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Bot className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-pulse" />
-          <p className="text-gray-600">AI is analyzing team data and generating suggestions...</p>
+          <Bot className="h-12 w-12 text-primary mx-auto mb-4 animate-pulse" />
+          <p className="text-muted-foreground">AI is analyzing team data and generating suggestions...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-3 mb-4">
-            <Bot className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">AI Match Suggestions</h1>
+            <Bot className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold text-foreground">AI Match Suggestions</h1>
           </div>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             Personalized match recommendations based on team preferences, availability, and venue compatibility
           </p>
         </div>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-card rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active Suggestions</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-muted-foreground">Active Suggestions</p>
+                <p className="text-2xl font-bold text-foreground">
                   {suggestions.filter(s => s.status === 'PENDING').length}
                 </p>
               </div>
-              <Target className="h-8 w-8 text-blue-600" />
+              <Target className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-card rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Scheduled Matches</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-muted-foreground">Scheduled Matches</p>
+                <p className="text-2xl font-bold text-foreground">
                   {suggestions.filter(s => s.status === 'SCHEDULED' || (s.homeTeamAccepted && s.awayTeamAccepted)).length}
                 </p>
               </div>
-              <Trophy className="h-8 w-8 text-green-600" />
+              <Trophy className="h-8 w-8 text-success" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-card rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Average AI Score</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-muted-foreground">Average AI Score</p>
+                <p className="text-2xl font-bold text-foreground">
                   {suggestions.length > 0 ? (suggestions.reduce((acc, s) => acc + s.aiScore, 0) / suggestions.length * 100).toFixed(0) : 0}%
                 </p>
               </div>
-              <Bot className="h-8 w-8 text-purple-600" />
+              <Bot className="h-8 w-8 text-warning" />
             </div>
           </div>
         </div>
@@ -224,7 +224,7 @@ export default function AISuggestionsPage() {
             const StatusIcon = statusBadge.icon
 
             return (
-              <div key={suggestion.id} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+              <div key={suggestion.id} className="bg-card rounded-lg shadow hover:shadow-md transition-shadow">
                 <div className="p-6">
                   {/* Header with Score and Status */}
                   <div className="flex items-center justify-between mb-4">
@@ -238,7 +238,7 @@ export default function AISuggestionsPage() {
                       </span>
                     </div>
                     {suggestion.expiresAt && suggestion.status === 'PENDING' && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-muted-foreground">
                         <Clock className="h-4 w-4 inline mr-1" />
                         Expires in {Math.max(0, Math.floor((new Date(suggestion.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)))}h
                       </div>
@@ -250,28 +250,28 @@ export default function AISuggestionsPage() {
                     {/* Teams */}
                     <div className="space-y-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Users className="h-5 w-5 text-blue-600" />
+                        <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
+                          <Users className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">{suggestion.homeTeam.name}</p>
-                          <p className="text-sm text-gray-500">{suggestion.homeTeam.city}</p>
+                          <p className="font-medium text-foreground">{suggestion.homeTeam.name}</p>
+                          <p className="text-sm text-muted-foreground">{suggestion.homeTeam.city}</p>
                         </div>
                         {suggestion.homeTeamAccepted && (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
+                          <CheckCircle className="h-5 w-5 text-success" />
                         )}
                       </div>
-                      <div className="text-center text-gray-400">vs</div>
+                      <div className="text-center text-muted-foreground">vs</div>
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <Users className="h-5 w-5 text-green-600" />
+                        <div className="w-10 h-10 bg-success/20 rounded-full flex items-center justify-center">
+                          <Users className="h-5 w-5 text-success" />
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">{suggestion.awayTeam.name}</p>
-                          <p className="text-sm text-gray-500">{suggestion.awayTeam.city}</p>
+                          <p className="font-medium text-foreground">{suggestion.awayTeam.name}</p>
+                          <p className="text-sm text-muted-foreground">{suggestion.awayTeam.city}</p>
                         </div>
                         {suggestion.awayTeamAccepted && (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
+                          <CheckCircle className="h-5 w-5 text-success" />
                         )}
                       </div>
                     </div>
@@ -279,41 +279,41 @@ export default function AISuggestionsPage() {
                     {/* Venue and Time */}
                     <div className="space-y-4">
                       <div className="flex items-center space-x-3">
-                        <MapPin className="h-5 w-5 text-gray-400" />
+                        <MapPin className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium text-gray-900">{suggestion.venue.name}</p>
-                          <p className="text-sm text-gray-500">{suggestion.venue.courtNumber}</p>
+                          <p className="font-medium text-foreground">{suggestion.venue.name}</p>
+                          <p className="text-sm text-muted-foreground">{suggestion.venue.courtNumber}</p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
-                        <Calendar className="h-5 w-5 text-gray-400" />
+                        <Calendar className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium text-gray-900">{formatDate(suggestion.scheduledTime)}</p>
-                          <p className="text-sm text-gray-500">{suggestion.duration} hours</p>
+                          <p className="font-medium text-foreground">{formatDate(suggestion.scheduledTime)}</p>
+                          <p className="text-sm text-muted-foreground">{suggestion.duration} hours</p>
                         </div>
                       </div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-muted-foreground">
                         💰 ₹{suggestion.venue.pricePerHour}/hour
                       </div>
                     </div>
 
                     {/* AI Scoring Factors */}
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-3">AI Scoring Breakdown</h4>
+                      <h4 className="font-medium text-foreground mb-3">AI Scoring Breakdown</h4>
                       <div className="space-y-2">
                         {Object.entries(suggestion.scoringFactors).map(([factor, score]) => (
                           <div key={factor} className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600 capitalize">
+                            <span className="text-sm text-muted-foreground capitalize">
                               {factor.replace(/([A-Z])/g, ' $1').trim()}
                             </span>
                             <div className="flex items-center space-x-2">
-                              <div className="w-20 bg-gray-200 rounded-full h-2">
+                              <div className="w-20 bg-muted/50 rounded-full h-2">
                                 <div
-                                  className="bg-blue-600 h-2 rounded-full"
+                                  className="bg-primary h-2 rounded-full"
                                   style={{ width: `${score * 100}%` }}
                                 />
                               </div>
-                              <span className="text-sm text-gray-500 w-10 text-right">
+                              <span className="text-sm text-muted-foreground w-10 text-right">
                                 {(score * 100).toFixed(0)}%
                               </span>
                             </div>
@@ -325,11 +325,11 @@ export default function AISuggestionsPage() {
 
                   {/* Actions */}
                   {suggestion.status === 'PENDING' && (
-                    <div className="mt-6 pt-6 border-t border-gray-200 flex justify-end space-x-3">
-                      <button className="px-4 py-2 text-gray-600 hover:text-gray-800">
+                    <div className="mt-6 pt-6 border-t border-border flex justify-end space-x-3">
+                      <button className="px-4 py-2 text-muted-foreground hover:text-foreground">
                         Decline
                       </button>
-                      <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                      <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
                         Accept Match
                       </button>
                     </div>
@@ -342,9 +342,9 @@ export default function AISuggestionsPage() {
 
         {suggestions.length === 0 && (
           <div className="text-center py-12">
-            <Bot className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No AI suggestions available</h3>
-            <p className="text-gray-600">
+            <Bot className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No AI suggestions available</h3>
+            <p className="text-muted-foreground">
               AI is analyzing team data and will generate personalized match suggestions soon.
             </p>
           </div>

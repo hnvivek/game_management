@@ -256,7 +256,7 @@ export default function VendorDashboard() {
                           {venue.courtNumber}
                         </CardDescription>
                       </div>
-                      <Badge className="bg-emerald-100 text-emerald-800">
+                      <Badge className="bg-emerald-100 text-success-foreground">
                         {venue.sport}
                       </Badge>
                     </div>
@@ -264,7 +264,7 @@ export default function VendorDashboard() {
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Price/hour:</span>
-                      <span className="font-semibold text-emerald-600">₹{venue.pricePerHour.toLocaleString('en-IN')}</span>
+                      <span className="font-semibold text-success">₹{venue.pricePerHour.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Max players:</span>
@@ -309,8 +309,8 @@ export default function VendorDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
-                        <span className="font-semibold text-emerald-600">₹{booking.amount.toLocaleString('en-IN')}</span>
-                        <Badge className="bg-emerald-100 text-emerald-800">
+                        <span className="font-semibold text-success">₹{booking.amount.toLocaleString('en-IN')}</span>
+                        <Badge className="bg-emerald-100 text-success-foreground">
                           {booking.status}
                         </Badge>
                       </div>

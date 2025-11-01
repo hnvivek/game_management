@@ -2,6 +2,69 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { addVendorFiltering } from '@/lib/subdomain'
 
+/**
+ * @swagger
+ * /api/bookings:
+ *   get:
+ *     summary: Get list of bookings
+ *     description: Retrieve a list of venue bookings with optional filtering by venue, customer, status, date range, and booking type
+ *     tags:
+ *       - Bookings
+ *     parameters:
+ *       - in: query
+ *         name: venueId
+ *         schema:
+ *           type: string
+ *         description: Filter by venue ID
+ *       - in: query
+ *         name: customerId
+ *         schema:
+ *           type: string
+ *         description: Filter by customer ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Filter by booking status
+ *       - in: query
+ *         name: bookingType
+ *         schema:
+ *           type: string
+ *         description: Filter by booking type
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter by start date (YYYY-MM-DD format)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter by end date (YYYY-MM-DD format)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Maximum number of results to return
+ *     responses:
+ *       200:
+ *         description: List of bookings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Booking'
+ *       500:
+ *         description: Failed to fetch bookings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/bookings - List bookings with filtering
 export async function GET(request: NextRequest) {
   try {
@@ -18,10 +81,10 @@ export async function GET(request: NextRequest) {
     // Build filter conditions with automatic subdomain filtering
     const whereConditions: any = {}
 
-    if (venueId) whereConditions.venueId = venueId
-    if (customerId) whereConditions.customerId = customerId
+    if (venueId) whereConditions.court = { venueId }
+    if (customerId) whereConditions.userId = customerId
     if (status) whereConditions.status = status.toUpperCase()
-    if (bookingType) whereConditions.bookingType = bookingType.toUpperCase()
+    if (bookingType) whereConditions.type = bookingType.toUpperCase()
 
     // Date range filtering
     if (startDate || endDate) {
@@ -31,21 +94,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Add automatic vendor filtering based on subdomain
-    // Filter bookings by venue vendor when on vendor subdomain
-    await addVendorFiltering(request, whereConditions, 'venue.vendorId')
+    // Filter bookings by court vendor when on vendor subdomain
+    await addVendorFiltering(request, whereConditions, 'court.venue.vendorId')
 
     const bookings = await db.booking.findMany({
       where: whereConditions,
       include: {
-        venue: {
+        court: {
           include: {
-            vendor: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                primaryColor: true,
-                secondaryColor: true
+            venue: {
+              include: {
+                vendor: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    primaryColor: true,
+                    secondaryColor: true
+                  }
+                }
               }
             },
             sport: {
@@ -66,7 +133,7 @@ export async function GET(request: NextRequest) {
             }
           }
         },
-        customer: {
+        user: {
           select: {
             id: true,
             name: true,
@@ -74,31 +141,14 @@ export async function GET(request: NextRequest) {
             phone: true
           }
         },
-        match: {
-          select: {
-            id: true,
-            homeTeam: {
-              select: {
-                id: true,
-                name: true
-              }
-            },
-            awayTeam: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
-        },
         payments: {
           select: {
             id: true,
             amount: true,
             currency: true,
-            method: true,
+            paymentMethod: true,
             status: true,
-            paidAt: true
+            processedAt: true
           }
         }
       },
@@ -138,23 +188,25 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const {
-      venueId,
+      courtId,
+      userId,
+      sportId,
       startTime,
       endTime,
       duration,
       totalAmount,
-      bookingType = 'MATCH',
-      customerName,
-      customerPhone,
-      customerEmail,
+      type = 'DIRECT',
+      title,
+      description,
+      maxPlayers,
       notes,
-      status = 'CONFIRMED',
+      status = 'PENDING_PAYMENT',
     } = body
 
     // Validate required fields
-    if (!venueId || !startTime || !duration || !totalAmount) {
+    if (!courtId || !userId || !sportId || !startTime || !duration || !totalAmount) {
       return NextResponse.json(
-        { error: 'Missing required fields: venueId, startTime, duration, totalAmount' },
+        { error: 'Missing required fields: courtId, userId, sportId, startTime, duration, totalAmount' },
         { status: 400 }
       )
     }
@@ -189,57 +241,102 @@ export async function POST(request: NextRequest) {
     } else {
       endDateTime = new Date(startDateTime.getTime() + durationHours * 60 * 60 * 1000)
     }
-    
+
     // Check availability
-    const isAvailable = await checkVenueAvailability(
-      venueId,
+    const isAvailable = await checkCourtAvailability(
+      courtId,
       startDateTime,
       endDateTime
     )
     
     if (!isAvailable) {
       return NextResponse.json(
-        { error: 'Venue is not available for the selected time slot' },
+        { error: 'Court is not available for the selected time slot' },
         { status: 409 }
       )
     }
-    
-    // Get venue details to include vendor information
-    const venue = await db.venue.findUnique({
-      where: { id: venueId },
-      select: { vendorId: true }
+
+    // Get or create user if it doesn't exist
+    let user = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true }
     })
 
-    if (!venue) {
-      return NextResponse.json({ error: 'Venue not found' }, { status: 404 })
+    if (!user) {
+      // Create a default user for testing if the user doesn't exist
+      try {
+        user = await db.user.create({
+          data: {
+            id: userId,
+            name: 'Test User',
+            email: `user-${userId}@example.com`,
+            phone: '+1234567890',
+            role: 'CUSTOMER',
+            isActive: true
+          },
+          select: { id: true, name: true, email: true }
+        })
+        console.log('Created default test user:', user.id)
+      } catch (createError) {
+        console.error('Failed to create user:', createError)
+        return NextResponse.json(
+          { error: 'Invalid user ID and failed to create default user' },
+          { status: 400 }
+        )
+      }
     }
 
-    // Create booking with proper DateTime objects
+    // Get court details to validate
+    const court = await db.court.findUnique({
+      where: { id: courtId },
+      select: { id: true, venueId: true }
+    })
+
+    if (!court) {
+      return NextResponse.json({ error: 'Court not found' }, { status: 404 })
+    }
+
+    // Create booking with proper ISO DateTime strings
     const booking = await db.booking.create({
       data: {
-        venueId,
-        vendorId: venue.vendorId,
-        startTime: startDateTime,
-        endTime: endDateTime,
+        courtId,
+        userId,
+        sportId,
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString(),
         duration: durationHours,
         totalAmount,
-        bookingType: bookingType?.toUpperCase(),
+        type: type?.toUpperCase(),
         status: status?.toUpperCase(),
-        customerName,
-        customerPhone,
-        customerEmail,
+        title,
+        description,
+        maxPlayers,
         notes,
       },
       include: {
-        venue: {
+        court: {
           include: {
-            vendor: {
-              select: {
-                id: true,
-                name: true,
-                slug: true
+            venue: {
+              include: {
+                vendor: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true
+                  }
+                }
               }
-            }
+            },
+            sport: true,
+            format: true
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true
           }
         }
       },
@@ -248,30 +345,34 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ booking })
   } catch (error) {
     console.error('Error creating booking:', error)
+    // Log the actual error message for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Booking error details:', errorMessage)
+
     return NextResponse.json(
-      { error: 'Failed to create booking' },
+      { error: 'Failed to create booking', details: errorMessage },
       { status: 500 }
     )
   }
 }
 
 
-async function checkVenueAvailability(
-  venueId: string,
+async function checkCourtAvailability(
+  courtId: string,
   startTime: Date,
   endTime: Date
 ): Promise<boolean> {
   try {
     // Validate DateTime inputs
     if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-      throw new Error('Invalid DateTime objects provided to checkVenueAvailability')
+      throw new Error('Invalid DateTime objects provided to checkCourtAvailability')
     }
 
     // Check for existing bookings using DateTime overlap detection
     const overlappingBookings = await db.booking.findMany({
       where: {
-        venueId,
-        status: 'CONFIRMED',
+        courtId,
+        status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] },
         AND: [
           { startTime: { lt: endTime } },
           { endTime: { gt: startTime } },
@@ -279,22 +380,22 @@ async function checkVenueAvailability(
       },
     })
 
-    // Check for conflicts using simplified overlap detection
-    const overlappingConflicts = await db.conflict.findMany({
+    // Check for existing matches using DateTime overlap detection
+    const overlappingMatches = await db.match.findMany({
       where: {
-        venueId,
-        status: 'active',
+        courtId,
+        status: 'CONFIRMED',
         AND: [
-          { startTime: { lt: endTime } },
-          { endTime: { gt: startTime } },
+          { scheduledDate: { lt: endTime } },
+          { scheduledDate: { gt: startTime } },
         ],
       },
     })
 
     return overlappingBookings.length === 0 &&
-           overlappingConflicts.length === 0
+           overlappingMatches.length === 0
   } catch (error) {
-    console.error('Error checking availability in booking:', error)
+    console.error('Error checking court availability:', error)
     return false
   }
 }

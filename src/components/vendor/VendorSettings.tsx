@@ -612,11 +612,11 @@ function VendorPreview({ settings }: { settings: VendorSettings }) {
     <div className="space-y-6">
       {/* Header Preview */}
       <div
-        className="p-6 text-white rounded-lg"
+        className="p-6 text-primary-foreground rounded-lg"
         style={{ backgroundColor: settings.profile.primaryColor }}
       >
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-white/20 rounded-lg flex items-center justify-center">
+          <div className="w-16 h-16 bg-card/20 rounded-lg flex items-center justify-center">
             {settings.profile.logo ? (
               <img src={settings.profile.logo} alt="Logo" className="w-full h-full object-cover rounded-lg" />
             ) : (
@@ -627,7 +627,7 @@ function VendorPreview({ settings }: { settings: VendorSettings }) {
           </div>
           <div>
             <h1 className="text-2xl font-bold">{settings.profile.businessName || 'Your Venue'}</h1>
-            <p className="text-white/80">{settings.profile.description || 'Your venue description'}</p>
+            <p className="text-primary-foreground/80">{settings.profile.description || 'Your venue description'}</p>
           </div>
         </div>
       </div>

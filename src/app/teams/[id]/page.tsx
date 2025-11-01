@@ -240,7 +240,7 @@ export default function TeamDetailsPage() {
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-16">
-            <div className="text-red-500 mb-4">❌</div>
+            <div className="text-destructive mb-4">❌</div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
               {error || 'Team not found'}
             </h3>
@@ -458,7 +458,7 @@ export default function TeamDetailsPage() {
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2">
-                      <Trophy className="h-5 w-5 text-amber-500" />
+                      <Trophy className="h-5 w-5 text-warning" />
                       <span className="text-sm font-medium text-muted-foreground">Total Wins</span>
                     </div>
                     <div className="text-2xl font-bold mt-2">{team.statistics.totalWins}</div>
@@ -476,7 +476,7 @@ export default function TeamDetailsPage() {
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2">
-                      <Target className="h-5 w-5 text-blue-500" />
+                      <Target className="h-5 w-5 text-primary" />
                       <span className="text-sm font-medium text-muted-foreground">Total Matches</span>
                     </div>
                     <div className="text-2xl font-bold mt-2">{team.statistics.totalMatches}</div>
@@ -504,8 +504,8 @@ export default function TeamDetailsPage() {
                   <div className="flex gap-2">
                     {team.statistics.recentForm.slice(0, 10).map((result, idx) => (
                       <div key={idx} className={`w-8 h-8 rounded flex items-center justify-center text-sm font-bold ${
-                        result.result === 'WIN' ? 'bg-emerald-500 text-white' :
-                        result.result === 'DRAW' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'
+                        result.result === 'WIN' ? 'bg-emerald-500 text-primary-foreground' :
+                        result.result === 'DRAW' ? 'bg-warning text-primary-foreground' : 'bg-destructive text-primary-foreground'
                       }`}>
                         {result.result[0]}
                       </div>
@@ -560,7 +560,7 @@ export default function TeamDetailsPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleRemoveMember(member.user.id)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-destructive hover:text-destructive"
                           >
                             Remove
                           </Button>
@@ -605,15 +605,15 @@ export default function TeamDetailsPage() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Wins</span>
-                          <span className="font-medium text-emerald-600">{team.statistics.totalWins}</span>
+                          <span className="font-medium text-success">{team.statistics.totalWins}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Draws</span>
-                          <span className="font-medium text-amber-600">{team.statistics.totalDraws}</span>
+                          <span className="font-medium text-warning">{team.statistics.totalDraws}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Losses</span>
-                          <span className="font-medium text-red-600">{team.statistics.totalLosses}</span>
+                          <span className="font-medium text-destructive">{team.statistics.totalLosses}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Win Rate</span>

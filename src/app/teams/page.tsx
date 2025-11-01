@@ -164,7 +164,7 @@ export default function TeamsPage() {
           </div>
         ) : error ? (
           <div className="text-center py-16">
-            <div className="text-red-500 mb-4">❌</div>
+            <div className="text-destructive mb-4">❌</div>
             <h3 className="text-lg font-semibold text-foreground mb-2">Error loading teams</h3>
             <p className="text-muted-foreground mb-4">{error}</p>
             <Button onClick={fetchTeams} variant="outline">
@@ -235,7 +235,7 @@ export default function TeamsPage() {
                       </div>
 
                       {/* Level Badge */}
-                      <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs">
                         {team.level || 'Intermediate'}
                       </Badge>
                     </div>
@@ -254,33 +254,33 @@ export default function TeamsPage() {
                       <>
                         <div className="grid grid-cols-3 gap-2 text-center">
                           <div className="bg-emerald-50 rounded p-2 border border-emerald-200">
-                            <div className="text-base font-bold text-emerald-700">
+                            <div className="text-base font-bold text-success">
                               {team.recentForm.filter(f => f === 'W').length}
                             </div>
-                            <div className="text-xs text-emerald-600">Wins</div>
+                            <div className="text-xs text-success">Wins</div>
                           </div>
-                          <div className="bg-amber-50 rounded p-2 border border-amber-200">
-                            <div className="text-base font-bold text-amber-700">
+                          <div className="bg-warning/10 rounded p-2 border border-amber-200">
+                            <div className="text-base font-bold text-warning">
                               {team.recentForm.filter(f => f === 'D').length}
                             </div>
-                            <div className="text-xs text-amber-600">Draws</div>
+                            <div className="text-xs text-warning">Draws</div>
                           </div>
-                          <div className="bg-red-50 rounded p-2 border border-red-200">
-                            <div className="text-base font-bold text-red-700">
+                          <div className="bg-destructive/10 rounded p-2 border border-destructive/20">
+                            <div className="text-base font-bold text-destructive">
                               {team.recentForm.filter(f => f === 'L').length}
                             </div>
-                            <div className="text-xs text-red-600">Losses</div>
+                            <div className="text-xs text-destructive">Losses</div>
                           </div>
                         </div>
 
                         {/* Recent Form */}
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-gray-700">Recent Form</span>
+                          <span className="text-xs font-medium text-foreground">Recent Form</span>
                           <div className="flex gap-1">
                             {team.recentForm.map((result, idx) => (
                               <div key={idx} className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
-                                result === 'W' ? 'bg-emerald-500 text-white' :
-                                result === 'D' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'
+                                result === 'W' ? 'bg-emerald-500 text-primary-foreground' :
+                                result === 'D' ? 'bg-warning text-primary-foreground' : 'bg-destructive text-primary-foreground'
                               }`}>
                                 {result}
                               </div>
@@ -292,7 +292,7 @@ export default function TeamsPage() {
 
                     {/* Team Members */}
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-700">Squad</span>
+                      <span className="text-xs font-medium text-foreground">Squad</span>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">
                           {team._count?.members || 1} players
@@ -300,8 +300,8 @@ export default function TeamsPage() {
                         <div className="flex -space-x-2">
                           {/* Mock squad avatars */}
                           {Array.from({ length: Math.min(4, team._count?.members || 1) }).map((_, idx) => (
-                            <Avatar key={idx} className="h-6 w-6 border-2 border-white">
-                              <AvatarFallback className="text-xs font-semibold bg-gray-100 text-gray-700">
+                            <Avatar key={idx} className="h-6 w-6 border-2 border-primary-foreground">
+                              <AvatarFallback className="text-xs font-semibold bg-muted text-foreground">
                                 {String.fromCharCode(65 + idx)}
                               </AvatarFallback>
                             </Avatar>
@@ -336,7 +336,7 @@ export default function TeamsPage() {
                     {/* Action Buttons */}
                     <div className="grid grid-cols-2 gap-2 pt-2">
                       <Link href={`/teams/${team.id}`} className="block">
-                        <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-xs h-8">
+                        <Button size="sm" className="w-full bg-primary hover:bg-primary/90 text-xs h-8">
                           <Users className="h-3 w-3 mr-1" />
                           View Team
                         </Button>

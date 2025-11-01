@@ -67,22 +67,22 @@ export default function VendorOnboarding() {
       <div className="max-w-2xl mx-auto px-6">
         {/* Progress Indicator */}
         <div className="flex justify-between items-center mb-8">
-          <div className={`flex items-center ${step >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+          <div className={`flex items-center ${step >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted/50'}`}>
               1
             </div>
             <span className="ml-2 font-medium">Venue Info</span>
           </div>
-          <div className={`w-16 h-1 ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'} rounded`}></div>
-          <div className={`flex items-center ${step >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+          <div className={`w-16 h-1 ${step >= 2 ? 'bg-primary' : 'bg-muted/50'} rounded`}></div>
+          <div className={`flex items-center ${step >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted/50'}`}>
               2
             </div>
             <span className="ml-2 font-medium">Admin Details</span>
           </div>
-          <div className={`w-16 h-1 ${step >= 3 ? 'bg-green-600' : 'bg-gray-200'} rounded`}></div>
-          <div className={`flex items-center ${step >= 3 ? 'text-green-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>
+          <div className={`w-16 h-1 ${step >= 3 ? 'bg-success' : 'bg-muted/50'} rounded`}></div>
+          <div className={`flex items-center ${step >= 3 ? 'text-success' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-success text-primary-foreground' : 'bg-muted/50'}`}>
               {step >= 3 ? <CheckCircle className="h-5 w-5" /> : '3'}
             </div>
             <span className="ml-2 font-medium">Complete</span>
@@ -112,7 +112,7 @@ export default function VendorOnboarding() {
                 <div>
                   <Label htmlFor="location">Location *</Label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="location"
                       placeholder="e.g., Whitefield, Bengaluru"
@@ -138,7 +138,7 @@ export default function VendorOnboarding() {
                 <div>
                   <Label htmlFor="phone">Phone Number *</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="phone"
                       placeholder="+91 9876543210"
@@ -151,7 +151,7 @@ export default function VendorOnboarding() {
                 <div>
                   <Label htmlFor="email">Email Address *</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
@@ -167,7 +167,7 @@ export default function VendorOnboarding() {
               <div>
                 <Label htmlFor="website">Website (Optional)</Label>
                 <div className="relative">
-                  <Globe className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="website"
                     placeholder="https://www.3loksports.com"
@@ -191,7 +191,7 @@ export default function VendorOnboarding() {
               <Button 
                 onClick={() => setStep(2)}
                 disabled={!canProceedToStep2}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-primary hover:bg-primary/90"
               >
                 Continue to Admin Setup
               </Button>
@@ -212,7 +212,7 @@ export default function VendorOnboarding() {
               <div>
                 <Label htmlFor="adminName">Admin Name *</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="adminName"
                     placeholder="Full name of the admin"
@@ -226,7 +226,7 @@ export default function VendorOnboarding() {
               <div>
                 <Label htmlFor="adminEmail">Admin Email *</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="adminEmail"
                     type="email"
@@ -241,7 +241,7 @@ export default function VendorOnboarding() {
               <div>
                 <Label htmlFor="adminPhone">Admin Phone</Label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="adminPhone"
                     placeholder="+91 9876543210"
@@ -252,9 +252,9 @@ export default function VendorOnboarding() {
                 </div>
               </div>
 
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="bg-warning/10 border border-yellow-200 rounded-lg p-4">
                 <h4 className="font-medium text-yellow-800 mb-2">Admin Login Credentials</h4>
-                <p className="text-sm text-yellow-700">
+                <p className="text-sm text-warning">
                   A temporary password will be sent to the admin email address. 
                   You can change it after first login.
                 </p>
@@ -271,11 +271,11 @@ export default function VendorOnboarding() {
                 <Button 
                   onClick={handleSubmit}
                   disabled={!vendorData.adminName || !vendorData.adminEmail || isSubmitting}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  className="flex-1 bg-primary hover:bg-primary/90"
                 >
                   {isSubmitting ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
                       Creating Account...
                     </>
                   ) : (
@@ -291,18 +291,18 @@ export default function VendorOnboarding() {
         {step === 3 && (
           <Card>
             <CardHeader className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-8 w-8 text-success" />
               </div>
-              <CardTitle className="text-2xl text-green-800">Welcome Aboard! 🎉</CardTitle>
+              <CardTitle className="text-2xl text-success-foreground">Welcome Aboard! 🎉</CardTitle>
               <CardDescription className="text-base">
                 Your venue has been successfully onboarded to our platform.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 text-center">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                <h3 className="font-semibold text-green-800 mb-3">What's Next?</h3>
-                <ul className="space-y-2 text-sm text-green-700">
+              <div className="bg-success/10 border border-success/20 rounded-lg p-6">
+                <h3 className="font-semibold text-success-foreground mb-3">What's Next?</h3>
+                <ul className="space-y-2 text-sm text-success">
                   <li>✅ Admin credentials have been sent to your email</li>
                   <li>📱 Log in to your dashboard to add venues and sports</li>
                   <li>💰 Set your pricing and availability</li>
@@ -312,7 +312,7 @@ export default function VendorOnboarding() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button 
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  className="flex-1 bg-primary hover:bg-primary/90"
                   onClick={() => window.location.href = '/vendor/dashboard'}
                 >
                   Go to Dashboard

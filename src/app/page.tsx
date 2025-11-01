@@ -251,11 +251,11 @@ export default function Home() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'OPEN': return 'bg-green-50 text-green-700 border-green-200'
-      case 'CONFIRMED': return 'bg-blue-50 text-blue-700 border-blue-200'
-      case 'COMPLETED': return 'bg-gray-50 text-gray-700 border-gray-200'
-      case 'CANCELLED': return 'bg-red-50 text-red-700 border-red-200'
-      default: return 'bg-gray-50 text-gray-700 border-gray-200'
+      case 'OPEN': return 'bg-success/10 text-success border-success/20'
+      case 'CONFIRMED': return 'bg-primary/10 text-primary border-primary/20'
+      case 'COMPLETED': return 'bg-muted text-foreground border-border'
+      case 'CANCELLED': return 'bg-destructive/10 text-destructive border-destructive/20'
+      default: return 'bg-muted text-foreground border-border'
     }
   }
 
@@ -286,7 +286,7 @@ export default function Home() {
         }}
       >
         <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="relative w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <div className="text-center space-y-6">
             <Badge className="bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30 px-3 py-0.5">
               <Zap className="h-3 w-3 mr-1 inline" />
@@ -318,7 +318,7 @@ export default function Home() {
               <Link href="/book-venue">
                 <Button
                   size="lg"
-                  className="bg-white text-primary hover:bg-gray-50 px-8 py-4 text-base font-semibold shadow-xl h-auto transition-all hover:scale-105"
+                  className="bg-card text-primary hover:bg-muted px-8 py-4 text-base font-semibold shadow-xl h-auto transition-all hover:scale-105"
                 >
                   Get Started
                   <ArrowRight className="h-5 w-5 ml-2" />
@@ -330,7 +330,7 @@ export default function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
+      <section className="w-full px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => {
             const Icon = stat.icon
@@ -348,7 +348,7 @@ export default function Home() {
       </section>
 
       {/* How It Works */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <section className="w-full px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-foreground mb-4">How It Works</h2>
           <p className="text-lg text-muted-foreground">Simple steps to get you playing</p>
@@ -381,7 +381,7 @@ export default function Home() {
 
       {/* Popular Venues */}
       <section className="py-16 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-foreground mb-4">Popular Venues</h2>
             <p className="text-lg text-muted-foreground">Top-rated facilities in Bengaluru</p>
@@ -392,9 +392,9 @@ export default function Home() {
               Array(3).fill(0).map((_, index) => (
                 <Card key={index} className="animate-pulse">
                   <CardContent className="p-6">
-                    <div className="h-6 bg-gray-200 rounded w-32 mb-4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                    <div className="h-20 bg-gray-200 rounded w-full"></div>
+                    <div className="h-6 bg-muted/50 rounded w-32 mb-4"></div>
+                    <div className="h-4 bg-muted/50 rounded w-24 mb-2"></div>
+                    <div className="h-20 bg-muted/50 rounded w-full"></div>
                   </CardContent>
                 </Card>
               ))
@@ -440,7 +440,7 @@ export default function Home() {
 
     {/* Simple CTA */}
       <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="w-full px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-foreground mb-4">
             Ready to Get Started?
           </h2>

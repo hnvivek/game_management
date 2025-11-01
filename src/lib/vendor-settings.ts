@@ -24,7 +24,7 @@ export async function getVendorSettings(vendorId: string): Promise<EnhancedVendo
     const vendor = await db.vendor.findUnique({
       where: { id: vendorId },
       include: {
-        settings: true
+        vendorSettings: true
       }
     })
 
@@ -36,10 +36,10 @@ export async function getVendorSettings(vendorId: string): Promise<EnhancedVendo
     const country = vendor.country || 'IN'
     const timezone = vendor.timezone || 'Asia/Kolkata'
     const locale = vendor.locale || 'en-IN'
-    const currency = vendor.settings?.currency || 'INR'
-    const currencySymbol = vendor.settings?.currencySymbol || getCurrencyInfo(currency)?.symbol || currency
-    const taxRate = vendor.settings?.taxRate
-    const taxIncluded = vendor.settings?.taxIncluded || false
+    const currency = vendor.vendorSettings?.currency || 'INR'
+    const currencySymbol = vendor.vendorSettings?.currencySymbol || getCurrencyInfo(currency)?.symbol || currency
+    const taxRate = vendor.vendorSettings?.taxRate
+    const taxIncluded = vendor.vendorSettings?.taxIncluded || false
 
     // Get country and currency info
     const countryInfo = getCountryInfo(country)
@@ -77,7 +77,7 @@ export async function getVendorSettingsBySlug(slug: string): Promise<EnhancedVen
     const vendor = await db.vendor.findUnique({
       where: { slug },
       include: {
-        settings: true
+        vendorSettings: true
       }
     })
 

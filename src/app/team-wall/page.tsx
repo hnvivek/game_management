@@ -137,14 +137,14 @@ export default function TeamWall() {
 
   const getStatusColor = (isActive: boolean) => {
     return isActive
-      ? 'bg-green-50 text-green-700 border-green-200'
-      : 'bg-gray-50 text-gray-700 border-gray-200'
+      ? 'bg-success/10 text-success border-success/20'
+      : 'bg-muted text-foreground border-border'
   }
 
   const getRoleBadge = (team: Team) => {
     if (team.captain?.id === currentUser.id) {
       return (
-        <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+        <Badge className="bg-warning/10 text-warning border-amber-200">
           <Crown className="h-3 w-3 mr-1" />
           Captain
         </Badge>
@@ -154,7 +154,7 @@ export default function TeamWall() {
     const member = team.members?.find(m => m.user.id === currentUser.id)
     if (member) {
       return (
-        <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
           <User className="h-3 w-3 mr-1" />
           Member
         </Badge>
@@ -211,7 +211,7 @@ export default function TeamWall() {
             </div>
             {team.captain && (
               <div className="flex items-center text-muted-foreground">
-                <Crown className="h-4 w-4 mr-1 text-amber-500" />
+                <Crown className="h-4 w-4 mr-1 text-warning" />
                 {team.captain.name}
               </div>
             )}
@@ -224,7 +224,7 @@ export default function TeamWall() {
             </div>
             {team.sport && (
               <div className="flex items-center gap-1">
-                <Trophy className="h-4 w-4 text-amber-500" />
+                <Trophy className="h-4 w-4 text-warning" />
                 <span>{team.sport.displayName}</span>
               </div>
             )}
@@ -240,7 +240,7 @@ export default function TeamWall() {
               ))}
               <span className="text-sm text-muted-foreground">(4.0)</span>
             </div>
-            <Button variant="ghost" size="sm" className="text-blue-600 group-hover:text-blue-700 p-0 h-auto">
+            <Button variant="ghost" size="sm" className="text-primary group-hover:text-primary p-0 h-auto">
               View Team <Trophy className="h-3 w-3 ml-1 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>
@@ -256,31 +256,31 @@ export default function TeamWall() {
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3 flex-1">
-                <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
+                <div className="h-10 w-10 bg-muted/50 rounded-full"></div>
                 <div className="flex-1 space-y-2">
-                  <div className="h-6 bg-gray-200 rounded w-32"></div>
-                  <div className="h-4 bg-gray-200 rounded w-40"></div>
-                  <div className="h-4 bg-gray-200 rounded w-28"></div>
+                  <div className="h-6 bg-muted/50 rounded w-32"></div>
+                  <div className="h-4 bg-muted/50 rounded w-40"></div>
+                  <div className="h-4 bg-muted/50 rounded w-28"></div>
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <div className="h-6 bg-gray-200 rounded w-16"></div>
-                <div className="h-6 bg-gray-200 rounded w-20"></div>
+                <div className="h-6 bg-muted/50 rounded w-16"></div>
+                <div className="h-6 bg-muted/50 rounded w-20"></div>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="h-4 bg-gray-200 rounded w-20"></div>
-              <div className="h-4 bg-gray-200 rounded w-24"></div>
+              <div className="h-4 bg-muted/50 rounded w-20"></div>
+              <div className="h-4 bg-muted/50 rounded w-24"></div>
             </div>
             <div className="flex items-center justify-between">
-              <div className="h-4 bg-gray-200 rounded w-28"></div>
-              <div className="h-4 bg-gray-200 rounded w-20"></div>
+              <div className="h-4 bg-muted/50 rounded w-28"></div>
+              <div className="h-4 bg-muted/50 rounded w-20"></div>
             </div>
             <div className="flex items-center justify-between pt-2">
-              <div className="h-4 bg-gray-200 rounded w-24"></div>
-              <div className="h-8 bg-gray-200 rounded w-20"></div>
+              <div className="h-4 bg-muted/50 rounded w-24"></div>
+              <div className="h-8 bg-muted/50 rounded w-20"></div>
             </div>
           </CardContent>
         </Card>
@@ -289,25 +289,25 @@ export default function TeamWall() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <Navbar />
 
       {/* Header */}
-      <div className="bg-white border-b">
+      <div className="bg-card border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+              <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
                 <Users className="h-8 w-8 text-primary" />
                 Teams Wall
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-muted-foreground mt-1">
                 Manage your teams and discover new ones to join
               </p>
             </div>
             <div className="flex items-center gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   type="text"
                   placeholder="Search teams..."
@@ -327,30 +327,30 @@ export default function TeamWall() {
 
           {/* User Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+            <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-primary/20">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-blue-700">{allTeams.length}</div>
-                <div className="text-sm text-blue-600">All Teams</div>
+                <div className="text-2xl font-bold text-primary">{allTeams.length}</div>
+                <div className="text-sm text-primary">All Teams</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-amber-700">{myTeams.length}</div>
-                <div className="text-sm text-amber-600">My Teams</div>
+                <div className="text-2xl font-bold text-warning">{myTeams.length}</div>
+                <div className="text-sm text-warning">My Teams</div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+            <Card className="bg-gradient-to-r from-green-50 to-green-100 border-success/20">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-green-700">{teamsImIn.length}</div>
-                <div className="text-sm text-green-600">Teams Joined</div>
+                <div className="text-2xl font-bold text-success">{teamsImIn.length}</div>
+                <div className="text-sm text-success">Teams Joined</div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
+            <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-warning/20">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-purple-700">
+                <div className="text-2xl font-bold text-warning">
                   {myTeams.length + teamsImIn.length}
                 </div>
-                <div className="text-sm text-purple-600">Total Participation</div>
+                <div className="text-sm text-warning">Total Participation</div>
               </CardContent>
             </Card>
           </div>
@@ -380,18 +380,18 @@ export default function TeamWall() {
               <LoadingSkeleton />
             ) : error ? (
               <div className="text-center py-12">
-                <div className="text-red-500 mb-4">❌</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Error loading teams</h3>
-                <p className="text-gray-600 mb-4">{error}</p>
+                <div className="text-destructive mb-4">❌</div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">Error loading teams</h3>
+                <p className="text-muted-foreground mb-4">{error}</p>
                 <Button onClick={fetchTeamsData}>Try Again</Button>
               </div>
             ) : filterTeams(allTeams).length === 0 ? (
               <div className="text-center py-12">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   {searchQuery ? 'No teams found' : 'No teams yet'}
                 </h3>
-                <p className="text-gray-600 mb-4">
+                <p className="text-muted-foreground mb-4">
                   {searchQuery
                     ? 'Try adjusting your search terms'
                     : 'Be the first to create a team and start building the community!'
@@ -417,9 +417,9 @@ export default function TeamWall() {
               <LoadingSkeleton />
             ) : myTeams.length === 0 ? (
               <div className="text-center py-12">
-                <Crown className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No teams owned</h3>
-                <p className="text-gray-600 mb-4">
+                <Crown className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">No teams owned</h3>
+                <p className="text-muted-foreground mb-4">
                   You haven't created any teams yet. Start by creating your first team!
                 </p>
                 <Link href="/teams">
@@ -440,9 +440,9 @@ export default function TeamWall() {
               <LoadingSkeleton />
             ) : teamsImIn.length === 0 ? (
               <div className="text-center py-12">
-                <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No teams joined</h3>
-                <p className="text-gray-600 mb-4">
+                <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">No teams joined</h3>
+                <p className="text-muted-foreground mb-4">
                   You haven't joined any teams yet. Browse available teams and request to join!
                 </p>
                 <Button
