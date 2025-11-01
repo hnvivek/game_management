@@ -244,23 +244,105 @@ export async function GET(request: NextRequest) {
         courts.map(async (court) => {
           // If specific start time is provided (with or without end time)
           if (startTime) {
-            // Use provided end time or calculate it
-            const actualEndTime = endTime || calculateEndTime(startTime, durationHours)
-            const isAvailable = await checkCourtAvailability(
-              court.id,
-              date,
-              startTime,
-              actualEndTime
-            )
+            const availableSlots = []
+
+            // If end time is provided, generate slots within the time range
+            if (endTime) {
+              const [startHour] = startTime.split(':').map(Number)
+              const [endHour] = endTime.split(':').map(Number)
+
+              // Generate individual slots within the time range
+              for (let hour = startHour; hour < endHour; hour++) {
+                const slotStartTime = `${hour.toString().padStart(2, '0')}:00`
+                const slotEndTime = calculateEndTime(slotStartTime, durationHours)
+
+                // Only include slots that end before or at the specified end time
+                if (parseInt(slotEndTime.split(':')[0]) <= endHour ||
+                    (parseInt(slotEndTime.split(':')[0]) === endHour && slotEndTime.split(':')[1] === '00')) {
+                  const slotAvailable = await checkCourtAvailability(
+                    court.id,
+                    date,
+                    slotStartTime,
+                    slotEndTime
+                  )
+                  if (slotAvailable) {
+                    availableSlots.push({
+                      startTime: slotStartTime,
+                      endTime: slotEndTime
+                    })
+                  }
+                }
+              }
+            } else {
+              // When no end time is provided, generate all available slots from start time onwards
+              // Fetch vendor timezone for accurate time filtering
+              let vendorTimezone: string | undefined
+              try {
+                const venue = await db.venue.findUnique({
+                  where: { id: court.venueId },
+                  select: {
+                    vendor: {
+                      select: {
+                        timezone: true
+                      }
+                    }
+                  }
+                })
+                vendorTimezone = venue?.vendor?.timezone || undefined
+              } catch (error) {
+                console.warn('Failed to fetch vendor timezone:', error)
+              }
+
+              const businessHours = generateBusinessHoursSlots(durationHours, requestDate, vendorTimezone)
+
+              // Filter slots to only include those from start time onwards
+              const eligibleSlots = businessHours.filter(slot => slot >= startTime)
+
+              for (const startSlot of eligibleSlots) {
+                const endSlot = calculateEndTime(startSlot, durationHours)
+                const slotAvailable = await checkCourtAvailability(
+                  court.id,
+                  date,
+                  startSlot,
+                  endSlot
+                )
+                if (slotAvailable) {
+                  availableSlots.push({
+                    startTime: startSlot,
+                    endTime: endSlot
+                  })
+                }
+              }
+            }
+
             return {
               ...court,
-              isAvailable,
-              availableSlots: isAvailable ? [{ startTime, endTime: actualEndTime }] : []
+              isAvailable: availableSlots.length > 0,
+              availableSlots
             }
           } else {
             // If no specific time, return all available slots for the requested duration
             // Generate business hours slots based on the requested duration
-            const businessHours = generateBusinessHoursSlots(durationHours)
+
+            // Fetch vendor timezone for accurate time filtering
+            let vendorTimezone: string | undefined
+            try {
+              const venue = await db.venue.findUnique({
+                where: { id: court.venueId },
+                select: {
+                  vendor: {
+                    select: {
+                      timezone: true
+                    }
+                  }
+                }
+              })
+              vendorTimezone = venue?.vendor?.timezone || undefined
+            } catch (error) {
+              console.warn('Failed to fetch vendor timezone:', error)
+            }
+
+            const businessHours = generateBusinessHoursSlots(durationHours, requestDate, vendorTimezone)
 
             const availableSlots = []
 
@@ -468,11 +550,66 @@ async function getNextCourtNumber(venueId: string): Promise<number> {
   return lastCourt ? lastCourt.courtNumber + 1 : 1
 }
 
-function generateBusinessHoursSlots(durationHours: number): string[] {
+function generateBusinessHoursSlots(durationHours: number, requestDate?: Date, vendorTimezone?: string): string[] {
   // Sports facilities typical business hours: 6:00 AM - 10:00 PM
   const businessStartHour = 6
   const businessEndHour = 22
   const slots: string[] = []
+
+  // Get current time in vendor timezone or local timezone
+  let currentHour: number
+  let currentMinute: number
+  let isToday: boolean
+
+  if (vendorTimezone) {
+    try {
+      const now = new Date()
+
+      // Get current time components in vendor timezone
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: vendorTimezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+
+      const parts = formatter.formatToParts(now)
+      const values: any = {}
+      parts.forEach(part => {
+        values[part.type] = part.value
+      })
+
+      currentHour = parseInt(values.hour, 10)
+      currentMinute = parseInt(values.minute, 10)
+
+      // Check if request date is today in vendor timezone
+      const vendorDateFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: vendorTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      })
+
+      const vendorDateString = vendorDateFormatter.format(now)
+      const requestDateString = requestDate ? vendorDateFormatter.format(requestDate) : vendorDateString
+      isToday = vendorDateString === requestDateString
+
+      console.log('API: Using vendor timezone', vendorTimezone, 'current time:', currentHour + ':' + currentMinute.toString().padStart(2, '0'))
+    } catch (error) {
+      console.warn('API: Failed to use vendor timezone, falling back to local time:', error)
+      // Fallback to local time
+      const now = new Date()
+      currentHour = now.getHours()
+      currentMinute = now.getMinutes()
+      isToday = requestDate && now.toDateString() === requestDate.toDateString()
+    }
+  } else {
+    // Use local time if no vendor timezone provided
+    const now = new Date()
+    currentHour = now.getHours()
+    currentMinute = now.getMinutes()
+    isToday = requestDate && now.toDateString() === requestDate.toDateString()
+  }
 
   // For any duration, generate hourly slots (06:00, 07:00, 08:00, etc.)
   // The duration affects how long each slot is, not when it starts
@@ -485,6 +622,15 @@ function generateBusinessHoursSlots(durationHours: number): string[] {
     // Only include slots that end before business closing time
     // For example: 3-hour booking must end by 22:00, so latest start is 19:00
     if (hour + durationHours <= businessEndHour) {
+      // If it's today and the time has passed, skip this slot
+      if (isToday) {
+        // Skip slots that are in the past or very close to current time
+        if (hour < currentHour ||
+            (hour === currentHour && currentMinute >= 30)) {
+          continue // Skip past slots
+        }
+      }
+
       slots.push(startTime)
     }
   }

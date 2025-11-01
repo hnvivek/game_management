@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Search, CalendarIcon, Clock, MapPin, Users, RefreshCw, AlertCircle, X, Globe } from 'lucide-react'
+import { Search, CalendarIcon, Clock, MapPin, Users, AlertCircle, X, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import CollapsibleSearchContainer from '@/components/search/CollapsibleSearchContainer'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -110,6 +111,88 @@ export default function CourtAvailability({
   // State for date picker
   const [datePickerOpen, setDatePickerOpen] = useState(false)
 
+  // Helper function to get current time in vendor timezone
+  const getCurrentTimeInVendorTimezone = () => {
+    // Get timezone from first available court, or default to local timezone
+    const vendorTimezone = courts.length > 0 && courts[0].venue?.vendor?.timezone
+      ? courts[0].venue.vendor.timezone
+      : Intl.DateTimeFormat().resolvedOptions().timeZone
+
+    try {
+      const now = new Date()
+
+      // Use Intl.DateTimeFormat to get vendor's current time components
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: vendorTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      })
+
+      const parts = formatter.formatToParts(now)
+      const values: any = {}
+      parts.forEach(part => {
+        values[part.type] = part.value
+      })
+
+      // Construct vendor time in local timezone (avoids timezone conversion issues)
+      const vendorTime = new Date(
+        `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}:${values.second}`
+      )
+
+      console.log('Local time:', now.toISOString())
+      console.log('Vendor timezone:', vendorTimezone)
+      console.log('Vendor hour:', values.hour, 'Vendor minute:', values.minute)
+      console.log('Vendor time constructed:', vendorTime.toISOString())
+
+      return vendorTime
+    } catch (error) {
+      console.warn('Failed to convert timezone, using local time:', error)
+      return new Date()
+    }
+  }
+
+  // Generate default time slots (6 AM to 11 PM in 1-hour intervals)
+  const generateDefaultTimeSlots = () => {
+    const slots = []
+    const vendorNow = getCurrentTimeInVendorTimezone()
+    const currentHour = vendorNow.getHours()
+    const currentMinute = vendorNow.getMinutes()
+
+    // Check if selected date is today (in vendor timezone)
+    const isToday = selectedDate &&
+      vendorNow.toDateString() === new Date(selectedDate).toDateString()
+
+    for (let hour = 6; hour <= 23; hour++) {
+      const startTime = `${hour.toString().padStart(2, '0')}:00`
+      const displayTime = hour <= 12 ? `${hour}:00 ${hour === 12 ? 'PM' : 'AM'}` : `${hour - 12}:00 PM`
+
+      // Skip past times if the selected date is today
+      if (isToday) {
+        // Skip slots that are in the past or very close to current time
+        if (hour < currentHour ||
+            (hour === currentHour && currentMinute >= 30)) {
+          continue // Skip past slots
+        }
+      }
+
+      slots.push({
+        value: startTime,
+        label: displayTime
+      })
+    }
+    return slots
+  }
+
+  // Initialize default time slots and update when selected date or courts change
+  useEffect(() => {
+    setAvailableTimeSlots(generateDefaultTimeSlots())
+  }, [selectedDate, courts])
+
   // Dynamic price ranges based on currency
   const [priceRanges, setPriceRanges] = useState<Array<{value: string, label: string}>>([
     { value: '0-50', label: 'Under $50' },
@@ -146,6 +229,35 @@ export default function CourtAvailability({
     { value: '3', label: '3 hours' },
   ]
 
+  // Search parameters for CollapsibleSearchContainer
+  const searchParams = {
+    selectedSport,
+    selectedDate,
+    selectedDuration,
+    selectedCity,
+    selectedArea,
+    selectedCountry,
+    selectedFormat,
+    selectedStartTime,
+    selectedEndTime,
+    selectedPriceRange,
+    selectedVenue
+  }
+
+  const handleSearchParamsChange = (newParams: typeof searchParams) => {
+    setSelectedSport(newParams.selectedSport)
+    setSelectedDate(newParams.selectedDate)
+    setSelectedDuration(newParams.selectedDuration)
+    setSelectedCity(newParams.selectedCity)
+    setSelectedArea(newParams.selectedArea)
+    setSelectedCountry(newParams.selectedCountry)
+    setSelectedFormat(newParams.selectedFormat)
+    setSelectedStartTime(newParams.selectedStartTime)
+    setSelectedEndTime(newParams.selectedEndTime)
+    setSelectedPriceRange(newParams.selectedPriceRange)
+    setSelectedVenue(newParams.selectedVenue)
+  }
+
   // Auto-set today's date and fetch sports
   useEffect(() => {
     const today = new Date()
@@ -167,12 +279,12 @@ export default function CourtAvailability({
     }
   }, [selectedSport])
 
-  // Fetch courts when primary search parameters change
-  useEffect(() => {
-    if (selectedSport && selectedDate && selectedDuration) {
-      fetchCourts()
-    }
-  }, [selectedSport, selectedFormat, selectedDate, selectedDuration, selectedCity, selectedArea, selectedCountry])
+  // Remove auto-search - courts should only be fetched when user clicks search
+  // useEffect(() => {
+  //   if (selectedSport && selectedDate && selectedDuration) {
+  //     fetchCourts()
+  //   }
+  // }, [selectedSport, selectedFormat, selectedDate, selectedDuration, selectedCity, selectedArea, selectedCountry])
 
   // Filter courts locally based on time range and other filters
   const filteredCourts = useMemo(() => {
@@ -388,45 +500,59 @@ export default function CourtAvailability({
         ...(selectedCity && selectedCity !== 'all' && { city: selectedCity }),
         ...(selectedArea && { area: selectedArea }),
         ...(selectedCountry && selectedCountry !== 'all' && { country: selectedCountry }),
+        ...(selectedStartTime && { startTime: selectedStartTime }),
+        ...(selectedEndTime && { endTime: selectedEndTime }),
+        ...(selectedPriceRange && selectedPriceRange !== 'all' && { priceRange: selectedPriceRange }),
+        ...(selectedVenue && selectedVenue !== 'all' && { venue: selectedVenue }),
       })
 
       const response = await fetch(`/api/courts?${params}`)
       if (!response.ok) throw new Error('Failed to fetch courts')
 
       const data = await response.json()
-      setCourts(data.courts || [])
+      let filteredCourts = data.courts || []
 
-      // Extract available time slots from court data
-      if (data.courts && data.courts.length > 0) {
-        const timeSlotMap = new Map<string, string>()
-        data.courts.forEach(court => {
-          if (court.availableSlots) {
-            court.availableSlots.forEach(slot => {
-              // Use the actual end time from the API response
-              timeSlotMap.set(slot.startTime, slot.endTime)
-            })
-          }
-        })
+      // If no specific time range provided, filter past times based on vendor timezone
+      if (!selectedStartTime && !selectedEndTime && filteredCourts.length > 0) {
+        const vendorNow = getCurrentTimeInVendorTimezone()
+        const currentHour = vendorNow.getHours()
+        const currentMinute = vendorNow.getMinutes()
+        const isToday = selectedDate &&
+          vendorNow.toDateString() === new Date(selectedDate).toDateString()
 
-        const timeSlots = Array.from(timeSlotMap.entries())
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([startTime, endTime]) => {
-            const [hours, minutes] = startTime.split(':').map(Number)
-            const [endHours, endMinutes] = endTime.split(':').map(Number)
-            const startHour = hours.toString().padStart(2, '0')
-            const startMin = minutes.toString().padStart(2, '0')
-            const endHour = endHours.toString().padStart(2, '0')
-            const endMin = endMinutes.toString().padStart(2, '0')
-            const timeRange = `${startHour}:${startMin} - ${endHour}:${endMin}`
+        console.log('Filtering API results - isToday:', isToday, 'vendorHour:', currentHour)
 
-            return {
-              value: startTime,
-              label: timeRange
+        if (isToday) {
+          filteredCourts = filteredCourts.map(court => {
+            if (court.availableSlots && court.availableSlots.length > 0) {
+              const futureSlots = court.availableSlots.filter(slot => {
+                const [slotHour] = slot.startTime.split(':').map(Number)
+
+                // Skip past slots
+                if (slotHour < currentHour ||
+                    (slotHour === currentHour && currentMinute >= 30)) {
+                  console.log('Filtering out past slot:', slot.startTime)
+                  return false
+                }
+                return true
+              })
+
+              console.log('Court', court.name, 'slots:', court.availableSlots.length, '->', futureSlots.length)
+
+              return {
+                ...court,
+                availableSlots: futureSlots,
+                isAvailable: futureSlots.length > 0
+              }
             }
+            return court
           })
-        setAvailableTimeSlots(timeSlots)
+        }
       }
 
+      setCourts(filteredCourts)
+
+  
     } catch (error) {
       setError('Failed to load courts. Please try again.')
       console.error('Error fetching courts:', error)
@@ -475,215 +601,19 @@ export default function CourtAvailability({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Search Form */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5 text-primary" />
-                Find Available Courts
-              </CardTitle>
-              <CardDescription>
-                Search for available courts based on sport, location, and availability
-              </CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={fetchCourts}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Primary Search Controls - 3 column layout */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Sport Selection */}
-            <div className="space-y-2">
-              <Label>Sport</Label>
-              <SearchableSelect
-                value={selectedSport}
-                onValueChange={setSelectedSport}
-                placeholder="Search sports..."
-                options={sports.map(sport => ({
-                  id: sport.id,
-                  name: sport.name,
-                  displayName: sport.displayName,
-                  icon: sport.icon
-                }))}
-              />
-            </div>
-
-            {/* Date Selection */}
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !selectedDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? (
-                      (() => {
-                        // Parse YYYY-MM-DD as local date to avoid timezone issues
-                        const [year, month, day] = selectedDate.split('-').map(Number)
-                        const displayDate = new Date(year, month - 1, day) // month is 0-indexed
-                        return displayDate.toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })
-                      })()
-                    ) : (
-                      <span>Pick a date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate ? (() => {
-                      const [year, month, day] = selectedDate.split('-').map(Number)
-                      return new Date(year, month - 1, day)
-                    })() : undefined}
-                    onSelect={(date) => {
-                      if (date) {
-                        // Format date as YYYY-MM-DD in local timezone to avoid UTC conversion issues
-                        const year = date.getFullYear()
-                        const month = (date.getMonth() + 1).toString().padStart(2, '0')
-                        const day = date.getDate().toString().padStart(2, '0')
-                        const formattedDate = `${year}-${month}-${day}`
-
-                        setSelectedDate(formattedDate)
-                        setDatePickerOpen(false)
-                      }
-                    }}
-                    disabled={(date) =>
-                      date < new Date(new Date().setHours(0, 0, 0, 0))
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Duration Selection */}
-            <div className="space-y-2">
-              <Label>Duration</Label>
-              <Select value={selectedDuration} onValueChange={setSelectedDuration}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select duration" />
-                </SelectTrigger>
-                <SelectContent>
-                  {durations.map((duration) => (
-                    <SelectItem key={duration.value} value={duration.value}>
-                      {duration.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Location Section */}
-          <div className="border-t pt-4">
-            <div className="flex items-center gap-2 mb-3">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-sm font-medium">Location</Label>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Country</Label>
-                <Select
-                  value={selectedCountry || 'all'}
-                  onValueChange={(value) => setSelectedCountry(value === 'all' ? null : value)}
-                >
-                  <SelectTrigger className="w-full min-w-[180px]">
-                    <SelectValue placeholder="Select country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All countries</SelectItem>
-                    {availableCountries.map((country) => (
-                      <SelectItem key={country.value} value={country.value}>
-                        {country.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>City</Label>
-                <Select
-                  value={selectedCity || 'all'}
-                  onValueChange={(value) => setSelectedCity(value === 'all' ? null : value)}
-                  disabled={!selectedCountry && availableCountries.length > 0}
-                >
-                  <SelectTrigger className="w-full min-w-[180px]">
-                    <SelectValue placeholder={selectedCountry ? "Select city" : "Select country first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectedCountry && <SelectItem value="all">All cities</SelectItem>}
-                    {availableCities.map((city) => (
-                      <SelectItem key={city.value} value={city.value}>
-                        {city.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Area (Optional)</Label>
-                <Input
-                  type="text"
-                  placeholder="e.g., Whitefield, Koramangala"
-                  value={selectedArea}
-                  onChange={(e) => setSelectedArea(e.target.value)}
-                  className="w-full min-w-[180px]"
-                />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Filter venues by specific area or locality within the city
-            </p>
-          </div>
-
-  
-          {/* Error Message */}
-          {error && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-              <div className="flex items-center">
-                <AlertCircle className="h-4 w-4 text-destructive mr-2" />
-                <p className="text-sm text-destructive-foreground">{error}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Search Button */}
-          <Button
-            onClick={fetchCourts}
-            disabled={loading || !selectedSport || !selectedDate || !selectedDuration}
-            className="w-full"
-          >
-            {loading ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Searching...
-              </>
-            ) : (
-              <>
-                <Search className="h-4 w-4 mr-2" />
-                Search Courts
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-    
+    <CollapsibleSearchContainer
+      sports={sports}
+      formats={formats}
+      courts={courts}
+      loading={loading}
+      error={error}
+      searchParams={searchParams}
+      onSearchParamsChange={handleSearchParamsChange}
+      onSearch={fetchCourts}
+      venues={venues}
+      priceRanges={priceRanges}
+      availableTimeSlots={availableTimeSlots}
+    >
       {/* Results Section */}
       {loading && (
         <div className="space-y-4">
@@ -704,8 +634,8 @@ export default function CourtAvailability({
 
       {!loading && courts.length > 0 && (
         <div className="space-y-6">
-          {/* Results Header with Filters */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          {/* Results Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h3 className="text-lg font-semibold">
                 Available Courts ({filteredCourts.length})
@@ -715,185 +645,10 @@ export default function CourtAvailability({
                   </span>
                 )}
               </h3>
-              {/* Show active time range filter */}
-              {useTimeRange && selectedStartTime && (
-                <div className="flex items-center gap-1 mt-1">
-                  <Clock className="h-3 w-3 text-primary" />
-                  <span className="text-sm text-primary font-medium">
-                    {selectedStartTime} - {selectedEndTime || 'Any'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">(time range filter)</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Filters - Always visible in single row */}
-              <div className="flex items-center gap-2">
-                {/* Time Slot Filter */}
-                {availableTimeSlots.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        id="time-range-toggle"
-                        checked={useTimeRange}
-                        onChange={(e) => {
-                          setUseTimeRange(e.target.checked)
-                          if (!e.target.checked) {
-                            setSelectedTime('all')
-                            setSelectedStartTime(null)
-                            setSelectedEndTime(null)
-                          } else {
-                            setSelectedTime('')
-                          }
-                        }}
-                        className="h-3 w-3 rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                      <Label htmlFor="time-range-toggle" className="text-xs text-muted-foreground">
-                        Time Range
-                      </Label>
-                    </div>
-
-                    {!useTimeRange ? (
-                      <Select value={selectedTime || 'all'} onValueChange={setSelectedTime}>
-                        <SelectTrigger className="h-8 w-40">
-                          <SelectValue placeholder="All times" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All times</SelectItem>
-                          {availableTimeSlots.map((slot) => (
-                            <SelectItem key={slot.value} value={slot.value}>
-                              <div className="text-sm">
-                                {slot.label}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <Select value={selectedStartTime || ''} onValueChange={(value) => {
-                          setSelectedStartTime(value)
-                          // Reset end time when start time changes
-                          setSelectedEndTime(null)
-                        }}>
-                          <SelectTrigger className="h-8 w-32">
-                            <SelectValue placeholder="Start time" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableTimeSlots.map((slot) => (
-                              <SelectItem key={slot.value} value={slot.value}>
-                                <div className="text-sm">
-                                  {slot.label.split(' - ')[0]}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <span className="text-xs text-muted-foreground">to</span>
-                        <Select value={selectedEndTime || ''} onValueChange={setSelectedEndTime}>
-                          <SelectTrigger className="h-8 w-32">
-                            <SelectValue placeholder="End time" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableTimeSlots
-                              .filter(slot => {
-                                // Only show end times that are greater than the selected start time
-                                if (!selectedStartTime) return true
-
-                                // Get the end time from this slot
-                                const endTime = slot.label.split(' - ')[1]
-
-                                // Simple string comparison for times in HH:MM format
-                                // This works because HH:MM format sorts correctly lexicographically
-                                return endTime > selectedStartTime
-                              })
-                              .map((slot) => {
-                                // Extract the end time from the slot label
-                                const endTime = slot.label.split(' - ')[1]
-                                return (
-                                  <SelectItem key={`end-${slot.value}`} value={endTime}>
-                                    <div className="text-sm">
-                                      {endTime}
-                                    </div>
-                                  </SelectItem>
-                                )
-                              })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Format Filter */}
-                {formats.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm whitespace-nowrap">Format:</Label>
-                    <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-                      <SelectTrigger className="h-8 w-32">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        {formats.map((format) => (
-                          <SelectItem key={format.id} value={format.id}>
-                            <div className="text-sm">{format.displayName}</div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Venue Filter */}
-                {venues.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm whitespace-nowrap">Venue:</Label>
-                    <Select value={selectedVenue} onValueChange={setSelectedVenue}>
-                      <SelectTrigger className="h-8 w-40">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        {venues.map((venue) => (
-                          <SelectItem key={venue.id} value={venue.id}>
-                            <div className="text-sm truncate">{venue.name}</div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Divider when there are additional filters */}
-                {(formats.length > 0 || venues.length > 0) && (
-                  <div className="w-px h-6 bg-border"></div>
-                )}
-
-                {/* Price Range Filter */}
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm whitespace-nowrap">Price:</Label>
-                  <Select value={selectedPriceRange} onValueChange={setSelectedPriceRange}>
-                    <SelectTrigger className="h-8 w-36">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      {priceRanges.map((range) => (
-                        <SelectItem key={range.value} value={range.value}>
-                          <div className="text-sm">{range.label}</div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
             </div>
           </div>
 
+  
           {/* Courts List */}
           <div className="space-y-4">
             {filteredCourts.map((court) => (
@@ -1090,6 +845,6 @@ export default function CourtAvailability({
           </CardContent>
         </Card>
       )}
-    </div>
+    </CollapsibleSearchContainer>
   )
 }
