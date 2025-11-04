@@ -12,7 +12,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<boolean>
+  login: (email: string, password: string, name?: string) => Promise<boolean>
   logout: () => void
   isLoading: boolean
 }
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string, name?: string): Promise<boolean> => {
     setIsLoading(true)
     try {
       // Mock authentication - in real app, this would call an API
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (email && password) {
         const mockUser: User = {
           id: 'user-' + Math.random().toString(36).substr(2, 9),
-          name: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          name: name || email.split('@')[0].replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase()),
           email,
           role: 'CUSTOMER',
           phone: '+91 9876543210'

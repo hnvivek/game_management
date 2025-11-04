@@ -7,36 +7,51 @@ import { useAuth } from './AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from '@/components/ui/field'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
 
-export default function SignInForm() {
+export default function SignUpForm() {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const { login } = useAuth()
+  const [successMessage, setSuccessMessage] = useState('')
+  const { login, isLoading } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccessMessage('')
 
-    if (!email || !password) {
+    if (!name || !email || !password || !confirmPassword) {
       setError('Please fill in all fields')
       return
     }
 
-    setIsLoading(true)
-    const success = await login(email, password)
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters')
+      return
+    }
+
+    // Auto-login after successful signup
+    const success = await login(email, password, name)
 
     if (success) {
-      router.push('/')
+      setSuccessMessage('Account created successfully! Redirecting...')
+      setTimeout(() => {
+        router.push('/')
+      }, 1000)
     } else {
-      setError('Invalid email or password')
+      setError('Failed to create account. Please try again.')
     }
-    setIsLoading(false)
   }
 
   return (
@@ -46,9 +61,9 @@ export default function SignInForm() {
           <form className="p-6 md:p-8" onSubmit={handleSubmit}>
             <FieldGroup>
               <div className="flex flex-col items-center gap-2 text-center">
-                <h1 className="text-2xl font-bold">Welcome back</h1>
+                <h1 className="text-2xl font-bold">Create account</h1>
                 <p className="text-muted-foreground text-balance">
-                  Sign in to your GameHub account
+                  Join GameHub and start booking venues
                 </p>
               </div>
 
@@ -60,6 +75,18 @@ export default function SignInForm() {
                   </AlertDescription>
                 </Alert>
               )}
+
+              <Field>
+                <FieldLabel htmlFor="name">Name</FieldLabel>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </Field>
 
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -74,15 +101,7 @@ export default function SignInForm() {
               </Field>
 
               <Field>
-                <div className="flex items-center">
-                  <FieldLabel htmlFor="password">Password</FieldLabel>
-                  <a
-                    href="/forgot-password"
-                    className="ml-auto text-sm underline-offset-2 hover:underline"
-                  >
-                    Forgot your password?
-                  </a>
-                </div>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
                 <Input
                   id="password"
                   type="password"
@@ -93,13 +112,24 @@ export default function SignInForm() {
               </Field>
 
               <Field>
+                <FieldLabel htmlFor="confirm-password">Confirm Password</FieldLabel>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </Field>
+
+              <Field>
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Signing in...' : 'Sign in'}
+                  {isLoading ? 'Creating account...' : 'Create account'}
                 </Button>
               </Field>
 
               <FieldDescription className="text-center">
-                Don&apos;t have an account? <Link href="/signup">Sign up</Link>
+                Already have an account? <Link href="/signin">Sign in</Link>
               </FieldDescription>
             </FieldGroup>
           </form>
@@ -109,14 +139,14 @@ export default function SignInForm() {
                 <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto">
                   <span className="text-2xl">🏆</span>
                 </div>
-                <h2 className="text-2xl font-bold">GameHub</h2>
+                <h2 className="text-2xl font-bold">Join GameHub</h2>
                 <p className="text-muted-foreground max-w-sm">
-                  Book sports venues easily and manage your games in one place.
+                  Create your account and start booking sports venues with your team.
                 </p>
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>✓ Real-time venue availability</p>
-                  <p>✓ Easy team management</p>
-                  <p>✓ Secure payments</p>
+                  <p>✓ Free to join</p>
+                  <p>✓ No credit card required</p>
+                  <p>✓ Cancel anytime</p>
                 </div>
               </div>
             </div>

@@ -3,21 +3,31 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Trophy, Menu, X, Calendar, Users } from 'lucide-react'
+import { Trophy, Menu, X, Calendar, Users, Settings, LogOut, List, User, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/auth/AuthProvider'
-import UserMenu from '@/components/auth/UserMenu'
+import { useRouter } from 'next/navigation'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ThemeToggle } from '@/styles/providers/theme-toggle'
 import { useResponsive } from '@/styles/providers/theme-provider'
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
+  const router = useRouter()
   const { isMobile, isTablet } = useResponsive()
 
   // Hide mobile menu button when bottom navigation is active
   const showMobileMenu = !isMobile
+
+  const handleNavigation = (href: string) => {
+    router.push(href)
+  }
+
+  const handleLogout = () => {
+    logout()
+  }
 
   const navigation = [
     { name: 'Home', href: '/', icon: Trophy },
@@ -75,7 +85,83 @@ export default function Navbar() {
           <div className="hidden md:flex items-center space-x-2 flex-shrink-0 relative z-10">
             <ThemeToggle />
             {user ? (
-              <UserMenu />
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button className="flex items-center space-x-2 text-sm rounded-lg hover:bg-accent p-2 transition-colors focus:outline-none">
+                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-medium">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </DropdownMenu.Trigger>
+
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    className="w-64 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+                    sideOffset={0}
+                    align="end"
+                    style={{ margin: 0 }}
+                  >
+                    {/* User Info Header */}
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-medium">
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Menu Items */}
+                    <div className="p-2">
+                      <DropdownMenu.Item asChild>
+                        <button
+                          onClick={() => handleNavigation('/my-bookings')}
+                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none"
+                        >
+                          <List className="h-4 w-4" />
+                          My Bookings
+                        </button>
+                      </DropdownMenu.Item>
+
+                      <DropdownMenu.Item asChild>
+                        <button
+                          onClick={() => handleNavigation('/profile')}
+                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none"
+                        >
+                          <User className="h-4 w-4" />
+                          Profile
+                        </button>
+                      </DropdownMenu.Item>
+
+                      <DropdownMenu.Item asChild>
+                        <button
+                          onClick={() => handleNavigation('/settings')}
+                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Settings
+                        </button>
+                      </DropdownMenu.Item>
+
+                      <DropdownMenu.Separator className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
+
+                      <DropdownMenu.Item asChild>
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Sign Out
+                        </button>
+                      </DropdownMenu.Item>
+                    </div>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
             ) : (
               <Link href="/signin">
                 <Button size="sm" className="bg-primary hover:bg-primary-600 text-primary-foreground h-8 text-xs px-3">

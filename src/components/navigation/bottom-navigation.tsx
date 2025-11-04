@@ -163,14 +163,6 @@ export function TabletBottomNavigation() {
       label: 'Teams',
       activePaths: ['/teams']
     },
-      ...(user ? [
-      {
-        href: '/ai-suggestions',
-        icon: Bot,
-        label: 'AI Suggest',
-        activePaths: ['/ai-suggestions']
-      }
-    ] : []),
     {
       href: '/profile',
       icon: User,
