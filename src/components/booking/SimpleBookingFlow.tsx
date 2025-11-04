@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import CourtAvailability from './CourtAvailability'
+import BookingCourtSelection from './BookingCourtSelection'
 
 // Enhanced types based on our API schema
 interface Court {
@@ -354,7 +354,7 @@ export default function SimpleBookingFlow({
                 </Alert>
               )}
 
-              <CourtAvailability
+              <BookingCourtSelection
                 onCourtSelect={handleCourtSelect}
                 initialCourt={selectedCourt}
                 initialDate={selectedDate}
@@ -839,37 +839,71 @@ export default function SimpleBookingFlow({
   return (
     <div className="space-y-6">
       {/* Progress Indicator */}
-      <div className="flex items-center justify-between">
-        {[
-          { step: 1, title: 'Court', icon: Calendar },
-          { step: 2, title: 'Details', icon: Users },
-          { step: 3, title: 'Contact', icon: Users },
-          { step: 4, title: 'Payment', icon: CreditCard }
-        ].map((item) => (
-          <div key={item.step} className="flex items-center">
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-              currentStep >= item.step
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-muted-foreground/30 text-muted-foreground'
-            }`}>
-              {currentStep > item.step ? (
-                <Check className="h-5 w-5" />
-              ) : (
-                <item.icon className="h-5 w-5" />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Mobile: Vertical dots */}
+        <div className="flex sm:hidden justify-between items-center w-full px-2">
+          {[
+            { step: 1, title: 'Court', icon: Calendar },
+            { step: 2, title: 'Details', icon: Users },
+            { step: 3, title: 'Contact', icon: Users },
+            { step: 4, title: 'Payment', icon: CreditCard }
+          ].map((item, index) => (
+            <div key={item.step} className="flex items-center">
+              <div className={`flex items-center justify-center w-6 h-6 rounded-full border-2 ${
+                currentStep >= item.step
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-muted-foreground/30 text-muted-foreground'
+              }`}>
+                {currentStep > item.step ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <item.icon className="h-3 w-3" />
+                )}
+              </div>
+              {index < 3 && (
+                <div className={`w-6 h-0.5 mx-1 ${
+                  currentStep > item.step ? 'bg-primary' : 'bg-muted-foreground/30'
+                }`} />
               )}
             </div>
-            <span className={`ml-2 text-sm font-medium ${
-              currentStep >= item.step ? 'text-foreground' : 'text-muted-foreground'
-            }`}>
-              {item.title}
-            </span>
-            {item.step < totalSteps && (
-              <div className={`w-8 h-0.5 mx-4 ${
-                currentStep > item.step ? 'bg-primary' : 'bg-muted-foreground/30'
-              }`} />
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
+
+        {/* Desktop: Horizontal steps */}
+        <div className="hidden sm:flex items-center justify-between w-full">
+          {[
+            { step: 1, title: 'Court', icon: Calendar },
+            { step: 2, title: 'Details', icon: Users },
+            { step: 3, title: 'Contact', icon: Users },
+            { step: 4, title: 'Payment', icon: CreditCard }
+          ].map((item) => (
+            <div key={item.step} className="flex items-center flex-1">
+              <div className="flex flex-col items-center">
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
+                  currentStep >= item.step
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-muted-foreground/30 text-muted-foreground'
+                }`}>
+                  {currentStep > item.step ? (
+                    <Check className="h-5 w-5" />
+                  ) : (
+                    <item.icon className="h-5 w-5" />
+                  )}
+                </div>
+                <span className={`mt-1 text-xs sm:text-sm font-medium ${
+                  currentStep >= item.step ? 'text-foreground' : 'text-muted-foreground'
+                }`}>
+                  {item.title}
+                </span>
+              </div>
+              {item.step < totalSteps && (
+                <div className={`flex-1 h-0.5 mx-4 ${
+                  currentStep > item.step ? 'bg-primary' : 'bg-muted-foreground/30'
+                }`} />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Step Content */}
@@ -922,6 +956,9 @@ export default function SimpleBookingFlow({
                 </>
               )}
             </Button>
+          ) : currentStep === 1 ? (
+            // No Next button for step 1 - court selection advances automatically
+            <div />
           ) : (
             <Button onClick={handleNext} className="min-w-[80px]">
               Next

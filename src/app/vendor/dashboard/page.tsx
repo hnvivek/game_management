@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { getCardClasses, getStatusColors, getBadgeVariants, useThemeColors } from '@/styles/theme'
 
 // Mock data - replace with real API calls
 const mockVendor = {
@@ -51,6 +52,7 @@ export default function VendorDashboard() {
     maxPlayers: '',
     description: ''
   })
+  const { getSuccess } = useThemeColors()
 
   const handleAddVenue = async () => {
     // TODO: Implement API call to add venue
@@ -100,7 +102,7 @@ export default function VendorDashboard() {
       <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
+          <Card className={getCardClasses('base')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Venues</CardTitle>
               <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -113,7 +115,7 @@ export default function VendorDashboard() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className={getCardClasses('base')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">This Month's Bookings</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -126,7 +128,7 @@ export default function VendorDashboard() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className={getCardClasses('base')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Revenue</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -256,7 +258,7 @@ export default function VendorDashboard() {
                           {venue.courtNumber}
                         </CardDescription>
                       </div>
-                      <Badge className="bg-emerald-100 text-success-foreground">
+                      <Badge className={getBadgeVariants('success')}>
                         {venue.sport}
                       </Badge>
                     </div>
@@ -290,7 +292,7 @@ export default function VendorDashboard() {
           <TabsContent value="bookings" className="space-y-6">
             <h2 className="text-2xl font-bold text-foreground">Recent Bookings</h2>
             
-            <Card>
+            <Card className={getCardClasses('base')}>
               <CardHeader>
                 <CardTitle>Today's Schedule</CardTitle>
               </CardHeader>
@@ -310,7 +312,7 @@ export default function VendorDashboard() {
                       </div>
                       <div className="flex items-center space-x-4">
                         <span className="font-semibold text-success">₹{booking.amount.toLocaleString('en-IN')}</span>
-                        <Badge className="bg-emerald-100 text-success-foreground">
+                        <Badge className={getBadgeVariants('success')}>
                           {booking.status}
                         </Badge>
                       </div>
@@ -324,7 +326,7 @@ export default function VendorDashboard() {
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
             <h2 className="text-2xl font-bold text-foreground">Analytics & Insights</h2>
-            <Card>
+            <Card className={getCardClasses('base')}>
               <CardHeader>
                 <CardTitle>Coming Soon</CardTitle>
               </CardHeader>

@@ -7,10 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useThemeColors } from '@/styles/theme'
 
 export default function VendorOnboarding() {
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { getWarning } = useThemeColors()
   const [vendorData, setVendorData] = useState({
     // Venue information
     name: '',
@@ -253,7 +255,7 @@ export default function VendorOnboarding() {
               </div>
 
               <div className="bg-warning/10 border border-yellow-200 rounded-lg p-4">
-                <h4 className="font-medium text-yellow-800 mb-2">Admin Login Credentials</h4>
+                <h4 className="font-medium text-warning-700 mb-2">Admin Login Credentials</h4>
                 <p className="text-sm text-warning">
                   A temporary password will be sent to the admin email address. 
                   You can change it after first login.

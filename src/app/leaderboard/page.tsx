@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import Navbar from '@/components/navbar'
-import { theme } from '@/lib/theme'
+import { theme } from '@/styles/theme'
 
 // Mock leaderboard data - in real app this would come from API
 const mockLeaderboardData = [

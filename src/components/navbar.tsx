@@ -3,12 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Trophy, Menu, X, Calendar, Users, BarChart3, Target, Bot, FileText } from 'lucide-react'
+import { Trophy, Menu, X, Calendar, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/auth/AuthProvider'
 import UserMenu from '@/components/auth/UserMenu'
-import { ThemeToggle } from '@/components/theme-toggle'
-import { useResponsive } from '@/components/theme-provider'
+import { ThemeToggle } from '@/styles/providers/theme-toggle'
+import { useResponsive } from '@/styles/providers/theme-provider'
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -23,9 +23,6 @@ export default function Navbar() {
     { name: 'Home', href: '/', icon: Trophy },
     { name: 'Book Venues', href: '/book-venue', icon: Calendar },
     { name: 'Teams', href: '/teams', icon: Users },
-    { name: 'Matches', href: '/matches', icon: Target },
-    { name: 'API Docs', href: '/api-docs', icon: FileText },
-    ...(user ? [{ name: 'AI Suggestions', href: '/ai-suggestions', icon: Bot }] : []),
   ]
 
   const isActive = (href: string) => {
@@ -88,22 +85,30 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Button - Only show on tablet and up when bottom nav is not active */}
-          {showMobileMenu && (
-            <button
-              type="button"
-              className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0 relative z-10"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle menu"
-            >
-              <span className="sr-only">Toggle menu</span>
-              {mobileMenuOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
-              )}
-            </button>
-          )}
+          {/* Mobile Actions - Theme Toggle and Menu Button */}
+          <div className="flex items-center space-x-1 flex-shrink-0 relative z-10">
+            {/* Theme Toggle - Always visible on mobile */}
+            <div className="md:hidden">
+              <ThemeToggle />
+            </div>
+
+            {/* Mobile Menu Button - Only show on tablet and up when bottom nav is not active */}
+            {showMobileMenu && (
+              <button
+                type="button"
+                className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0 relative z-10"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Toggle menu"
+              >
+                <span className="sr-only">Toggle menu</span>
+                {mobileMenuOpen ? (
+                  <X className="h-5 w-5" />
+                ) : (
+                  <Menu className="h-5 w-5" />
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mobile Menu */}

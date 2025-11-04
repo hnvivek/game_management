@@ -9,12 +9,10 @@ import {
   Users,
   User,
   Calendar,
-  Trophy,
-  Target,
-  Bot
+  Trophy
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { useResponsive } from '@/components/theme-provider'
+import { useResponsive } from '@/styles/providers/theme-provider'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -46,7 +44,6 @@ export function BottomNavigation() {
       href: '/book-venue',
       icon: Calendar,
       label: 'Book',
-      isPrimary: true,
       activePaths: ['/book-venue']
     },
     {
@@ -55,13 +52,7 @@ export function BottomNavigation() {
       label: 'Teams',
       activePaths: ['/teams']
     },
-    {
-      href: '/matches',
-      icon: Target,
-      label: 'Matches',
-      activePaths: ['/matches']
-    },
-    {
+      {
       href: '/profile',
       icon: User,
       label: 'Profile',
@@ -93,45 +84,44 @@ export function BottomNavigation() {
                 className={cn(
                   'flex flex-col items-center justify-center gap-1 transition-colors relative',
                   'hover:bg-accent/50',
-                  item.isPrimary
-                    ? active
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-primary hover:bg-primary/10'
-                    : active
-                      ? 'text-primary bg-primary/10'
-                      : 'text-muted-foreground hover:text-foreground'
+                  active
+                    ? 'text-primary bg-primary/10'
+                    : 'text-foreground/60 hover:text-foreground'
                 )}
               >
                 {/* Active indicator dot */}
-                {active && !item.isPrimary && (
+                {active && (
                   <div className="absolute top-2 w-1 h-1 bg-primary rounded-full" />
                 )}
 
+                <div className={cn(
+                  'rounded-full p-1.5 transition-colors',
+                  active
+                    ? 'bg-foreground dark:bg-background'
+                    : 'bg-transparent'
+                )}>
                 <Icon
                   className={cn(
                     'transition-transform',
                     active ? 'scale-110' : 'scale-100',
-                    item.isPrimary ? 'h-5 w-5' : 'h-4.5 w-4.5'
+                    'h-4.5 w-4.5',
+                    active
+                      ? 'text-background dark:text-foreground'
+                      : 'text-current'
                   )}
                 />
+              </div>
 
                 <span
                   className={cn(
                     'text-xs font-medium transition-all',
-                    item.isPrimary
-                      ? 'text-primary-foreground'
-                      : active
-                        ? 'text-primary'
-                        : 'text-muted-foreground'
+                    active
+                      ? 'text-primary'
+                      : 'text-foreground/70'
                   )}
                 >
                   {item.label}
                 </span>
-
-                {/* Subtle active line for primary item */}
-                {item.isPrimary && active && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-6 h-0.5 bg-primary-foreground rounded-full" />
-                )}
               </Link>
             )
           })}
@@ -173,13 +163,7 @@ export function TabletBottomNavigation() {
       label: 'Teams',
       activePaths: ['/teams']
     },
-    {
-      href: '/matches',
-      icon: Target,
-      label: 'Matches',
-      activePaths: ['/matches']
-    },
-    ...(user ? [
+      ...(user ? [
       {
         href: '/ai-suggestions',
         icon: Bot,

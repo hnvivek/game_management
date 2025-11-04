@@ -1,15 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Calendar, MapPin, Users, Trophy, ArrowRight, Zap, Target, TrendingUp, Loader2, Clock, DollarSign } from 'lucide-react'
 import Link from 'next/link'
+import { Search, Calendar, MapPin, Users, Trophy, ArrowRight, Zap, Star, Sparkles, Shield, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import Navbar from '@/components/navbar'
-import { toast } from 'sonner'
 
 // Types for data
 interface Team {
@@ -25,58 +24,6 @@ interface Team {
   _count?: {
     members: number
   }
-}
-
-interface Match {
-  id: string
-  title?: string
-  description?: string
-  status: 'OPEN' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
-  homeTeam?: {
-    id: string
-    name: string
-    captain?: {
-      id: string
-      name: string
-      phone?: string
-    }
-    city: string
-    area?: string
-  }
-  awayTeam?: {
-    id: string
-    name: string
-    captain?: {
-      id: string
-      name: string
-      phone?: string
-    }
-    city: string
-    area?: string
-  }
-  sport?: {
-    id: string
-    name: string
-    displayName: string
-    icon: string
-  }
-  booking?: {
-    startTime: string
-    endTime: string
-    totalAmount?: number
-    venue?: {
-      id: string
-      name: string
-      courtNumber: string
-      vendor?: {
-        id: string
-        name: string
-        slug: string
-      }
-    }
-  }
-  splitCostPerTeam?: number
-  maxPlayers: number
 }
 
 interface Venue {
@@ -108,21 +55,21 @@ const features = [
     title: 'Find & Book Venues',
     description: 'Discover and book the best sports venues in your area instantly',
     link: '/book-venue',
-    color: 'blue'
+    color: 'primary'
   },
   {
     icon: Users,
-    title: 'Browse Teams',
-    description: 'Connect with local teams and find the perfect match for your skill level',
+    title: 'Join Teams',
+    description: 'Connect with local players and find the perfect team for your skill level',
     link: '/teams',
-    color: 'green'
+    color: 'success'
   },
   {
     icon: Trophy,
-    title: 'View Leaderboard',
-    description: 'Check rankings and see how teams stack up in the competition',
-    link: '/leaderboard',
-    color: 'yellow'
+    title: 'Compete & Win',
+    description: 'Join matches and tournaments to showcase your skills and climb the leaderboard',
+    link: '/matches',
+    color: 'warning'
   }
 ]
 
@@ -133,10 +80,30 @@ const stats = [
   { label: 'Happy Players', value: '1000+', icon: TrendingUp }
 ]
 
+const testimonials = [
+  {
+    name: 'Rahul Sharma',
+    role: 'Team Captain',
+    content: 'GameHub made it so easy to find venues and connect with players. Our team plays twice a week now!',
+    rating: 5
+  },
+  {
+    name: 'Priya Patel',
+    role: 'Solo Player',
+    content: 'Finally found a platform where I can join matches as an individual player. Amazing experience!',
+    rating: 5
+  },
+  {
+    name: 'Amit Kumar',
+    role: 'Venue Manager',
+    content: 'GameHub helped us increase our venue bookings by 40%. The best platform for sports enthusiasts.',
+    rating: 5
+  }
+]
+
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [teams, setTeams] = useState<Team[]>([])
-  const [matches, setMatches] = useState<Match[]>([])
   const [venues, setVenues] = useState<Venue[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -146,19 +113,16 @@ export default function Home() {
     try {
       setLoading(true)
 
-      // Fetch teams, matches, and venues in parallel
-      const [teamsResponse, matchesResponse, venuesResponse] = await Promise.all([
-        fetch('/api/teams?limit=6'), // Limit to 6 teams for homepage
-        fetch('/api/matches?lookingForOpponent=true&limit=6'), // Get matches looking for opponents
-        fetch('/api/venues?limit=6&city=Bengaluru') // Get venues in Bengaluru
+      // Fetch teams and venues in parallel
+      const [teamsResponse, venuesResponse] = await Promise.all([
+        fetch('/api/teams?limit=6'),
+        fetch('/api/venues?limit=6&city=Bengaluru')
       ])
 
       const teamsData = await teamsResponse.json()
-      const matchesData = await matchesResponse.json()
       const venuesData = await venuesResponse.json()
 
       const teams = teamsData.teams || []
-      const matches = matchesData.matches || []
       const venues = venuesData.venues || []
 
       // If APIs return empty arrays, provide mock data for demonstration
@@ -182,34 +146,6 @@ export default function Home() {
           _count: { members: 12 },
           isActive: true,
           createdAt: new Date().toISOString()
-        }
-      ])
-
-      setMatches(matches.length > 0 ? matches : [
-        {
-          id: '1',
-          title: 'Weekend Soccer Match',
-          description: 'Looking for opponent for a friendly 5-a-side match',
-          status: 'OPEN',
-          homeTeam: {
-            id: '1',
-            name: 'Bengaluru Strikers',
-            captain: { id: 'capt_1', name: 'Rahul Sharma' },
-            city: 'Bengaluru',
-            area: 'Indiranagar'
-          },
-          sport: { id: '1', name: 'soccer', displayName: 'Soccer', icon: '⚽' },
-          booking: {
-            startTime: new Date(Date.now() + 86400000).toISOString(),
-            venue: {
-              id: '1',
-              name: 'Sports Arena',
-              courtNumber: 'Court 1',
-              vendor: { id: '1', name: 'GameHub', slug: 'gamehub' }
-            }
-          },
-          splitCostPerTeam: 500,
-          maxPlayers: 10
         }
       ])
 
@@ -238,7 +174,6 @@ export default function Home() {
     } catch (err) {
       console.error('Error fetching homepage data:', err)
       setError('Failed to load data')
-      // Don't show toast on homepage, just set error state
     } finally {
       setLoading(false)
     }
@@ -249,88 +184,208 @@ export default function Home() {
     fetchHomepageData()
   }, [])
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'OPEN': return 'bg-success/10 text-success border-success/20'
-      case 'CONFIRMED': return 'bg-primary/10 text-primary border-primary/20'
-      case 'COMPLETED': return 'bg-muted text-foreground border-border'
-      case 'CANCELLED': return 'bg-destructive/10 text-destructive border-destructive/20'
-      default: return 'bg-muted text-foreground border-border'
-    }
-  }
-
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString)
-    return {
-      date: date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      }),
-      time: date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-background">
-      {/* Unified Navbar */}
+    <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* Hero Section - Optimized for Mobile */}
-      <section
-        className="relative overflow-hidden text-primary-foreground hero-mobile-compact"
-        style={{
-          background: 'linear-gradient(to bottom right, var(--primary-600), var(--primary-700), var(--primary-800))'
-        }}
-      >
-        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
-        <div className="relative w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 md:py-12">
-          <div className="text-center space-y-4 sm:space-y-6">
-            {/* Mobile-optimized Badge */}
-            <div className="flex justify-center">
-              <Badge className="bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30 px-3 py-0.5 text-xs sm:text-sm">
-                <Zap className="h-3 w-3 mr-1 inline" />
-                Sports Hub in Bengaluru
-              </Badge>
-            </div>
+      {/* Hero Section - Modern Design */}
+      <section className="relative overflow-hidden">
+        {/* Gradient background with theme support */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent" />
+        <div className="absolute inset-0 bg-grid-primary/5 bg-[size:20px_20px]" />
 
-            {/* Mobile-optimized Title */}
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight">
-              <span className="block sm:hidden">GameHub Sports</span>
-              <span className="hidden sm:block">Bengaluru's Premier Sports Platform</span>
-            </h1>
+        <div className="relative w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12 md:py-16">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center space-y-4 sm:space-y-6">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Bengaluru's Premier Sports Platform</span>
+              </div>
 
-            {/* Mobile-optimized Description */}
-            <p className="text-sm sm:text-base md:text-lg text-primary-foreground/90 max-w-xl mx-auto px-2">
-              Discover venues, join teams, and elevate your game
-            </p>
+              {/* Main heading */}
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
+                <span className="block text-foreground">Where Champions</span>
+                <span className="block text-primary">Come to Play</span>
+              </h1>
 
-            {/* Compact Search - Always Visible */}
-            <div className="max-w-md sm:max-w-xl mx-auto pt-2 sm:pt-6">
-              <div className="relative">
-                <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-primary-foreground/60 h-4 w-4 sm:h-5 sm:w-5" />
-                <Input
-                  type="text"
-                  placeholder="Search venues, teams..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 text-sm sm:text-base h-10 sm:h-12 border border-primary-foreground/20 bg-primary-foreground/10 backdrop-blur-sm text-primary-foreground placeholder:text-primary-foreground/60"
-                />
+              {/* Description */}
+              <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+                Discover world-class venues, join competitive teams, and experience the thrill of sports.
+                Your journey to athletic excellence starts here.
+              </p>
+
+              {/* Search bar */}
+              <div className="max-w-2xl mx-auto w-full sm:w-auto">
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+                  <Input
+                    type="text"
+                    placeholder="Search venues or teams..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-12 pr-4 py-3 text-base h-12 sm:h-14 border-2 bg-background/80 backdrop-blur-sm focus:border-primary transition-all duration-300"
+                  />
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                    <Button size="sm" className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm">
+                      Search
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-2">
+                <Link href="/book-venue">
+                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                    <Calendar className="h-5 w-5 mr-2" />
+                    Book a Venue
+                  </Button>
+                </Link>
+                <Link href="/teams">
+                  <Button size="lg" variant="outline" className="border-2 hover:bg-accent px-8 py-4 text-lg font-semibold">
+                    <Users className="h-5 w-5 mr-2" />
+                    Join a Team
+                  </Button>
+                </Link>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
 
-            {/* Mobile-optimized CTA */}
-            <div className="pt-4 sm:pt-8">
+      {/* Stats Section */}
+      <section className="py-8 bg-muted/30">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              {stats.map((stat, index) => {
+                const Icon = stat.icon
+                return (
+                  <Card key={stat.label} className="bg-card/50 backdrop-blur-sm border-0 shadow-lg">
+                    <CardContent className="p-4 text-center">
+                      <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-1">{stat.value}</div>
+                      <div className="text-sm text-muted-foreground">{stat.label}</div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-12">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+                Everything You Need to Play
+              </h2>
+              <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto">
+                From finding the perfect venue to joining teams, we've got you covered
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+              {features.map((feature, index) => {
+                const Icon = feature.icon
+                return (
+                  <Card key={feature.title} className="group hover:shadow-xl transition-all duration-300 border-0 bg-card/50 backdrop-blur-sm">
+                    <CardHeader className="text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Icon className="h-8 w-8 text-primary" />
+                      </div>
+                      <CardTitle className="text-xl font-semibold mb-2">{feature.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-center">
+                      <CardDescription className="text-base mb-6 leading-relaxed">
+                        {feature.description}
+                      </CardDescription>
+                      <Link href={feature.link}>
+                        <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                          Learn More
+                          <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Popular Venues */}
+      <section className="py-12 bg-muted/30">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+                Popular Venues
+              </h2>
+              <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto">
+                Top-rated facilities in Bengaluru trusted by thousands of players
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {loading ? (
+                Array(3).fill(0).map((_, index) => (
+                  <Card key={index} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="h-6 bg-muted rounded w-32 mb-4"></div>
+                      <div className="h-4 bg-muted rounded w-24 mb-2"></div>
+                      <div className="h-20 bg-muted rounded w-full"></div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                venues.slice(0, 6).map((venue) => (
+                  <Card key={venue.id} className="group hover:shadow-xl transition-all duration-300 border-0 bg-card/50 backdrop-blur-sm">
+                    <Link href={`/book-venue?venue=${venue.id}`}>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <MapPin className="h-6 w-6 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">{venue.sport?.displayName}</h3>
+                            <p className="text-sm text-muted-foreground">{venue.location?.area}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-2xl font-bold text-primary">
+                              ₹{venue.pricePerHour}
+                            </span>
+                            <span className="text-sm text-muted-foreground ml-1">/hr</span>
+                          </div>
+                          <Badge variant="secondary">{venue.format?.displayName}</Badge>
+                        </div>
+                        <div className="mt-4 flex items-center gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+                          ))}
+                          <span className="text-sm text-muted-foreground ml-1">(4.8)</span>
+                        </div>
+                      </CardContent>
+                    </Link>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            <div className="text-center mt-12">
               <Link href="/book-venue">
-                <Button
-                  size="sm"
-                  className="bg-card text-primary hover:bg-muted px-4 sm:px-8 py-2 sm:py-4 text-sm sm:text-base font-semibold shadow-lg sm:shadow-xl h-10 sm:h-auto transition-all hover:scale-105"
-                >
-                  <span className="hidden sm:inline">Get Started</span>
-                  <span className="sm:hidden">Book Now</span>
-                  <ArrowRight className="h-4 w-4 ml-1 sm:ml-2" />
+                <Button size="lg" variant="outline" className="px-8">
+                  Browse All Venues
+                  <ArrowRight className="h-5 w-5 ml-2" />
                 </Button>
               </Link>
             </div>
@@ -338,130 +393,81 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats Section - Mobile Optimized */}
-      <section className="w-full px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 relative z-10">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 stats-mobile-compact">
-          {stats.map((stat) => {
-            const Icon = stat.icon
-            return (
-              <Card key={stat.label} className="bg-card shadow-md sm:shadow-lg border-0 card-mobile-compact">
-                <CardContent className="p-3 sm:p-4 text-center">
-                  <Icon className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1 sm:mb-2 text-primary" />
-                  <div className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</div>
-                  <div className="text-xs sm:text-xs text-muted-foreground">{stat.label}</div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="w-full px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-foreground mb-4">How It Works</h2>
-          <p className="text-lg text-muted-foreground">Simple steps to get you playing</p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
-              <Calendar className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold mb-3">Find Venues</h3>
-            <p className="text-muted-foreground">Discover and book the best sports facilities in your area</p>
-          </div>
-          <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
-              <Users className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold mb-3">Join Teams</h3>
-            <p className="text-muted-foreground">Connect with local players and find your perfect team</p>
-          </div>
-          <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
-              <Trophy className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold mb-3">Compete</h3>
-            <p className="text-muted-foreground">Join matches and tournaments to showcase your skills</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Popular Venues */}
-      <section className="py-16 bg-muted/30">
+      {/* Testimonials */}
+      <section className="py-12">
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-4">Popular Venues</h2>
-            <p className="text-lg text-muted-foreground">Top-rated facilities in Bengaluru</p>
-          </div>
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+                Loved by Players
+              </h2>
+              <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto">
+                See what our community has to say about their GameHub experience
+              </p>
+            </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {loading ? (
-              Array(3).fill(0).map((_, index) => (
-                <Card key={index} className="animate-pulse">
+            <div className="grid sm:grid-cols-1 md:grid-cols-3 gap-6">
+              {testimonials.map((testimonial, index) => (
+                <Card key={index} className="bg-card/50 backdrop-blur-sm border-0 shadow-lg">
                   <CardContent className="p-6">
-                    <div className="h-6 bg-muted/50 rounded w-32 mb-4"></div>
-                    <div className="h-4 bg-muted/50 rounded w-24 mb-2"></div>
-                    <div className="h-20 bg-muted/50 rounded w-full"></div>
+                    <div className="flex mb-4">
+                      {[...Array(testimonial.rating)].map((_, i) => (
+                        <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                      ))}
+                    </div>
+                    <p className="text-muted-foreground mb-6 italic">
+                      "{testimonial.content}"
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarFallback>{testimonial.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-foreground">{testimonial.name}</p>
+                        <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-              ))
-            ) : (
-              venues.slice(0, 6).map((venue) => (
-                <Card key={venue.id} className="hover:shadow-lg transition-all duration-200">
-                  <Link href={`/book-venue?venue=${venue.id}`}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <MapPin className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{venue.sport?.displayName}</h3>
-                          <p className="text-sm text-muted-foreground">{venue.location?.area}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-primary">
-                          ₹{venue.pricePerHour}/hr
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {venue.format?.displayName}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Link>
-                </Card>
-              ))
-            )}
-          </div>
-
-          <div className="text-center mt-8">
-            <Link href="/book-venue">
-              <Button variant="outline" className="px-8">
-                Browse All Venues
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-    {/* Simple CTA */}
-      <section className="py-20">
-        <div className="w-full px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-4">
-            Ready to Get Started?
-          </h2>
-          <p className="text-xl text-muted-foreground mb-8">
-            Join Bengaluru's most active sports community today
-          </p>
-          <Link href="/book-venue">
-            <Button size="lg" className="bg-primary hover:bg-primary-600 text-primary-foreground px-12 py-4 text-lg font-semibold shadow-lg transition-all hover:scale-105">
-              Start Playing
-              <ArrowRight className="h-5 w-5 ml-2" />
-            </Button>
-          </Link>
+      {/* CTA Section */}
+      <section className="py-12 bg-gradient-to-r from-primary/10 to-primary/5">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 mb-4">
+              <Shield className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">Join 1000+ Players</span>
+            </div>
+
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+              Ready to Elevate Your Game?
+            </h2>
+
+            <p className="text-lg sm:text-xl text-muted-foreground mb-6 max-w-2xl mx-auto">
+              Join Bengaluru's most active sports community today and experience the difference
+              that professional venue booking and team management can make.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link href="/book-venue">
+                <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                  <Zap className="h-5 w-5 mr-2" />
+                  Get Started Now
+                </Button>
+              </Link>
+              <Link href="/teams">
+                <Button size="lg" variant="outline" className="border-2 px-8 py-4 text-lg font-semibold">
+                  Join Teams
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
     </div>

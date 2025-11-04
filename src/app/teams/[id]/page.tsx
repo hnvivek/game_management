@@ -33,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import Navbar from '@/components/navbar'
 import { toast } from 'sonner'
+import { getCardClasses, getStatusColors, getBadgeVariants, useThemeColors } from '@/styles/theme'
 
 // Types
 interface TeamMember {
@@ -98,6 +99,7 @@ export default function TeamDetailsPage() {
   const [error, setError] = useState<string | null>(null)
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const { getSuccess } = useThemeColors()
 
   // Form states
   const [inviteForm, setInviteForm] = useState({
@@ -455,7 +457,7 @@ export default function TeamDetailsPage() {
             {/* Performance Overview */}
             {team.statistics && (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
+                <Card className={getCardClasses('base')}>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2">
                       <Trophy className="h-5 w-5 text-warning" />
@@ -464,16 +466,16 @@ export default function TeamDetailsPage() {
                     <div className="text-2xl font-bold mt-2">{team.statistics.totalWins}</div>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className={getCardClasses('base')}>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-emerald-500" />
+                      <TrendingUp className="h-5 w-5 text-success" />
                       <span className="text-sm font-medium text-muted-foreground">Win Rate</span>
                     </div>
                     <div className="text-2xl font-bold mt-2">{team.statistics.winRate.toFixed(1)}%</div>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className={getCardClasses('base')}>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2">
                       <Target className="h-5 w-5 text-primary" />
@@ -482,7 +484,7 @@ export default function TeamDetailsPage() {
                     <div className="text-2xl font-bold mt-2">{team.statistics.totalMatches}</div>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className={getCardClasses('base')}>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2">
                       <BarChart3 className="h-5 w-5 text-purple-500" />
@@ -496,7 +498,7 @@ export default function TeamDetailsPage() {
 
             {/* Recent Form */}
             {team.statistics?.recentForm && team.statistics.recentForm.length > 0 && (
-              <Card>
+              <Card className={getCardClasses('base')}>
                 <CardHeader>
                   <CardTitle className="text-lg">Recent Form</CardTitle>
                 </CardHeader>
@@ -504,7 +506,7 @@ export default function TeamDetailsPage() {
                   <div className="flex gap-2">
                     {team.statistics.recentForm.slice(0, 10).map((result, idx) => (
                       <div key={idx} className={`w-8 h-8 rounded flex items-center justify-center text-sm font-bold ${
-                        result.result === 'WIN' ? 'bg-emerald-500 text-primary-foreground' :
+                        result.result === 'WIN' ? 'bg-success-500 text-primary-foreground' :
                         result.result === 'DRAW' ? 'bg-warning text-primary-foreground' : 'bg-destructive text-primary-foreground'
                       }`}>
                         {result.result[0]}
@@ -517,7 +519,7 @@ export default function TeamDetailsPage() {
           </TabsContent>
 
           <TabsContent value="members" className="space-y-6">
-            <Card>
+            <Card className={getCardClasses('base')}>
               <CardHeader>
                 <CardTitle className="text-lg">Team Members</CardTitle>
               </CardHeader>
@@ -574,7 +576,7 @@ export default function TeamDetailsPage() {
           </TabsContent>
 
           <TabsContent value="matches" className="space-y-6">
-            <Card>
+            <Card className={getCardClasses('base')}>
               <CardHeader>
                 <CardTitle className="text-lg">Recent Matches</CardTitle>
               </CardHeader>
@@ -589,7 +591,7 @@ export default function TeamDetailsPage() {
           </TabsContent>
 
           <TabsContent value="statistics" className="space-y-6">
-            <Card>
+            <Card className={getCardClasses('base')}>
               <CardHeader>
                 <CardTitle className="text-lg">Team Statistics</CardTitle>
               </CardHeader>

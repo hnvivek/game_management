@@ -216,7 +216,7 @@ export default function CollapsibleSearchContainer({
                   variant="outline"
                   size="sm"
                   onClick={() => setIsExpanded(!isExpanded)}
-                  className="h-8 px-3 flex items-center gap-2"
+                  className="h-10 sm:h-8 px-3 sm:px-3 flex items-center gap-2"
                 >
                   {isExpanded ? (
                     <>
@@ -243,7 +243,7 @@ export default function CollapsibleSearchContainer({
                   onClick={handleSearch}
                   disabled={loading || !searchParams.selectedSport || !searchParams.selectedDate || !searchParams.selectedDuration}
                   size="sm"
-                  className="h-8 px-3 flex items-center gap-1"
+                  className="h-12 sm:h-8 px-4 sm:px-3 flex items-center gap-2 sm:gap-1"
                 >
                   {loading ? (
                     <>
@@ -253,7 +253,7 @@ export default function CollapsibleSearchContainer({
                   ) : (
                     <>
                       <Search className="h-3 w-3" />
-                      <span className="hidden sm:inline">Search</span>
+                      <span className="text-xs sm:text-sm inline">Search</span>
                     </>
                   )}
                 </Button>
@@ -479,7 +479,7 @@ export default function CollapsibleSearchContainer({
                     value={searchParams.selectedStartTime || 'all'}
                     onValueChange={(value) => handleParameterChange('selectedStartTime', value === 'all' ? null : value)}
                   >
-                    <SelectTrigger className="h-9 w-28">
+                    <SelectTrigger className="h-10 sm:h-9 w-32 sm:w-28">
                       <SelectValue placeholder="Start" />
                     </SelectTrigger>
                     <SelectContent>
@@ -500,7 +500,7 @@ export default function CollapsibleSearchContainer({
                     value={searchParams.selectedEndTime || 'all'}
                     onValueChange={(value) => handleParameterChange('selectedEndTime', value === 'all' ? null : value)}
                   >
-                    <SelectTrigger className="h-9 w-28">
+                    <SelectTrigger className="h-10 sm:h-9 w-32 sm:w-28">
                       <SelectValue placeholder="End" />
                     </SelectTrigger>
                     <SelectContent>

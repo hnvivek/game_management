@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import SimpleBookingFlow from '@/components/booking/SimpleBookingFlow'
 import Navbar from '@/components/navbar'
+import { getStatusColors } from '@/styles/theme'
 
 export default function BookVenuePage() {
   const [bookingComplete, setBookingComplete] = useState(false)
@@ -110,9 +111,11 @@ export default function BookVenuePage() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Status:</span>
-                          <Badge className={bookingData.booking.status === 'CONFIRMED' ? 'bg-success/20 text-success-foreground' :
-                                         bookingData.booking.status === 'PENDING_PAYMENT' ? 'bg-warning/20 text-yellow-800' :
-                                         'bg-destructive/20 text-destructive-foreground'}>
+                          <Badge className={
+                            bookingData.booking.status === 'CONFIRMED' ? 'bg-success/20 text-success-foreground' :
+                            bookingData.booking.status === 'PENDING_PAYMENT' ? 'bg-warning/20 text-warning-foreground' :
+                            'bg-destructive/20 text-destructive-foreground'
+                          }>
                             {bookingData.booking.status === 'PENDING_PAYMENT' ? 'Pending Payment' :
                              bookingData.booking.status}
                           </Badge>
@@ -199,9 +202,11 @@ export default function BookVenuePage() {
                           <>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Payment Status:</span>
-                              <Badge className={bookingData.payment.status === 'COMPLETED' ? 'bg-success/20 text-success-foreground' :
-                                             bookingData.payment.status === 'PENDING' ? 'bg-warning/20 text-yellow-800' :
-                                             'bg-destructive/20 text-destructive-foreground'}>
+                              <Badge className={
+                                bookingData.payment.status === 'COMPLETED' ? 'bg-success/20 text-success-foreground' :
+                                bookingData.payment.status === 'PENDING' ? 'bg-warning/20 text-warning-foreground' :
+                                'bg-destructive/20 text-destructive-foreground'
+                              }>
                                 {bookingData.payment.status}
                               </Badge>
                             </div>

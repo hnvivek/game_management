@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import "../styles/globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/components/auth/AuthProvider";
-import { ThemeProvider, ResponsiveProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/styles/providers/theme-provider";
 import { BottomNavigation, TabletBottomNavigation } from "@/components/navigation/bottom-navigation";
+import Footer from "@/components/footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,24 +18,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "GameHub - Bengaluru's Premier Sports Platform",
+  description: "Book sports venues, join teams, and play matches in Bengaluru. The ultimate sports community platform for athletes and enthusiasts.",
+  keywords: ["GameHub", "sports", "Bengaluru", "venue booking", "team management", "matches", "sports community"],
+  authors: [{ name: "GameHub Team" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.ico",
   },
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "GameHub - Bengaluru's Sports Community Platform",
+    description: "Book sports venues, join competitive teams, and experience the thrill of sports in Bengaluru",
+    url: "https://gamehub.in",
+    siteName: "GameHub",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+    title: "GameHub - Bengaluru's Premier Sports Platform",
+    description: "Book sports venues, join teams, and play matches in Bengaluru",
   },
 };
 
@@ -52,18 +53,14 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
         suppressHydrationWarning
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeProvider>
           <AuthProvider>
-            <ResponsiveProvider>
+            <div className="min-h-screen flex flex-col">
               {children}
-              <BottomNavigation />
-              <TabletBottomNavigation />
-            </ResponsiveProvider>
+              <Footer />
+            </div>
+            <BottomNavigation />
+            <TabletBottomNavigation />
             <Toaster />
           </AuthProvider>
         </ThemeProvider>

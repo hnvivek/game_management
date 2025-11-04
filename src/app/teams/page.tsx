@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import Navbar from '@/components/navbar'
+import { getCardClasses, getBadgeVariants, useThemeColors } from '@/styles/theme'
 
 // Types for team data
 interface Team {
@@ -91,6 +92,7 @@ export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { getSuccess } = useThemeColors()
 
   // Fetch teams from API
   const fetchTeams = async () => {
@@ -253,7 +255,7 @@ export default function TeamsPage() {
                     {team.recentForm && (
                       <>
                         <div className="grid grid-cols-3 gap-2 text-center">
-                          <div className="bg-emerald-50 rounded p-2 border border-emerald-200">
+                          <div className="bg-success-50 rounded p-2 border border-success-200">
                             <div className="text-base font-bold text-success">
                               {team.recentForm.filter(f => f === 'W').length}
                             </div>
@@ -279,7 +281,7 @@ export default function TeamsPage() {
                           <div className="flex gap-1">
                             {team.recentForm.map((result, idx) => (
                               <div key={idx} className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
-                                result === 'W' ? 'bg-emerald-500 text-primary-foreground' :
+                                result === 'W' ? 'bg-success-500 text-primary-foreground' :
                                 result === 'D' ? 'bg-warning text-primary-foreground' : 'bg-destructive text-primary-foreground'
                               }`}>
                                 {result}

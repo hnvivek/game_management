@@ -207,8 +207,8 @@ export default function VenueBooking({ onVenueSelect }: VenueBookingProps) {
   // Don't show timeline view until user searches
   if (!showTimeline) {
     return (
-      <Card>
-        <CardHeader>
+      <Card className="w-full overflow-hidden">
+        <CardHeader className="px-4 sm:px-6">
           <CardTitle className="flex items-center gap-2">
             <Search className="h-5 w-5 text-primary" />
             Find Venues
@@ -217,13 +217,14 @@ export default function VenueBooking({ onVenueSelect }: VenueBookingProps) {
             Search and book available venues for your match
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardContent className="px-4 sm:px-6 space-y-4">
+              <div className="w-full overflow-x-hidden">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 min-w-0">
                 {/* Sport Selection */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Sport</Label>
                   <Select value={selectedSport} onValueChange={setSelectedSport}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select sport" />
                     </SelectTrigger>
                     <SelectContent>
@@ -236,32 +237,35 @@ export default function VenueBooking({ onVenueSelect }: VenueBookingProps) {
                   </Select>
                 </div>
 
-                {/* Date Selection */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Date</Label>
-                  <Input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
+                {/* Date and Duration in same row on larger screens */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 min-w-0">
+                  <div className="space-y-2 min-w-0">
+                    <Label className="text-sm font-medium">Date</Label>
+                    <Input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full"
+                    />
+                  </div>
 
-                {/* Duration Selection */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Duration</Label>
-                  <Select value={selectedDuration} onValueChange={setSelectedDuration}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select duration" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {durations.map((duration) => (
-                        <SelectItem key={duration.value} value={duration.value}>
-                          {duration.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2 min-w-0">
+                    <Label className="text-sm font-medium">Duration</Label>
+                    <Select value={selectedDuration} onValueChange={setSelectedDuration}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {durations.map((duration) => (
+                          <SelectItem key={duration.value} value={duration.value}>
+                            {duration.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 </div>
               </div>
               
