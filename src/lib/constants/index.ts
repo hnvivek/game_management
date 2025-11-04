@@ -2,15 +2,10 @@
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: "/api/auth/login",
-    LOGOUT: "/api/auth/logout",
-    SIGNUP: "/api/auth/signup",
     ME: "/api/auth/me",
   },
   USERS: {
     LIST: "/api/users",
-    GET: (id: string) => `/api/users/${id}`,
-    UPDATE: (id: string) => `/api/users/${id}`,
-    DELETE: (id: string) => `/api/users/${id}`,
   },
   TEAMS: {
     LIST: "/api/teams",
@@ -18,18 +13,6 @@ export const API_ENDPOINTS = {
     GET: (id: string) => `/api/teams/${id}`,
     UPDATE: (id: string) => `/api/teams/${id}`,
     DELETE: (id: string) => `/api/teams/${id}`,
-    MEMBERS: "/api/members",
-    INVITES: "/api/invites",
-  },
-  MATCHES: {
-    LIST: "/api/matches",
-    CREATE: "/api/matches",
-    GET: (id: string) => `/api/matches/${id}`,
-    UPDATE: (id: string) => `/api/matches/${id}`,
-    DELETE: (id: string) => `/api/matches/${id}`,
-    JOIN: (id: string) => `/api/matches/${id}/join`,
-    APPROVE: (id: string) => `/api/matches/${id}/approve`,
-    RESULTS: (id: string) => `/api/matches/${id}/results`,
   },
   VENUES: {
     LIST: "/api/venues",
@@ -51,7 +34,6 @@ export const API_ENDPOINTS = {
     LIST: "/api/payments",
     CREATE: "/api/payments",
     GET: (id: string) => `/api/payments/${id}`,
-    REFUNDS: "/api/refunds",
   },
   SPORTS: {
     LIST: "/api/sports",
@@ -60,10 +42,7 @@ export const API_ENDPOINTS = {
   COUNTRIES: {
     LIST: "/api/countries",
   },
-  CURRENCIES: {
-    LIST: "/api/currencies",
-  },
-  DOCS: "/api/docs",
+    DOCS: "/api/docs",
 } as const;
 
 // Status Constants
@@ -74,22 +53,12 @@ export const BOOKING_STATUS = {
   COMPLETED: "COMPLETED",
 } as const;
 
-export const MATCH_STATUS = {
-  OPEN: "OPEN",
-  PENDING_PAYMENT: "PENDING_PAYMENT",
-  PENDING_OPPONENT: "PENDING_OPPONENT",
-  CONFIRMED: "CONFIRMED",
-  CANCELLED: "CANCELLED",
-  COMPLETED: "COMPLETED",
-} as const;
 
 export const PAYMENT_STATUS = {
   PENDING: "PENDING",
   PROCESSING: "PROCESSING",
   COMPLETED: "COMPLETED",
   FAILED: "FAILED",
-  REFUNDED: "REFUNDED",
-  PARTIALLY_REFUNDED: "PARTIALLY_REFUNDED",
 } as const;
 
 export const TEAM_ROLE = {
@@ -287,17 +256,6 @@ export const ROUTES = {
     CREATE: "/teams/create",
     EDIT: (id: string) => `/teams/${id}/edit`,
   },
-  MATCHES: {
-    LIST: "/matches",
-    DETAIL: (id: string) => `/matches/${id}`,
-    CREATE: "/matches/create",
-    EDIT: (id: string) => `/matches/${id}/edit`,
-  },
-  TOURNAMENTS: {
-    LIST: "/tournaments",
-    DETAIL: (id: string) => `/tournaments/${id}`,
-    CREATE: "/tournaments/create",
-  },
-  PROFILE: "/profile",
+    PROFILE: "/profile",
   SETTINGS: "/settings",
 } as const;
