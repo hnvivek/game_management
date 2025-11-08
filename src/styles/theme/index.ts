@@ -25,5 +25,12 @@ export {
   getCardClasses
 } from './components'
 
+// Sport color utilities
+export {
+  sportColorPalette,
+  getSportColor,
+  hexToRgba
+} from './sport-colors'
+
 // Re-export main theme as default
 export { theme as default } from './tokens'

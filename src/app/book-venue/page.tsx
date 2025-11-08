@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 import { CheckCircle, AlertCircle, Calendar } from 'lucide-react'
@@ -8,13 +9,29 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import SimpleBookingFlow from '@/components/booking/SimpleBookingFlow'
+import SimpleBookingFlow from '@/components/features/booking/SimpleBookingFlow'
 import Navbar from '@/components/navbar'
 import { getStatusColors } from '@/styles/theme'
 
 export default function BookVenuePage() {
+  const searchParams = useSearchParams()
   const [bookingComplete, setBookingComplete] = useState(false)
   const [bookingData, setBookingData] = useState<{ booking: any; payment: any; court?: any } | null>(null)
+
+  // Get vendor pre-filter from URL parameters
+  const preSelectedVendorId = searchParams.get('vendorId')
+  const [vendorInfo, setVendorInfo] = useState<{name: string; id: string} | null>(null)
+
+  useEffect(() => {
+    if (preSelectedVendorId) {
+      // We could fetch vendor info here, but for now just use the ID
+      // The vendor name will be shown through the booking flow
+      setVendorInfo({
+        name: 'Selected Vendor',
+        id: preSelectedVendorId
+      })
+    }
+  }, [preSelectedVendorId])
 
   const handleBookingComplete = (data: any) => {
     setBookingData(data)
@@ -34,10 +51,28 @@ export default function BookVenuePage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Book a Court</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            {vendorInfo ? 'Book a Court (Vendor Pre-selected)' : 'Book a Court'}
+          </h1>
           <p className="text-muted-foreground">
-            Find and book the perfect court for your game or practice session
+            {vendorInfo
+              ? 'Find and book the perfect court from your selected vendor'
+              : 'Find and book the perfect court for your game or practice session'
+            }
           </p>
+          {vendorInfo && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-muted-foreground">Filtered by vendor:</span>
+              <Badge variant="outline">Selected Vendor</Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.location.href = '/book-venue'}
+              >
+                View All Vendors
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Success Message */}
@@ -74,7 +109,10 @@ export default function BookVenuePage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <SimpleBookingFlow onBookingComplete={handleBookingComplete} />
+              <SimpleBookingFlow
+                onBookingComplete={handleBookingComplete}
+                preSelectedVendorId={preSelectedVendorId}
+              />
             </CardContent>
           </Card>
         )}

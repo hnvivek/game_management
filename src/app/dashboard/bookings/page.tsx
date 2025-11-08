@@ -1,7 +1,7 @@
 'use client'
 
 import { Calendar } from 'lucide-react'
-import BookingDashboard from '@/components/booking/BookingDashboard'
+import BookingDashboard from '@/components/features/booking/BookingDashboard'
 import Navbar from '@/components/navbar'
 
 export default function BookingsDashboardPage() {

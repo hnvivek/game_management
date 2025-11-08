@@ -3,7 +3,7 @@
 import Image, { ImageProps as NextImageProps } from 'next/image'
 import { useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { useResponsiveDesign } from '@/lib/hooks/useResponsiveDesign'
+import { useResponsiveDesign } from '@/hooks/use-responsive-design'
 
 interface OptimizedImageProps extends Omit<NextImageProps, 'onLoad' | 'onError'> {
   /**

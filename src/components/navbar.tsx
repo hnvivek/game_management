@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Trophy, Menu, X, Calendar, Users, Settings, LogOut, List, User, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/components/auth/AuthProvider'
+import { useAuth } from '@/components/features/auth/AuthProvider'
 import { useRouter } from 'next/navigation'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ThemeToggle } from '@/styles/providers/theme-toggle'
@@ -41,8 +41,8 @@ export default function Navbar() {
   }
 
   return (
-    <header className="bg-card border-b border shadow-nav sticky top-0 z-40 relative">
-      <div className="w-full px-3 sm:px-4 lg:px-6 max-w-full overflow-hidden">
+    <header className="bg-card border-b border-border shadow-nav sticky top-0 z-40 relative">
+      <div className="w-full px-3 sm:px-4 lg:px-6 max-w-7xl mx-auto overflow-hidden">
         <div className="flex justify-between items-center h-14 md:h-12 min-h-0">
           {/* Logo/Brand */}
           <Link href="/" className="flex items-center space-x-2 group flex-shrink-0 z-10 relative">
@@ -97,13 +97,13 @@ export default function Navbar() {
 
                 <DropdownMenu.Portal>
                   <DropdownMenu.Content
-                    className="w-64 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+                    className="w-64 bg-card text-card-foreground rounded-lg shadow-dropdown border-border z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
                     sideOffset={0}
                     align="end"
                     style={{ margin: 0 }}
                   >
                     {/* User Info Header */}
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                    <div className="p-4 border-b border-border bg-muted">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-medium">
                           {user.name.charAt(0).toUpperCase()}
@@ -120,7 +120,7 @@ export default function Navbar() {
                       <DropdownMenu.Item asChild>
                         <button
                           onClick={() => handleNavigation('/my-bookings')}
-                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none"
+                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-accent text-accent-foreground transition-colors focus:outline-none"
                         >
                           <List className="h-4 w-4" />
                           My Bookings
@@ -130,7 +130,7 @@ export default function Navbar() {
                       <DropdownMenu.Item asChild>
                         <button
                           onClick={() => handleNavigation('/profile')}
-                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none"
+                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-accent text-accent-foreground transition-colors focus:outline-none"
                         >
                           <User className="h-4 w-4" />
                           Profile
@@ -140,19 +140,19 @@ export default function Navbar() {
                       <DropdownMenu.Item asChild>
                         <button
                           onClick={() => handleNavigation('/settings')}
-                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none"
+                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-accent text-accent-foreground transition-colors focus:outline-none"
                         >
                           <Settings className="h-4 w-4" />
                           Settings
                         </button>
                       </DropdownMenu.Item>
 
-                      <DropdownMenu.Separator className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
+                      <DropdownMenu.Separator className="h-px bg-border my-2" />
 
                       <DropdownMenu.Item asChild>
                         <button
                           onClick={handleLogout}
-                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none"
+                          className="flex items-center gap-3 w-full text-left text-sm px-3 py-3 rounded-md hover:bg-accent text-accent-foreground transition-colors focus:outline-none"
                         >
                           <LogOut className="h-4 w-4" />
                           Sign Out
@@ -163,7 +163,7 @@ export default function Navbar() {
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
             ) : (
-              <Link href="/signin">
+              <Link href="/auth/signin">
                 <Button size="sm" className="bg-primary hover:bg-primary-600 text-primary-foreground h-8 text-xs px-3">
                   Sign In
                 </Button>
@@ -233,7 +233,7 @@ export default function Navbar() {
                   </div>
                 ) : (
                   <div className="mt-3">
-                    <Link href="/signin" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/auth/signin" onClick={() => setMobileMenuOpen(false)}>
                       <Button size="sm" className="w-full bg-primary hover:bg-primary-600 text-primary-foreground">
                         Sign In
                       </Button>

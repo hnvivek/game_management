@@ -12,10 +12,11 @@ export { PageHeader } from "./layout/PageHeader";
 // Form Components
 export { FormProvider, useFormContext } from "./forms/FormProvider";
 
-// Feature Components - Auth
-export { SignInForm } from "./features/auth/SignInForm";
-export { UserMenu } from "./features/auth/UserMenu";
-export { AuthProvider } from "./features/auth/AuthProvider";
+// Feature Components - Re-export from feature modules
+export * from "./features/auth";
+export * from "./features/admin";
+export * from "./features/vendor";
+export * from "./features/booking";
 
 // Feature Components - Venues
 export { VenueCard } from "./features/venues/VenueCard";
@@ -32,7 +33,7 @@ export { MatchCreationForm } from "./features/matches/MatchCreationForm";
 // Existing Components
 export { default as Navbar } from "./navbar";
 export { default as VenueBooking } from "./venue-booking";
-export { default as VendorSettings } from "./vendor/VendorSettings";
+export { VendorSettings } from "./features/vendor/VendorSettings";
 
 // Re-export UI components for convenience
 export * from "./ui";

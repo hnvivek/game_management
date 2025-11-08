@@ -36,18 +36,42 @@ class ApiClient {
           ...(token && { Authorization: `Bearer ${token}` }),
           ...options.headers,
         },
+        signal: options.signal, // Support AbortController
         ...options,
       };
 
       const response = await fetch(url, config);
-      const data = await response.json();
+      
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          // If JSON parsing fails, use a default error
+          throw new Error(`Invalid JSON response. Status: ${response.status}`);
+        }
+      } else {
+        // If not JSON, get text
+        const text = await response.text();
+        throw new Error(text || `HTTP error! status: ${response.status}`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        // Handle error response - ApiResponse.error() returns { success: false, error: { message, code } }
+        const errorMessage = typeof data.error === 'string' 
+          ? data.error 
+          : data.error?.message || data.message || `HTTP error! status: ${response.status}`;
+        console.error('API error response:', { status: response.status, data });
+        throw new Error(errorMessage);
       }
 
       return { data, status: response.status };
     } catch (error) {
+      // Handle AbortError silently
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error; // Re-throw to let caller handle
+      }
       console.error('API request failed:', error);
       return {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -76,9 +100,9 @@ class ApiClient {
   }
 
   // HTTP Methods
-  async get<T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+  async get<T>(endpoint: string, params?: Record<string, any>, requestOptions?: RequestInit): Promise<ApiResponse<T>> {
     const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
-    return this.request<T>(`${endpoint}${queryString}`);
+    return this.request<T>(`${endpoint}${queryString}`, { ...requestOptions, method: 'GET' });
   }
 
   async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
@@ -114,8 +138,8 @@ export const apiClient = new ApiClient();
 // API wrapper functions with toast notifications
 export const api = {
   // Get request with toast
-  get: async <T>(endpoint: string, params?: Record<string, any>, options?: { showToast?: boolean }) => {
-    const response = await apiClient.get<T>(endpoint, params);
+  get: async <T>(endpoint: string, params?: Record<string, any>, options?: { showToast?: boolean; signal?: AbortSignal }) => {
+    const response = await apiClient.get<T>(endpoint, params, { signal: options?.signal } as RequestInit);
     if (response.error && options?.showToast !== false) {
       toast.error(response.error);
     }

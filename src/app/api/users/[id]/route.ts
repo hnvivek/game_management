@@ -65,36 +65,50 @@ async function verifyUser(request: NextRequest) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, email: true, role: true },
+    const user = await prisma.user.findFirst({
+      where: { 
+        id: decoded.userId,
+        deletedAt: null
+      },
+      select: { id: true, email: true, role: true, isActive: true },
     });
 
-    if (!user || !user.isActive) {
-      return { error: 'User not found or inactive', status: 401 };
+    if (!user) {
+      return { error: 'User not found', status: 401 };
+    }
+
+    if (!user.isActive) {
+      return { error: 'User account is inactive', status: 401 };
     }
 
     return { user };
   } catch (error) {
+    console.error('JWT verification error:', error);
     return { error: 'Invalid authentication token', status: 401 };
   }
 }
 
 // GET /api/users/[id] - Get user profile (with proper authorization)
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
   try {
     const auth = await verifyUser(request);
     if (auth.error) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    // Resolve params (Next.js 15 compatibility)
+    const resolvedParams = params instanceof Promise ? await params : params;
+
     // Users can only view their own profile or admins can view any profile
-    if (auth.user.id !== params.id && auth.user.role !== 'ADMIN') {
+    if (auth.user.id !== resolvedParams.id && auth.user.role !== 'ADMIN' && auth.user.role !== 'PLATFORM_ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: params.id },
+    const user = await prisma.user.findFirst({
+      where: { 
+        id: resolvedParams.id,
+        deletedAt: null
+      },
       include: {
         country: { select: { code: true, name: true } },
         currency: { select: { code: true, name: true, symbol: true } },
@@ -150,15 +164,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT /api/users/[id] - Update user profile
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
   try {
     const auth = await verifyUser(request);
     if (auth.error) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    // Resolve params (Next.js 15 compatibility)
+    const resolvedParams = params instanceof Promise ? await params : params;
+
     // Users can only update their own profile
-    if (auth.user.id !== params.id) {
+    if (auth.user.id !== resolvedParams.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -170,8 +187,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       const validatedData = passwordChangeSchema.parse(data);
 
       // Get current user with password
-      const currentUser = await prisma.user.findUnique({
-        where: { id: params.id },
+      const currentUser = await prisma.user.findFirst({
+        where: { 
+          id: resolvedParams.id,
+          deletedAt: null
+        },
         select: { password: true }
       });
 
@@ -189,7 +209,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       const hashedPassword = await bcrypt.hash(validatedData.newPassword, 12);
 
       const updatedUser = await prisma.user.update({
-        where: { id: params.id },
+        where: { id: resolvedParams.id },
         data: { password: hashedPassword },
         select: { id: true, name: true, email: true, updatedAt: true }
       });
@@ -204,7 +224,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
       // Update user profile
       const updatedUser = await prisma.user.update({
-        where: { id: params.id },
+        where: { id: resolvedParams.id },
         data: validatedData,
         include: {
           country: { select: { code: true, name: true } },
@@ -234,32 +254,38 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-// DELETE /api/users/[id] - Deactivate user account
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/users/[id] - Soft delete user account
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
   try {
     const auth = await verifyUser(request);
     if (auth.error) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    // Users can only deactivate their own account
-    if (auth.user.id !== params.id) {
+    // Resolve params (Next.js 15 compatibility)
+    const resolvedParams = params instanceof Promise ? await params : params;
+
+    // Users can only delete their own account, or admins can delete any account
+    if (auth.user.id !== resolvedParams.id && auth.user.role !== 'ADMIN' && auth.user.role !== 'PLATFORM_ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Soft delete by setting isActive to false
+    // Soft delete by setting deletedAt timestamp
     const updatedUser = await prisma.user.update({
-      where: { id: params.id },
-      data: { isActive: false },
+      where: { id: resolvedParams.id },
+      data: { 
+        deletedAt: new Date(),
+        isActive: false // Also deactivate for backward compatibility
+      },
       select: { id: true, name: true, email: true }
     });
 
     return NextResponse.json({
-      message: 'Account deactivated successfully',
+      message: 'Account deleted successfully',
       user: updatedUser
     });
   } catch (error) {
-    console.error('Error deactivating user account:', error);
-    return NextResponse.json({ error: 'Failed to deactivate account' }, { status: 500 });
+    console.error('Error deleting user account:', error);
+    return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
   }
 }

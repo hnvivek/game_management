@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* FullCalendar CSS - Import from CDN via script tag in component */
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -196,6 +198,9 @@
   --success-500: 86 54% 38% !important;
   --success-600: 80 58% 24% !important;
   --success-700: 69 48% 21% !important;
+  --success-800: 60 45% 18% !important;
+  --success-900: 55 48% 15% !important;
+  --success-950: 50 60% 8% !important;
   --warning: 37 92% 51% !important;
   --warning-foreground: 0 0% 100% !important;
   --warning-50: 33 100% 11% !important;
@@ -206,6 +211,9 @@
   --warning-500: 37 92% 51% !important;
   --warning-600: 32 95% 44% !important;
   --warning-700: 26 87% 42% !important;
+  --warning-800: 22 85% 35% !important;
+  --warning-900: 18 80% 25% !important;
+  --warning-950: 12 75% 12% !important;
 
   /* Chart colors */
   --chart-1: 220 13% 46% !important;
@@ -497,6 +505,31 @@ button, a, [role="button"] {
 
 .contain-layout-paint-size {
   contain: layout paint size;
+}
+
+/* Dark theme shadow utilities */
+.shadow-nav {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+.dark .shadow-nav {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.2);
+}
+
+.shadow-card {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+.dark .shadow-card {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+}
+
+.shadow-dropdown {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.dark .shadow-dropdown {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 }
 
 /* Enhanced mobile typography */

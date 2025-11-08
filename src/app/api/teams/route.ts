@@ -8,11 +8,12 @@ const teamCreateSchema = z.object({
   description: z.string().optional(),
   logoUrl: z.string().url().optional(),
   sportId: z.string(),
-  formatId: z.string(),
+  formatId: z.string().optional(),
   city: z.string().optional(),
   area: z.string().optional(),
   level: z.string().optional(),
   maxPlayers: z.number().positive(),
+  minPlayers: z.number().positive().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -81,9 +82,6 @@ export async function GET(request: NextRequest) {
           _count: {
             select: {
               members: true,
-              homeMatches: true,
-              awayMatches: true,
-              teamInvites: true,
             },
           },
         },
@@ -120,9 +118,9 @@ export async function POST(request: NextRequest) {
       db.sportType.findUnique({
         where: { id: validatedData.sportId },
       }),
-      db.formatType.findUnique({
+      validatedData.formatId ? db.formatType.findUnique({
         where: { id: validatedData.formatId },
-      }),
+      }) : Promise.resolve(null),
     ]);
 
     if (!sport) {
@@ -132,7 +130,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!format) {
+    if (validatedData.formatId && !format) {
       return NextResponse.json(
         { error: 'Format not found' },
         { status: 400 }
@@ -140,7 +138,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate format belongs to sport
-    if (format.sportId !== validatedData.sportId) {
+    if (validatedData.formatId && format && format.sportId !== validatedData.sportId) {
       return NextResponse.json(
         { error: 'Format does not belong to the specified sport' },
         { status: 400 }
@@ -148,7 +146,10 @@ export async function POST(request: NextRequest) {
     }
 
     const team = await db.team.create({
-      data: validatedData,
+      data: {
+        ...validatedData,
+        minPlayers: validatedData.minPlayers || validatedData.maxPlayers,
+      },
       include: {
         sport: {
           select: {
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
+        { error: 'Validation failed', details: error.issues },
         { status: 400 }
       );
     }

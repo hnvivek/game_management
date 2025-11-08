@@ -16,9 +16,8 @@ export default function Footer() {
 
   return (
     <footer className="border-t bg-muted/30 py-4">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-sm text-muted-foreground">
+      <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-sm text-muted-foreground">
             {/* Left side - Company info */}
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
@@ -49,7 +48,6 @@ export default function Footer() {
               <span>in Bengaluru</span>
             </div>
           </div>
-        </div>
       </div>
     </footer>
   )

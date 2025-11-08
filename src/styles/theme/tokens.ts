@@ -86,6 +86,83 @@ export const theme = {
       700: '#b91c1c',
       800: '#991b1b',
       900: '#7f1d1d',
+    },
+
+    // Chart color palette (optimized for data visualization)
+    // Using harmonious, earthy palette: Eggshell, Burnt Sienna, Delft Blue, Cambridge Blue, Sunset
+    // Based on ColorBrewer principles: accessible, harmonious, colorblind-safe
+    charts: {
+      // Primary chart colors (brand identity)
+      primary: '#e07a5f',        // Burnt Sienna - warm, distinctive for main metrics
+      primaryLight: '#e79680',   // Lighter Burnt Sienna for accents
+      
+      // Secondary chart colors
+      secondary: '#3d405b',      // Delft Blue - professional dark blue for supporting data
+      secondaryLight: '#5a5e87', // Lighter Delft Blue
+      
+      // Status colors (semantic meaning - colorblind-friendly)
+      confirmed: '#81b29a',      // Cambridge Blue - greenish, positive action
+      pending: '#f2cc8f',        // Sunset - warm yellow, attention needed
+      completed: '#3d405b',      // Delft Blue - neutral completion
+      cancelled: '#d7502b',      // Darker Burnt Sienna - negative action (darker variant)
+      
+      // Metric-specific colors
+      bookings: '#e07a5f',       // Burnt Sienna - brand color for booking trends
+      revenue: '#81b29a',        // Cambridge Blue - success-like for revenue
+      
+      // Categorical palette for multi-series charts
+      // Using the full palette plus variations for colorblind-safe, harmonious sequence
+      categorical: [
+        '#e07a5f',  // Burnt Sienna - primary brand
+        '#3d405b',  // Delft Blue - secondary
+        '#81b29a',  // Cambridge Blue - success
+        '#f2cc8f',  // Sunset - warning
+        '#d7502b',  // Darker Burnt Sienna
+        '#5a5e87',  // Lighter Delft Blue
+        '#9ac1ae',  // Lighter Cambridge Blue
+        '#f4d5a4',  // Lighter Sunset
+      ],
+      
+      // Activity status colors
+      activity: {
+        success: '#81b29a',      // Cambridge Blue
+        warning: '#f2cc8f',      // Sunset
+        error: '#d7502b',        // Darker Burnt Sienna
+        info: '#3d405b'          // Delft Blue
+      },
+      
+      // Muted sport colors - carefully curated palette for sports
+      // Balanced saturation for good visibility while maintaining sophisticated muted aesthetic
+      // Colorblind-friendly and visually harmonious
+      // Each color is unique and distinguishable
+      sports: {
+        muted: [
+          '#8b9dc3',  // Muted periwinkle blue
+          '#7fb3a8',  // Muted teal green
+          '#c49a6a',  // Muted warm tan
+          '#a68db8',  // Muted lavender
+          '#6ba8a5',  // Muted aqua
+          '#b89a7a',  // Muted camel
+          '#7ba5c4',  // Muted sky blue
+          '#8db38a',  // Muted sage
+          '#c48a8a',  // Muted dusty rose
+          '#6b8db3',  // Muted steel blue
+          '#b38a9a',  // Muted mauve
+          '#7fb38a',  // Muted mint
+          '#b3a68a',  // Muted khaki
+          '#9a8db3',  // Muted purple-gray
+          '#a68a7a',  // Muted terracotta
+          '#6ba58a',  // Muted forest
+          '#b38a7a',  // Muted coral
+          '#7a8db3',  // Muted slate blue
+          '#a6b38a',  // Muted olive
+          '#8db3a6',  // Muted seafoam
+          '#b38a8a',  // Muted rose
+          '#6b9db3',  // Muted cyan
+          '#9a7ab3',  // Muted violet
+          '#a68a9a',  // Muted plum
+        ]
+      }
     }
   },
 

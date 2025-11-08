@@ -1,342 +1,497 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, TrendingUp, Calendar, DollarSign, Users, Settings, MapPin, Clock, Edit, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { VendorLayout } from '@/components/features/vendor/VendorLayout'
+import { VendorBreadcrumb } from '@/components/features/vendor/VendorBreadcrumb'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Calendar, TrendingUp, Clock, DollarSign, BarChart3 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { getCardClasses, getStatusColors, getBadgeVariants, useThemeColors } from '@/styles/theme'
+import { useState, useEffect } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useVendor } from '@/hooks/use-vendor'
+import { theme } from '@/styles/theme/tokens'
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts'
 
-// Mock data - replace with real API calls
-const mockVendor = {
-  id: 'vendor-1',
-  name: '3Lok Sports Hub',
-  location: 'Whitefield, Bengaluru',
-  venues: 7,
-  bookings: 156,
-  revenue: 450000
+interface BookingStats {
+  total: number
+  today: number
+  thisWeek: number
+  thisMonth: number
+  confirmed: number
+  pending: number
+  cancelled: number
+  completed: number
+  revenue: number
+  avgBookingValue: number
+  growth: number
 }
 
-const mockVenues = [
-  { id: '1', sport: 'soccer', size: '11 a side', courtNumber: 'Field 1', pricePerHour: 4000, maxPlayers: 22 },
-  { id: '2', sport: 'soccer', size: '8 a side', courtNumber: 'Field 2', pricePerHour: 2600, maxPlayers: 16 },
-  { id: '3', sport: 'basketball', size: 'Full Court', courtNumber: 'Court 1', pricePerHour: 2000, maxPlayers: 10 },
-]
+interface RecentActivity {
+  id: string
+  type: string
+  title: string
+  description: string
+  time: string
+  status: 'success' | 'warning' | 'info' | 'error'
+}
 
-const mockBookings = [
-  { id: '1', date: '2025-10-29', time: '14:00-16:00', court: 'Field 1', customer: 'John Doe', amount: 8000, status: 'confirmed' },
-  { id: '2', date: '2025-10-29', time: '18:00-19:00', court: 'Field 2', customer: 'Team Alpha', amount: 2600, status: 'confirmed' },
-]
-
-const sportOptions = [
-  { value: 'soccer', label: 'Football/Soccer' },
-  { value: 'basketball', label: 'Basketball' },
-  { value: 'cricket', label: 'Cricket' },
-  { value: 'badminton', label: 'Badminton' },
-  { value: 'tennis', label: 'Tennis' }
-]
+interface BookingInsights {
+  peakHours: string
+  averageDuration: string
+  conversionRate: number
+}
 
 export default function VendorDashboard() {
-  const [showAddVenue, setShowAddVenue] = useState(false)
-  const [newVenue, setNewVenue] = useState({
-    sport: '',
-    size: '',
-    courtNumber: '',
-    pricePerHour: '',
-    maxPlayers: '',
-    description: ''
+  const { vendorId } = useVendor()
+  const [bookingStats, setBookingStats] = useState<BookingStats>({
+    total: 0,
+    today: 0,
+    thisWeek: 0,
+    thisMonth: 0,
+    confirmed: 0,
+    pending: 0,
+    cancelled: 0,
+    completed: 0,
+    revenue: 0,
+    avgBookingValue: 0,
+    growth: 0
   })
-  const { getSuccess } = useThemeColors()
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
+  const [insights, setInsights] = useState<BookingInsights>({
+    peakHours: 'N/A',
+    averageDuration: 'N/A',
+    conversionRate: 0
+  })
+  const [analyticsData, setAnalyticsData] = useState<any>(null)
+  const [currencySymbol, setCurrencySymbol] = useState<string>('₹')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleAddVenue = async () => {
-    // TODO: Implement API call to add venue
-    console.log('Adding venue:', newVenue)
-    setShowAddVenue(false)
-    setNewVenue({
-      sport: '',
-      size: '',
-      courtNumber: '',
-      pricePerHour: '',
-      maxPlayers: '',
-      description: ''
-    })
+  const loadBookingStats = async () => {
+    if (!vendorId) return
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Single API call for all dashboard data
+      const dashboardResponse = await fetch(`/api/vendors/${vendorId}/dashboard`, {
+        credentials: 'include'
+      })
+      
+      if (!dashboardResponse.ok) {
+        throw new Error('Failed to fetch dashboard data')
+      }
+
+      const dashboardData = await dashboardResponse.json()
+      
+      if (!dashboardData.success || !dashboardData.data) {
+        throw new Error('Invalid response format')
+      }
+
+      const data = dashboardData.data
+
+      // Set currency symbol
+      const currencyCode = data.vendor?.currencyCode || 'INR'
+      const currencyMap: Record<string, string> = {
+        'INR': '₹',
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£'
+      }
+      setCurrencySymbol(currencyMap[currencyCode] || currencyCode)
+
+      // Set booking stats
+      setBookingStats(data.stats)
+
+      // Set recent activity
+      setRecentActivity(data.recentActivity || [])
+
+      // Set insights
+      setInsights(data.insights || {
+        peakHours: 'N/A',
+        averageDuration: 'N/A',
+        conversionRate: 0
+      })
+
+      // Set analytics data for charts (already formatted correctly from API)
+      setAnalyticsData({
+        bookings: {
+          byPeriod: data.charts.weeklyBookings
+        },
+        revenue: {
+          byPeriod: data.charts.revenueTrend
+        }
+      })
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data')
+    } finally {
+      setLoading(false)
+    }
   }
 
+  useEffect(() => {
+    loadBookingStats()
+  }, [vendorId])
+
+  if (!vendorId) {
+    return (
+      <VendorLayout title="Dashboard" subtitle="Welcome back! Here's what's happening with your venues today.">
+        <div className="p-6">
+          <Skeleton className="h-8 w-48 mb-4" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </VendorLayout>
+    )
+  }
+
+  // Chart color palette from theme (optimized for data visualization)
+  // Uses centralized theme colors for consistency across the application
+  const chartColors = {
+    // Primary chart colors (brand identity)
+    primary: theme.colors.charts.primary,
+    primaryLight: theme.colors.charts.primaryLight,
+    
+    // Secondary chart colors
+    secondary: theme.colors.charts.secondary,
+    secondaryLight: theme.colors.charts.secondaryLight,
+    
+    // Status colors (semantic meaning - colorblind-friendly)
+    confirmed: theme.colors.charts.confirmed,
+    pending: theme.colors.charts.pending,
+    completed: theme.colors.charts.completed,
+    cancelled: theme.colors.charts.cancelled,
+    
+    // Metric-specific colors
+    bookings: theme.colors.charts.bookings,
+    revenue: theme.colors.charts.revenue,
+    
+    // Categorical palette for multi-series charts
+    categorical: theme.colors.charts.categorical,
+    
+    // Activity status colors
+    activity: theme.colors.charts.activity
+  }
+
+  // Prepare chart data using standardized theme colors
+  const statusChartData = [
+    { name: 'Confirmed', value: bookingStats.confirmed, color: chartColors.confirmed },
+    { name: 'Pending', value: bookingStats.pending, color: chartColors.pending },
+    { name: 'Completed', value: bookingStats.completed, color: chartColors.completed },
+    { name: 'Cancelled', value: bookingStats.cancelled, color: chartColors.cancelled }
+  ].filter(item => item.value > 0)
+
+  // Weekly bookings data (last 7 days) - already formatted from API
+  const weeklyBookingsData = analyticsData?.bookings?.byPeriod || []
+  
+  // Revenue trend data - already formatted from API
+  const revenueTrendData = analyticsData?.revenue?.byPeriod || []
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Vendor Header */}
-      <header className="bg-card border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-primary-foreground" />
+    <VendorLayout
+      title="Dashboard"
+      subtitle="Comprehensive overview of your bookings, revenue, and performance metrics"
+    >
+      <div className="p-6 space-y-6">
+        {/* Breadcrumb */}
+        <VendorBreadcrumb />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{bookingStats.total.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">
+                  {bookingStats.growth > 0 ? `+${bookingStats.growth.toFixed(1)}%` : ''} this month
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Today's Bookings</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{bookingStats.today}</div>
+                <p className="text-xs text-muted-foreground">
+                  {bookingStats.thisWeek} this week
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{currencySymbol}{(bookingStats.revenue / 1000).toFixed(1)}K</div>
+                <p className="text-xs text-muted-foreground">
+                  {currencySymbol}{bookingStats.avgBookingValue.toFixed(2)} avg value
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {bookingStats.total > 0 
+                    ? ((bookingStats.confirmed / bookingStats.total) * 100).toFixed(1)
+                    : 0}%
                 </div>
-                <div>
-                  <span className="text-xl font-bold text-foreground">{mockVendor.name}</span>
-                  <span className="text-sm text-muted-foreground block">{mockVendor.location}</span>
+                <p className="text-xs text-muted-foreground">
+                  Confirmed bookings
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Booking Trends Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Booking Trends (Last 7 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <Skeleton className="h-full w-full" />
+              </div>
+            ) : weeklyBookingsData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={weeklyBookingsData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="bookings" fill={chartColors.bookings} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No booking data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Revenue Trend Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Revenue Trend (Last 7 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <Skeleton className="h-full w-full" />
+              </div>
+            ) : revenueTrendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={revenueTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [`${currencySymbol}${Number(value).toLocaleString()}`, 'Revenue']} />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke={chartColors.revenue}
+                    strokeWidth={2}
+                    dot={{ fill: chartColors.revenue }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No revenue data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Status Breakdown Chart */}
+      {statusChartData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Booking Status Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-[250px] flex items-center justify-center">
+                <Skeleton className="h-full w-full" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={statusChartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill={chartColors.primary}
+                      dataKey="value"
+                    >
+                      {statusChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-col justify-center space-y-3">
+                  {statusChartData.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-sm font-medium">{item.name}</span>
+                      </div>
+                      <span className="text-sm font-bold">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
-              <Button size="sm" className="bg-primary hover:bg-primary/90">
-                View Public Page
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Main Dashboard */}
-      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className={getCardClasses('base')}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Venues</CardTitle>
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{mockVendor.venues}</div>
-              <p className="text-xs text-muted-foreground">
-                Across multiple sports
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className={getCardClasses('base')}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">This Month's Bookings</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{mockVendor.bookings}</div>
-              <p className="text-xs text-muted-foreground">
-                +12% from last month
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className={getCardClasses('base')}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">₹{mockVendor.revenue.toLocaleString('en-IN')}</div>
-              <p className="text-xs text-muted-foreground">
-                +8% from last month
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="venues" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="venues">Venues</TabsTrigger>
-            <TabsTrigger value="bookings">Bookings</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          </TabsList>
-
-          {/* Venues Tab */}
-          <TabsContent value="venues" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-foreground">Manage Venues</h2>
-              <Dialog open={showAddVenue} onOpenChange={setShowAddVenue}>
-                <DialogTrigger asChild>
-                  <Button className="bg-primary hover:bg-primary/90">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Venue
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Add New Venue</DialogTitle>
-                    <DialogDescription>
-                      Create a new sports venue for customers to book
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Sport Type</Label>
-                      <Select value={newVenue.sport} onValueChange={(value) => setNewVenue(prev => ({...prev, sport: value}))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select sport" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sportOptions.map(sport => (
-                            <SelectItem key={sport.value} value={sport.value}>
-                              {sport.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label>Venue Size/Type</Label>
-                      <Input 
-                        placeholder="e.g. 11 a side, Full Court"
-                        value={newVenue.size}
-                        onChange={(e) => setNewVenue(prev => ({...prev, size: e.target.value}))}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label>Court/Field Number</Label>
-                      <Input 
-                        placeholder="e.g. Field 1, Court A"
-                        value={newVenue.courtNumber}
-                        onChange={(e) => setNewVenue(prev => ({...prev, courtNumber: e.target.value}))}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label>Price per Hour (₹)</Label>
-                      <Input 
-                        type="number"
-                        placeholder="2000"
-                        value={newVenue.pricePerHour}
-                        onChange={(e) => setNewVenue(prev => ({...prev, pricePerHour: e.target.value}))}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label>Max Players</Label>
-                      <Input 
-                        type="number"
-                        placeholder="22"
-                        value={newVenue.maxPlayers}
-                        onChange={(e) => setNewVenue(prev => ({...prev, maxPlayers: e.target.value}))}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label>Description (Optional)</Label>
-                    <Textarea 
-                      placeholder="Additional details about the venue..."
-                      value={newVenue.description}
-                      onChange={(e) => setNewVenue(prev => ({...prev, description: e.target.value}))}
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end space-x-3">
-                    <Button variant="outline" onClick={() => setShowAddVenue(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleAddVenue} className="bg-primary hover:bg-primary/90">
-                      Add Venue
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {mockVenues.map((venue) => (
-                <Card key={venue.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{venue.size}</CardTitle>
-                        <CardDescription className="flex items-center mt-1">
-                          <MapPin className="h-3 w-3 mr-1" />
-                          {venue.courtNumber}
-                        </CardDescription>
-                      </div>
-                      <Badge className={getBadgeVariants('success')}>
-                        {venue.sport}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Price/hour:</span>
-                      <span className="font-semibold text-success">₹{venue.pricePerHour.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Max players:</span>
-                      <span className="font-medium">{venue.maxPlayers}</span>
-                    </div>
-                    <div className="flex justify-end space-x-2 pt-2">
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-destructive border-destructive/20 hover:bg-destructive/10">
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Delete
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* Bookings Tab */}
-          <TabsContent value="bookings" className="space-y-6">
-            <h2 className="text-2xl font-bold text-foreground">Recent Bookings</h2>
-            
-            <Card className={getCardClasses('base')}>
-              <CardHeader>
-                <CardTitle>Today's Schedule</CardTitle>
-              </CardHeader>
-              <CardContent>
+      {/* Recent Activity & Insights */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : recentActivity.length > 0 ? (
                 <div className="space-y-4">
-                  {mockBookings.map((booking) => (
-                    <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{booking.customer}</span>
-                          <span className="text-sm text-muted-foreground">{booking.court}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{booking.time}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className="font-semibold text-success">₹{booking.amount.toLocaleString('en-IN')}</span>
-                        <Badge className={getBadgeVariants('success')}>
-                          {booking.status}
-                        </Badge>
+                  {recentActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-start space-x-3">
+                      <div
+                        className="w-2 h-2 rounded-full mt-2"
+                        style={{
+                          backgroundColor: chartColors.activity[activity.status] || chartColors.activity.info
+                        }}
+                      ></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{activity.title}</p>
+                        <p className="text-sm text-muted-foreground">{activity.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              ) : (
+                <p className="text-sm text-muted-foreground">No recent activity</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-6">
-            <h2 className="text-2xl font-bold text-foreground">Analytics & Insights</h2>
-            <Card className={getCardClasses('base')}>
-              <CardHeader>
-                <CardTitle>Coming Soon</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Detailed analytics and reporting features will be available soon.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Booking Insights</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} className="h-8 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Peak booking hours</span>
+                    <Badge variant="secondary">{insights.peakHours}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Average duration</span>
+                    <Badge variant="secondary">{insights.averageDuration}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Conversion rate</span>
+                    <Badge variant="secondary">
+                      {insights.conversionRate.toFixed(1)}%
+                    </Badge>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
     </div>
+    </VendorLayout>
   )
 }

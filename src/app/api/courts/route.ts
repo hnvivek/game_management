@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { addVendorFiltering } from '@/lib/subdomain'
+import { withPerformanceTracking } from '@/lib/middleware/performance'
 
 /**
  * @swagger
@@ -84,10 +85,11 @@ import { addVendorFiltering } from '@/lib/subdomain'
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 // GET /api/courts - List courts with filtering
-export async function GET(request: NextRequest) {
+export const GET = withPerformanceTracking(async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const venueId = searchParams.get('venueId')
+    const vendorId = searchParams.get('vendorId')
     const sportId = searchParams.get('sportId')
     const sport = searchParams.get('sport') // Sport name (e.g., "soccer")
     const format = searchParams.get('format') // Format ID
@@ -99,6 +101,11 @@ export async function GET(request: NextRequest) {
     const area = searchParams.get('area')
     const country = searchParams.get('country')
     const available = searchParams.get('available') === 'true'
+    
+    // Add pagination
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')))
+    const skip = (page - 1) * limit
 
     // Build court filter conditions with automatic subdomain filtering
     const whereConditions: any = {
@@ -108,6 +115,14 @@ export async function GET(request: NextRequest) {
 
     // Add automatic vendor filtering based on subdomain
     await addVendorFiltering(request, whereConditions, 'venue.vendorId')
+
+    // Add vendor filter (explicit vendorId parameter)
+    if (vendorId) {
+      whereConditions.venue = {
+        ...whereConditions.venue,
+        vendorId: vendorId
+      }
+    }
 
     // Add venue filter
     if (venueId) {
@@ -167,60 +182,78 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let courts = await db.court.findMany({
-      where: whereConditions,
-      include: {
-        venue: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            address: true,
-            city: true,
-            postalCode: true,
-            featuredImage: true,
-            countryCode: true,
-            currencyCode: true,
-            timezone: true,
-            vendor: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                logoUrl: true,
-                primaryColor: true,
-                secondaryColor: true,
-                timezone: true
+    // Optimized: Use select instead of include, add pagination
+    const [courts, totalCount] = await Promise.all([
+      db.court.findMany({
+        where: whereConditions,
+        select: {
+          id: true,
+          venueId: true,
+          sportId: true,
+          formatId: true,
+          courtNumber: true,
+          name: true,
+          description: true,
+          pricePerHour: true,
+          features: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          venue: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              address: true,
+              city: true,
+              postalCode: true,
+              featuredImage: true,
+              countryCode: true,
+              currencyCode: true,
+              timezone: true,
+              vendor: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  logoUrl: true,
+                  primaryColor: true,
+                  secondaryColor: true,
+                  timezone: true
+                }
               }
+            }
+          },
+          sport: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              icon: true
+            }
+          },
+          format: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              minPlayers: true,
+              maxPlayers: true
             }
           }
         },
-        sport: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            icon: true
-          }
-        },
-        format: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            minPlayers: true,
-            maxPlayers: true
-          }
-        }
-      },
-      orderBy: [
-        { venue: { name: 'asc' } },
-        { courtNumber: 'asc' },
-      ],
-    })
+        skip,
+        take: limit,
+        orderBy: [
+          { venue: { name: 'asc' } },
+          { courtNumber: 'asc' },
+        ],
+      }),
+      db.court.count({ where: whereConditions })
+    ])
 
     // Parse JSON fields for each court
-    courts = courts.map(court => {
+    const parsedCourts = courts.map(court => {
       try {
         return {
           ...court,
@@ -237,11 +270,12 @@ export async function GET(request: NextRequest) {
 
     
     // If date and duration are provided, check availability
+    let courtsWithAvailability: typeof parsedCourts | undefined
     if (date && duration && available) {
       const durationHours = parseInt(duration)
 
-      courts = await Promise.all(
-        courts.map(async (court) => {
+      courtsWithAvailability = await Promise.all(
+        parsedCourts.map(async (court) => {
           // If specific start time is provided (with or without end time)
           if (startTime) {
             const availableSlots = []
@@ -274,25 +308,8 @@ export async function GET(request: NextRequest) {
                 }
               }
             } else {
-              // When no end time is provided, generate all available slots from start time onwards
-              // Fetch vendor timezone for accurate time filtering
-              let vendorTimezone: string | undefined
-              try {
-                const venue = await db.venue.findUnique({
-                  where: { id: court.venueId },
-                  select: {
-                    vendor: {
-                      select: {
-                        timezone: true
-                      }
-                    }
-                  }
-                })
-                vendorTimezone = venue?.vendor?.timezone || undefined
-              } catch (error) {
-                console.warn('Failed to fetch vendor timezone:', error)
-              }
-
+              // Optimized: Use vendor timezone from already-loaded court data
+              const vendorTimezone = court.venue?.vendor?.timezone || court.venue?.timezone
               const businessHours = generateBusinessHoursSlots(durationHours, requestDate, vendorTimezone)
 
               // Filter slots to only include those from start time onwards
@@ -321,27 +338,8 @@ export async function GET(request: NextRequest) {
               availableSlots
             }
           } else {
-            // If no specific time, return all available slots for the requested duration
-            // Generate business hours slots based on the requested duration
-
-            // Fetch vendor timezone for accurate time filtering
-            let vendorTimezone: string | undefined
-            try {
-              const venue = await db.venue.findUnique({
-                where: { id: court.venueId },
-                select: {
-                  vendor: {
-                    select: {
-                      timezone: true
-                    }
-                  }
-                }
-              })
-              vendorTimezone = venue?.vendor?.timezone || undefined
-            } catch (error) {
-              console.warn('Failed to fetch vendor timezone:', error)
-            }
-
+            // Optimized: Use vendor timezone from already-loaded court data
+            const vendorTimezone = court.venue?.vendor?.timezone || court.venue?.timezone
             const businessHours = generateBusinessHoursSlots(durationHours, requestDate, vendorTimezone)
 
             const availableSlots = []
@@ -372,10 +370,21 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Determine which courts data to return
+    const finalCourts = courtsWithAvailability || parsedCourts
+
     return NextResponse.json({
-      courts,
+      courts: finalCourts,
       filters: { venueId, sportId, sport, date, startTime, duration, city, country, available },
-      count: courts.length
+      count: finalCourts.length,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNextPage: page * limit < totalCount,
+        hasPreviousPage: page > 1
+      }
     })
 
   } catch (error) {
@@ -385,7 +394,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+}, 'GET /api/courts')
 
 export async function POST(request: NextRequest) {
   try {
@@ -426,7 +435,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the next court number if not provided
-    const nextCourtNumber = courtNumber || await getNextCourtNumber(venueId)
+    const nextCourtNumber = courtNumber || await getNextCourtNumber(venueId, sportId)
 
     // Create court
     const court = await db.court.create({
@@ -541,13 +550,75 @@ async function checkCourtAvailability(
   }
 }
 
-async function getNextCourtNumber(venueId: string): Promise<number> {
-  const lastCourt = await db.court.findFirst({
-    where: { venueId },
-    orderBy: { courtNumber: 'desc' }
+async function getNextCourtNumber(venueId: string, sportId?: string): Promise<string> {
+  // Get sport info for naming
+  let sportName = 'Court'
+  if (sportId) {
+    const sport = await db.sport.findUnique({
+      where: { id: sportId },
+      select: { name: true }
+    })
+    sportName = sport?.name || 'Court'
+  }
+
+  // Find all courts for this venue (or just this sport if sportId provided)
+  const whereClause: any = { venueId }
+  if (sportId) {
+    whereClause.sportId = sportId
+  }
+
+  const existingCourts = await db.court.findMany({
+    where: whereClause,
+    select: { courtNumber: true },
+    orderBy: { courtNumber: 'asc' }
   })
 
-  return lastCourt ? lastCourt.courtNumber + 1 : 1
+  // Extract numbers from existing court numbers
+  const courtNumbers = existingCourts
+    .map(court => {
+      // Extract the last number from strings like "Court 1", "Football Turf 2", etc.
+      const match = court.courtNumber.match(/(\d+)$/)
+      return match ? parseInt(match[1]) : 0
+    })
+    .filter(num => num > 0)
+
+  // Find the next available number
+  let nextNumber = 1
+  if (courtNumbers.length > 0) {
+    const maxNumber = Math.max(...courtNumbers)
+    nextNumber = maxNumber + 1
+  }
+
+  // Generate sport-specific court number
+  let courtNumber: string
+  switch (sportName.toLowerCase()) {
+    case 'football':
+    case 'soccer':
+      courtNumber = `Football Turf ${nextNumber}`
+      break
+    case 'basketball':
+      courtNumber = `Basketball Court ${nextNumber}`
+      break
+    case 'tennis':
+      courtNumber = `Tennis Court ${nextNumber}`
+      break
+    case 'badminton':
+      courtNumber = `Badminton Court ${nextNumber}`
+      break
+    case 'cricket':
+      courtNumber = `Cricket Pitch ${nextNumber}`
+      break
+    case 'swimming':
+      courtNumber = `Swimming Lane ${nextNumber}`
+      break
+    case 'volleyball':
+      courtNumber = `Volleyball Court ${nextNumber}`
+      break
+    default:
+      courtNumber = `${sportName} Court ${nextNumber}`
+  }
+
+  return courtNumber
 }
 
 function generateBusinessHoursSlots(durationHours: number, requestDate?: Date, vendorTimezone?: string): string[] {

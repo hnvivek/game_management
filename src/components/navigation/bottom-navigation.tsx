@@ -11,7 +11,7 @@ import {
   Calendar,
   Trophy
 } from 'lucide-react'
-import { useAuth } from '@/components/auth/AuthProvider'
+import { useAuth } from '@/components/features/auth/AuthProvider'
 import { useResponsive } from '@/styles/providers/theme-provider'
 import { cn } from '@/lib/utils'
 

@@ -1,0 +1,491 @@
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  Clock,
+  Calendar,
+  Users,
+  Building,
+  Edit,
+  Circle,
+  ArrowLeft,
+  Settings
+} from 'lucide-react'
+import { VendorLayout } from '@/components/features/vendor/VendorLayout'
+import { VendorBreadcrumb } from '@/components/features/vendor/VendorBreadcrumb'
+import { useVendor } from '@/hooks/use-vendor'
+import { useToast } from '@/hooks/use-toast'
+import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
+
+interface Venue {
+  id: string
+  name: string
+  description?: string
+  address?: string
+  city?: string
+  postalCode?: string
+  phone?: string
+  email?: string
+  website?: string
+  timezone?: string
+  currencyCode?: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  stats: {
+    courts: number
+    bookings: number
+    operatingHours: number
+    sports: any[]
+  }
+  operatingHours: Array<{
+    id: string
+    dayOfWeek: number
+    dayName: string
+    openingTime?: string
+    closingTime?: string
+    isOpen: boolean
+  }>
+  courts: Array<{
+    id: string
+    name: string
+    courtNumber: string
+    description?: string
+    surface?: string
+    pricePerHour: number
+    isActive: boolean
+    maxPlayers: number
+    sport: {
+      id: string
+      name: string
+      displayName: string
+      icon?: string
+    }
+    format: {
+      id: string
+      name: string
+      displayName: string
+      minPlayers: number
+      maxPlayers: number
+    }
+  }>
+}
+
+export default function VenueDetailsPage() {
+  const params = useParams()
+  const router = useRouter()
+  const { vendorId } = useVendor()
+  const { toast } = useToast()
+  const [venue, setVenue] = useState<Venue | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const venueId = params?.venueId as string
+
+  useEffect(() => {
+    if (vendorId && venueId) {
+      fetchVenueDetails()
+    }
+  }, [vendorId, venueId])
+
+  const fetchVenueDetails = async () => {
+    if (!vendorId || !venueId) return
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch(`/api/vendors/${vendorId}/venues/${venueId}`, {
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError('Venue not found')
+        } else if (response.status === 403) {
+          setError('Access denied. You can only view venues you manage.')
+        } else {
+          setError('Failed to fetch venue details')
+        }
+        return
+      }
+
+      const result = await response.json()
+      if (result.success) {
+        setVenue(result.data)
+      } else {
+        setError(result.error?.message || 'Failed to fetch venue details')
+      }
+    } catch (error) {
+      console.error('Error fetching venue details:', error)
+      setError('Error fetching venue details')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleVenueStatus = async () => {
+    if (!venue || !vendorId) return
+
+    try {
+      const response = await fetch(`/api/vendors/${vendorId}/venues/${venueId}/toggle-status`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        toast({
+          title: 'Error',
+          description: 'Failed to update venue status',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      const result = await response.json()
+      if (result.success) {
+        toast({
+          title: 'Success',
+          description: result.meta?.message || 'Venue status updated successfully',
+        })
+        fetchVenueDetails() // Refresh data
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error?.message || 'Failed to update venue status',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      console.error('Error toggling venue status:', error)
+      toast({
+        title: 'Error',
+        description: 'Error updating venue status',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const formatCurrency = (amount: number, currencyCode: string = 'INR') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode || 'INR',
+      minimumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  if (loading) {
+    return (
+      <VendorLayout title="Venue Details" subtitle="Loading venue information">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <LoadingSpinner size="lg" />
+        </div>
+      </VendorLayout>
+    )
+  }
+
+  if (error || !venue) {
+    return (
+      <VendorLayout title="Venue Details" subtitle="Error loading venue">
+        <div className="p-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center py-8">
+                <p className="text-red-600 mb-4">{error || 'Venue not found'}</p>
+                <Button onClick={() => router.push('/vendor/venues')} variant="outline">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Venues
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </VendorLayout>
+    )
+  }
+
+  return (
+    <VendorLayout title={venue.name} subtitle="Venue Details">
+      <div className="p-6 space-y-6">
+        {/* Breadcrumb */}
+        <VendorBreadcrumb />
+        
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{venue.name}</h1>
+            <p className="text-muted-foreground">
+              {venue.city || 'No location specified'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={venue.isActive ? 'default' : 'secondary'}>
+              {venue.isActive ? 'Active' : 'Inactive'}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleVenueStatus}
+            >
+              {venue.isActive ? 'Deactivate' : 'Activate'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push('/vendor/venues')}>
+              <Building className="h-4 w-4 mr-2" />
+              All Venues
+            </Button>
+            <Link href={`/vendor/venues/${venueId}/edit`}>
+              <Button size="sm">
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Venue
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Status Card */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-2">
+                <Building className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Courts</p>
+                  <p className="text-2xl font-bold">{venue.stats.courts}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Bookings</p>
+                  <p className="text-2xl font-bold">{venue.stats.bookings}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-2">
+                <Circle className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Sports</p>
+                  <p className="text-2xl font-bold">{venue.stats.sports.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Operating Days</p>
+                  <p className="text-2xl font-bold">{venue.stats.operatingHours}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Venue Information */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Basic Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Venue Information</CardTitle>
+                <CardDescription>Basic details about this venue</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {venue.description && (
+                  <div>
+                    <h4 className="font-medium mb-2">Description</h4>
+                    <p className="text-sm text-muted-foreground">{venue.description}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {venue.address && (
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{venue.address}</span>
+                    </div>
+                  )}
+                  {venue.phone && (
+                    <div className="flex items-center space-x-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{venue.phone}</span>
+                    </div>
+                  )}
+                  {venue.email && (
+                    <div className="flex items-center space-x-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{venue.email}</span>
+                    </div>
+                  )}
+                  {venue.website && (
+                    <div className="flex items-center space-x-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <a
+                        href={venue.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline"
+                      >
+                        {venue.website}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Courts */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Courts ({venue.courts.length})</CardTitle>
+                    <CardDescription>All courts available at this venue</CardDescription>
+                  </div>
+                  <Link href={`/vendor/venues/${venueId}/courts`}>
+                    <Button variant="outline" size="sm">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Manage Courts
+                    </Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {venue.courts.map((court) => (
+                    <Card key={court.id} className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center space-x-2">
+                            <h4 className="font-medium">{court.name}</h4>
+                            <Badge variant="outline">{court.courtNumber}</Badge>
+                            {!court.isActive && <Badge variant="secondary">Inactive</Badge>}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {court.sport.displayName} • {court.format.displayName}
+                          </p>
+                          {court.description && (
+                            <p className="text-sm text-muted-foreground">{court.description}</p>
+                          )}
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                            <div className="flex items-center space-x-1">
+                              <Users className="h-3 w-3" />
+                              <span>{court.format.minPlayers}-{court.format.maxPlayers} players</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <span>{formatCurrency(Number(court.pricePerHour), venue.currencyCode)}/hour</span>
+                            </div>
+                          </div>
+                          {court.surface && (
+                            <p className="text-sm text-muted-foreground">
+                              Surface: {court.surface}
+                            </p>
+                          )}
+                        </div>
+                        <Link href={`/vendor/venues/${venueId}/courts/${court.id}/edit`}>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Operating Hours */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Operating Hours</CardTitle>
+                <CardDescription>Weekly schedule</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {venue.operatingHours.map((hours) => (
+                    <div key={hours.id} className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{hours.dayName}</span>
+                      {hours.isOpen ? (
+                        <span className="text-green-600">
+                          {hours.openingTime} - {hours.closingTime}
+                        </span>
+                      ) : (
+                        <span className="text-red-600">Closed</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Sports Available */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Sports Available</CardTitle>
+                <CardDescription>Sports offered at this venue</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {venue.stats.sports.map((sport) => (
+                    <Badge key={sport.id} variant="secondary">
+                      {sport.displayName}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Venue Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Venue Details</CardTitle>
+                <CardDescription>Additional information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge variant={venue.isActive ? 'default' : 'secondary'}>
+                    {venue.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Timezone</span>
+                  <span>{venue.timezone || 'Not specified'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Created</span>
+                  <span>{new Date(venue.createdAt).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Last Updated</span>
+                  <span>{new Date(venue.updatedAt).toLocaleDateString()}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </VendorLayout>
+  )
+}

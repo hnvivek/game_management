@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, MapPin, Calendar, DollarSign, Users, Star, ExternalLink, Filter, AlertTriangle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Search, MapPin, Calendar, DollarSign, Users, Star, ExternalLink, Filter, AlertTriangle, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -95,6 +96,7 @@ const priceRanges = [
 ]
 
 export default function CourtsPage() {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [courts, setCourts] = useState<Court[]>([])
   const [sports, setSports] = useState<Sport[]>([])
@@ -345,11 +347,24 @@ export default function CourtsPage() {
 
           {/* Quick Actions */}
           <div className="flex gap-2">
-            <Button className="flex-1 h-12 px-6 bg-orange-500 hover:bg-orange-600 text-white font-medium transition-all duration-200 hover:shadow-lg">
+            <Button
+              onClick={() => {
+                // Navigate to venue details page
+                window.location.href = `/venues/${court.venue.id}`
+              }}
+              className="flex-1 h-12 px-6 bg-orange-500 hover:bg-orange-600 text-white font-medium transition-all duration-200 hover:shadow-lg"
+            >
               <Search className="h-4 w-4 mr-2" />
-              Book Now
+              View Venue
             </Button>
-            <Button variant="outline" className="h-12 px-4 hover:bg-gray-50 transition-colors duration-200">
+            <Button
+              variant="outline"
+              className="h-12 px-4 hover:bg-gray-50 transition-colors duration-200"
+              onClick={() => {
+                // Navigate to venue details page
+                window.location.href = `/venues/${court.venue.id}`
+              }}
+            >
               <ExternalLink className="h-4 w-4" />
             </Button>
           </div>
@@ -429,11 +444,24 @@ export default function CourtsPage() {
 
           {/* Quick Actions */}
           <div className="flex gap-2">
-            <Button className="flex-1 h-11 px-6 bg-orange-500 hover:bg-orange-600 text-white font-medium transition-all duration-200 hover:shadow-lg">
+            <Button
+              onClick={() => {
+                // Navigate to venue details page
+                window.location.href = `/venues/${court.venue.id}`
+              }}
+              className="flex-1 h-11 px-6 bg-orange-500 hover:bg-orange-600 text-white font-medium transition-all duration-200 hover:shadow-lg"
+            >
               <Search className="h-4 w-4 mr-2" />
-              Book Now
+              View Venue
             </Button>
-            <Button variant="outline" className="h-11 px-4 hover:bg-gray-50 transition-colors duration-200">
+            <Button
+              variant="outline"
+              className="h-11 px-4 hover:bg-gray-50 transition-colors duration-200"
+              onClick={() => {
+                // Navigate to venue details page
+                window.location.href = `/venues/${court.venue.id}`
+              }}
+            >
               <ExternalLink className="h-4 w-4" />
             </Button>
           </div>
@@ -538,12 +566,22 @@ export default function CourtsPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.back()}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-200"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Find Available Courts</h1>
           <p className="text-muted-foreground mb-4">
             Search and book the perfect court for your game or practice session
           </p>
-
-          </div>
+        </div>
 
         {/* Search Results Summary */}
         {searchPerformed && (

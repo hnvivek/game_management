@@ -1,7 +1,7 @@
 'use client'
 
 import { lazy, Suspense, ComponentType, ReactNode, useState, useEffect } from 'react'
-import { useResponsiveDesign } from '@/lib/hooks/useResponsiveDesign'
+import { useResponsiveDesign } from '@/hooks/use-responsive-design'
 
 interface LazyComponentProps {
   fallback?: ReactNode

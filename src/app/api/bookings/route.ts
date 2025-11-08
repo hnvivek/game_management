@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { addVendorFiltering } from '@/lib/subdomain'
+import { PrismaClient } from '@prisma/client'
+import { z } from 'zod'
+
+const prisma = new PrismaClient()
 
 /**
  * @swagger
@@ -65,116 +67,94 @@ import { addVendorFiltering } from '@/lib/subdomain'
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-// GET /api/bookings - List bookings with filtering
+// GET /api/bookings - Get user bookings
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const venueId = searchParams.get('venueId')
-    const customerId = searchParams.get('customerId')
+    const userId = searchParams.get('userId')
     const status = searchParams.get('status')
-    const bookingType = searchParams.get('bookingType')
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
-    const limit = parseInt(searchParams.get('limit') || '50')
-    const offset = parseInt(searchParams.get('offset') || '0')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const page = parseInt(searchParams.get('page') || '1')
 
-    // Build filter conditions with automatic subdomain filtering
-    const whereConditions: any = {}
-
-    if (venueId) whereConditions.court = { venueId }
-    if (customerId) whereConditions.userId = customerId
-    if (status) whereConditions.status = status.toUpperCase()
-    if (bookingType) whereConditions.type = bookingType.toUpperCase()
-
-    // Date range filtering
-    if (startDate || endDate) {
-      whereConditions.startTime = {}
-      if (startDate) whereConditions.startTime.gte = new Date(startDate)
-      if (endDate) whereConditions.startTime.lte = new Date(endDate)
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      )
     }
 
-    // Add automatic vendor filtering based on subdomain
-    // Filter bookings by court vendor when on vendor subdomain
-    await addVendorFiltering(request, whereConditions, 'court.venue.vendorId')
+    const where: any = { userId }
+    if (status && status !== 'all') {
+      where.status = status.toUpperCase()
+    }
 
-    const bookings = await db.booking.findMany({
-      where: whereConditions,
-      include: {
-        court: {
-          include: {
-            venue: {
-              include: {
-                vendor: {
-                  select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                    primaryColor: true,
-                    secondaryColor: true
-                  }
-                }
-              }
-            },
-            sport: {
-              select: {
-                id: true,
-                name: true,
-                displayName: true,
-                icon: true
-              }
-            },
-            format: {
-              select: {
-                id: true,
-                name: true,
-                displayName: true,
-                maxPlayers: true
-              }
-            }
-          }
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
-        },
-        payments: {
-          select: {
-            id: true,
-            amount: true,
-            currency: true,
-            paymentMethod: true,
-            status: true,
-            processedAt: true
-          }
-        }
-      },
-      orderBy: [
-        { startTime: 'desc' }
-      ],
-      take: limit,
-      skip: offset
-    })
+    const skip = (page - 1) * limit
 
-    // Get total count for pagination
-    const totalCount = await db.booking.count({
-      where: whereConditions
-    })
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        include: {
+          venue: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              city: true,
+              vendor: {
+                select: {
+                  name: true,
+                  slug: true,
+                  logoUrl: true,
+                },
+              },
+            },
+          },
+          court: {
+            select: {
+              id: true,
+              name: true,
+              sport: {
+                select: {
+                  displayName: true,
+                  icon: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.booking.count({ where }),
+    ])
+
+    const transformedBookings = bookings.map(booking => ({
+      id: booking.id,
+      venue: booking.venue,
+      court: booking.court,
+      date: booking.date.toISOString().split('T')[0],
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      duration: booking.duration,
+      totalPrice: booking.totalPrice,
+      status: booking.status,
+      playerCount: booking.playerCount,
+      notes: booking.notes,
+      paymentStatus: booking.paymentStatus,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+    }))
 
     return NextResponse.json({
-      bookings,
+      bookings: transformedBookings,
       pagination: {
-        total: totalCount,
+        page,
         limit,
-        offset,
-        hasMore: offset + limit < totalCount
+        total,
+        totalPages: Math.ceil(total / limit),
       },
-      filters: { venueId, customerId, status, bookingType, startDate, endDate }
     })
-
   } catch (error) {
     console.error('Error fetching bookings:', error)
     return NextResponse.json(
@@ -184,218 +164,207 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Validation schema for booking creation
+const bookingSchema = z.object({
+  venueId: z.string(),
+  courtId: z.string(),
+  date: z.string().refine(val => !isNaN(Date.parse(val)), {
+    message: "Invalid date format",
+  }),
+  time: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: "Invalid time format. Use HH:MM",
+  }),
+  duration: z.number().int().min(30).max(480).multipleOf(30),
+  playerCount: z.number().int().min(1).max(50).optional(),
+  notes: z.string().max(500).optional(),
+})
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    const validatedData = bookingSchema.parse(body)
+
     const {
+      venueId,
       courtId,
-      userId,
-      sportId,
-      startTime,
-      endTime,
+      date,
+      time,
       duration,
-      totalAmount,
-      type = 'DIRECT',
-      title,
-      description,
-      maxPlayers,
+      playerCount,
       notes,
-      status = 'PENDING_PAYMENT',
-    } = body
+    } = validatedData
 
-    // Validate required fields
-    if (!courtId || !userId || !sportId || !startTime || !duration || !totalAmount) {
-      return NextResponse.json(
-        { error: 'Missing required fields: courtId, userId, sportId, startTime, duration, totalAmount' },
-        { status: 400 }
-      )
-    }
+    // Parse date and time
+    const bookingDate = new Date(date)
+    const [hours, minutes] = time.split(':').map(Number)
 
-    // Validate and parse DateTime fields
-    const startDateTime = new Date(startTime)
-    if (isNaN(startDateTime.getTime())) {
-      return NextResponse.json(
-        { error: 'Invalid startTime format. Use ISO DateTime string (e.g., 2025-01-01T10:00:00.000Z)' },
-        { status: 400 }
-      )
-    }
+    // Calculate start and end times
+    const startTime = time
+    const endHours = hours + Math.floor(duration / 60)
+    const endMinutes = minutes + (duration % 60)
+    const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`
 
-    const durationHours = parseInt(duration)
-    if (durationHours <= 0) {
-      return NextResponse.json(
-        { error: 'Duration must be positive' },
-        { status: 400 }
-      )
-    }
-
-    // Calculate end time if not provided
-    let endDateTime
-    if (endTime) {
-      endDateTime = new Date(endTime)
-      if (isNaN(endDateTime.getTime())) {
-        return NextResponse.json(
-          { error: 'Invalid endTime format. Use ISO DateTime string (e.g., 2025-01-01T12:00:00.000Z)' },
-          { status: 400 }
-        )
-      }
-    } else {
-      endDateTime = new Date(startDateTime.getTime() + durationHours * 60 * 60 * 1000)
-    }
-
-    // Check availability
-    const isAvailable = await checkCourtAvailability(
-      courtId,
-      startDateTime,
-      endDateTime
-    )
-    
-    if (!isAvailable) {
-      return NextResponse.json(
-        { error: 'Court is not available for the selected time slot' },
-        { status: 409 }
-      )
-    }
-
-    // Get or create user if it doesn't exist
-    let user = await db.user.findUnique({
-      where: { id: userId },
-      select: { id: true, name: true, email: true }
-    })
-
-    if (!user) {
-      // Create a default user for testing if the user doesn't exist
-      try {
-        user = await db.user.create({
-          data: {
-            id: userId,
-            name: 'Test User',
-            email: `user-${userId}@example.com`,
-            phone: '+1234567890',
-            role: 'CUSTOMER',
-            isActive: true
-          },
-          select: { id: true, name: true, email: true }
-        })
-        console.log('Created default test user:', user.id)
-      } catch (createError) {
-        console.error('Failed to create user:', createError)
-        return NextResponse.json(
-          { error: 'Invalid user ID and failed to create default user' },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Get court details to validate
-    const court = await db.court.findUnique({
+    // Check if court exists and is available
+    const court = await prisma.court.findUnique({
       where: { id: courtId },
-      select: { id: true, venueId: true }
+      include: {
+        venue: {
+          select: {
+            id: true,
+            name: true,
+            vendorId: true,
+          },
+        },
+        sport: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+          },
+        },
+      },
     })
 
     if (!court) {
       return NextResponse.json({ error: 'Court not found' }, { status: 404 })
     }
 
-    // Create booking with proper ISO DateTime strings
-    const booking = await db.booking.create({
-      data: {
+    if (court.venueId !== venueId) {
+      return NextResponse.json({ error: 'Court does not belong to this venue' }, { status: 400 })
+    }
+
+    // Check if the requested time slot is available
+    const conflictingBooking = await prisma.booking.findFirst({
+      where: {
         courtId,
+        date: bookingDate,
+        status: {
+          in: ['PENDING', 'CONFIRMED'],
+        },
+        OR: [
+          // Overlap cases
+          {
+            startTime: { lt: endTime },
+            endTime: { gt: startTime },
+          },
+        ],
+      },
+    })
+
+    if (conflictingBooking) {
+      return NextResponse.json(
+        { error: 'This time slot is already booked' },
+        { status: 409 }
+      )
+    }
+
+    // Get current user ID (in a real app, this would come from authentication)
+    // For now, we'll use a placeholder user ID or create a test user
+    let userId = 'test-user-id'
+
+    // Create a test user if it doesn't exist
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId }
+    })
+
+    if (!existingUser) {
+      await prisma.user.create({
+        data: {
+          id: userId,
+          name: 'Test User',
+          email: 'test@example.com',
+          phone: '+1234567890',
+          role: 'CUSTOMER',
+          isActive: true,
+        }
+      })
+    }
+
+    // Calculate total price
+    const totalPrice = (court.pricePerHour / 60) * duration
+
+    // Create the booking
+    const booking = await prisma.booking.create({
+      data: {
         userId,
-        sportId,
-        startTime: startDateTime.toISOString(),
-        endTime: endDateTime.toISOString(),
-        duration: durationHours,
-        totalAmount,
-        type: type?.toUpperCase(),
-        status: status?.toUpperCase(),
-        title,
-        description,
-        maxPlayers,
-        notes,
+        venueId,
+        courtId,
+        date: bookingDate,
+        startTime,
+        endTime,
+        duration,
+        totalPrice,
+        status: 'PENDING',
+        playerCount: playerCount || 1,
+        notes: notes || null,
+        paymentStatus: 'PENDING',
+        paymentMethod: 'ONLINE',
+        // Auto-confirm for now (in real app, this might require vendor approval)
+        confirmedAt: new Date(),
       },
       include: {
+        venue: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+          },
+        },
         court: {
-          include: {
-            venue: {
-              include: {
-                vendor: {
-                  select: {
-                    id: true,
-                    name: true,
-                    slug: true
-                  }
-                }
-              }
+          select: {
+            id: true,
+            name: true,
+            sport: {
+              select: {
+                displayName: true,
+              },
             },
-            sport: true,
-            format: true
-          }
+          },
         },
         user: {
           select: {
             id: true,
             name: true,
             email: true,
-            phone: true
-          }
-        }
+            phone: true,
+          },
+        },
       },
     })
-    
-    return NextResponse.json({ booking })
-  } catch (error) {
-    console.error('Error creating booking:', error)
-    // Log the actual error message for debugging
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    console.error('Booking error details:', errorMessage)
 
+    return NextResponse.json({
+      booking: {
+        id: booking.id,
+        venue: booking.venue,
+        court: booking.court,
+        date: booking.date.toISOString().split('T')[0],
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        duration: booking.duration,
+        totalPrice: booking.totalPrice,
+        status: booking.status,
+        playerCount: booking.playerCount,
+        notes: booking.notes,
+        paymentStatus: booking.paymentStatus,
+        createdAt: booking.createdAt,
+      },
+      message: 'Booking created successfully',
+    })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.errors },
+        { status: 400 }
+      )
+    }
+
+    console.error('Error creating booking:', error)
     return NextResponse.json(
-      { error: 'Failed to create booking', details: errorMessage },
+      { error: 'Failed to create booking' },
       { status: 500 }
     )
   }
 }
 
 
-async function checkCourtAvailability(
-  courtId: string,
-  startTime: Date,
-  endTime: Date
-): Promise<boolean> {
-  try {
-    // Validate DateTime inputs
-    if (!startTime || !endTime || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-      throw new Error('Invalid DateTime objects provided to checkCourtAvailability')
-    }
-
-    // Check for existing bookings using DateTime overlap detection
-    const overlappingBookings = await db.booking.findMany({
-      where: {
-        courtId,
-        status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] },
-        AND: [
-          { startTime: { lt: endTime } },
-          { endTime: { gt: startTime } },
-        ],
-      },
-    })
-
-    // Check for existing matches using DateTime overlap detection
-    const overlappingMatches = await db.match.findMany({
-      where: {
-        courtId,
-        status: 'CONFIRMED',
-        AND: [
-          { scheduledDate: { lt: endTime } },
-          { scheduledDate: { gt: startTime } },
-        ],
-      },
-    })
-
-    return overlappingBookings.length === 0 &&
-           overlappingMatches.length === 0
-  } catch (error) {
-    console.error('Error checking court availability:', error)
-    return false
-  }
-}

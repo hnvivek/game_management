@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import Navbar from '@/components/navbar'
+import { AuthGuard } from '@/components/features/auth/AuthGuard'
 
 // Types for data
 interface Team {
@@ -185,8 +186,9 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <AuthGuard requireAuth={false}>
+      <div className="min-h-screen bg-background">
+        <Navbar />
 
       {/* Hero Section - Modern Design */}
       <section className="relative overflow-hidden">
@@ -470,6 +472,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </AuthGuard>
   )
 }

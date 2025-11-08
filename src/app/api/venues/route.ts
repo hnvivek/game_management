@@ -79,7 +79,11 @@ export async function GET(request: NextRequest) {
     // Build venue filter conditions with automatic subdomain filtering
     const whereConditions: any = {
       isActive: true,
-      vendor: { isActive: true }, // Only include active vendors
+      deletedAt: null, // Exclude soft-deleted venues
+      vendor: { 
+        isActive: true,
+        deletedAt: null // Exclude soft-deleted vendors
+      },
     }
 
     // Add automatic vendor filtering based on subdomain
@@ -180,7 +184,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch vendor settings for all vendors in one query
     const vendorsWithSettings = await db.vendor.findMany({
-      where: { id: { in: vendorIds } },
+      where: { 
+        id: { in: vendorIds },
+        deletedAt: null
+      },
       include: { vendorSettings: true }
     })
 

@@ -177,8 +177,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Get venue information for vendor operating hours
-    const venue = await db.venue.findUnique({
-      where: { id: venueId },
+    const venue = await db.venue.findFirst({
+      where: { 
+        id: venueId,
+        deletedAt: null // Exclude soft-deleted venues
+      },
       include: {
         vendor: {
           include: {

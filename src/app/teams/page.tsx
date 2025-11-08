@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import Navbar from '@/components/navbar'
 import { getCardClasses, getBadgeVariants, useThemeColors } from '@/styles/theme'
 
 // Types for team data
@@ -142,8 +141,7 @@ export default function TeamsPage() {
   const displayTeams = filteredTeams
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <div className="flex flex-col min-h-screen bg-background">
 
       {/* Header */}
       <div className="bg-card border-b">
@@ -158,7 +156,7 @@ export default function TeamsPage() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -255,19 +253,19 @@ export default function TeamsPage() {
                     {team.recentForm && (
                       <>
                         <div className="grid grid-cols-3 gap-2 text-center">
-                          <div className="bg-success-50 rounded p-2 border border-success-200">
+                          <div className="bg-success-50 dark:bg-success-950/20 rounded p-2 border border-success-200 dark:border-success-800">
                             <div className="text-base font-bold text-success">
                               {team.recentForm.filter(f => f === 'W').length}
                             </div>
                             <div className="text-xs text-success">Wins</div>
                           </div>
-                          <div className="bg-warning/10 rounded p-2 border border-amber-200">
+                          <div className="bg-warning-50 dark:bg-warning-950/20 rounded p-2 border border-warning-200 dark:border-warning-800">
                             <div className="text-base font-bold text-warning">
                               {team.recentForm.filter(f => f === 'D').length}
                             </div>
                             <div className="text-xs text-warning">Draws</div>
                           </div>
-                          <div className="bg-destructive/10 rounded p-2 border border-destructive/20">
+                          <div className="bg-destructive/10 dark:bg-destructive/20 rounded p-2 border border-destructive/20 dark:border-destructive/30">
                             <div className="text-base font-bold text-destructive">
                               {team.recentForm.filter(f => f === 'L').length}
                             </div>
@@ -281,8 +279,8 @@ export default function TeamsPage() {
                           <div className="flex gap-1">
                             {team.recentForm.map((result, idx) => (
                               <div key={idx} className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
-                                result === 'W' ? 'bg-success-500 text-primary-foreground' :
-                                result === 'D' ? 'bg-warning text-primary-foreground' : 'bg-destructive text-primary-foreground'
+                                result === 'W' ? 'bg-green-500 text-white' :
+                                result === 'D' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'
                               }`}>
                                 {result}
                               </div>

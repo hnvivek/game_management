@@ -11,15 +11,13 @@ const userCreateSchema = z.object({
   name: z.string().min(2).max(100),
   password: z.string().min(8),
   phone: z.string().optional(),
-  bio: z.string().optional(),
   city: z.string().optional(),
-  area: z.string().optional(),
+  state: z.string().optional(),
+  country: z.string().optional(),
   countryCode: z.string().optional(),
-  timezone: z.string().optional(),
   currencyCode: z.string().optional(),
-  dateFormat: z.string().optional(),
-  timeFormat: z.string().optional(),
-  language: z.string().optional(),
+  timezone: z.string().optional(),
+  locale: z.string().optional(),
 });
 
 // GET /api/users - List all users (admin only)
@@ -33,7 +31,9 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = {
+      deletedAt: null // Exclude soft-deleted users
+    };
 
     if (search) {
       where.OR = [
@@ -53,14 +53,29 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: {
-          country: { select: { code: true, name: true } },
-          currency: { select: { code: true, name: true, symbol: true } },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          role: true,
+          isActive: true,
+          isEmailVerified: true,
+          avatarUrl: true,
+          city: true,
+          state: true,
+          country: true,
+          countryCode: true,
+          currencyCode: true,
+          timezone: true,
+          locale: true,
+          lastLoginAt: true,
+          createdAt: true,
+          updatedAt: true,
           _count: {
             select: {
-              teamMemberships: true,
+              teamMembers: true,
               bookings: true,
-              createdMatches: true,
             },
           },
         },
@@ -92,9 +107,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = userCreateSchema.parse(body);
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email },
+    // Check if user already exists (excluding soft-deleted)
+    const existingUser = await prisma.user.findFirst({
+      where: { 
+        email: validatedData.email,
+        deletedAt: null
+      },
     });
 
     if (existingUser) {
@@ -109,12 +127,17 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.create({
       data: {
-        ...validatedData,
+        email: validatedData.email,
+        name: validatedData.name,
         password: hashedPassword,
-      },
-      include: {
-        country: { select: { code: true, name: true } },
-        currency: { select: { code: true, name: true, symbol: true } },
+        phone: validatedData.phone,
+        city: validatedData.city,
+        state: validatedData.state,
+        country: validatedData.country,
+        countryCode: validatedData.countryCode,
+        currencyCode: validatedData.currencyCode,
+        timezone: validatedData.timezone,
+        locale: validatedData.locale,
       },
     });
 

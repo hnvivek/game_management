@@ -1,7 +1,7 @@
 'use client'
 
 import { Users } from 'lucide-react'
-import TeamManager from '@/components/booking/TeamManager'
+import TeamManager from '@/components/features/booking/TeamManager'
 import Navbar from '@/components/navbar'
 
 export default function ManageTeamsPage() {

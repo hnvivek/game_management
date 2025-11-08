@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { db } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
+import { withPerformanceTracking } from '@/lib/middleware/performance';
 
 // Validation schema
 const loginSchema = z.object({
@@ -12,31 +11,45 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withPerformanceTracking(async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password } = loginSchema.parse(body);
 
-    // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        country: { select: { code: true, name: true } },
-        currency: { select: { code: true, name: true, symbol: true } },
+    // Optimized: Single query with all filters at database level
+    // Only select fields we need (exclude password initially, then fetch separately if needed)
+    const user = await db.user.findFirst({
+      where: { 
+        email,
+        deletedAt: null,
+        isActive: true // Filter at DB level instead of application level
       },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        password: true, // Need password for verification
+        role: true,
+        isActive: true,
+        isEmailVerified: true,
+        avatarUrl: true,
+        lastLoginAt: true,
+        city: true,
+        state: true,
+        country: true,
+        countryCode: true,
+        currencyCode: true,
+        timezone: true,
+        locale: true,
+        createdAt: true,
+        updatedAt: true,
+        phone: true,
+      }
     });
 
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is active
-    if (!user.isActive) {
-      return NextResponse.json(
-        { error: 'Account is deactivated' },
         { status: 401 }
       );
     }
@@ -51,22 +64,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update last login
-    await prisma.user.update({
+    // Create JWT token (can be done in parallel with DB update)
+    const tokenPromise = Promise.resolve(
+      jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        },
+        process.env.JWT_SECRET || 'fallback-secret',
+        { expiresIn: '7d' }
+      )
+    );
+
+    // Update last login timestamp asynchronously (don't block response)
+    // This is a fire-and-forget operation for better performance
+    db.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
+    }).catch(err => {
+      console.error('Failed to update lastLoginAt (non-critical):', err);
     });
 
-    // Create JWT token
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-      },
-      process.env.JWT_SECRET || 'fallback-secret',
-      { expiresIn: '7d' }
-    );
+    // Wait for token generation
+    const token = await tokenPromise;
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
@@ -101,4 +122,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, 'POST /api/auth/login');
