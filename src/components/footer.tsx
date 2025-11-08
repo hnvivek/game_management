@@ -15,7 +15,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className="border-t bg-muted/30 py-4">
+    <footer className="border-t bg-muted/30 py-2">
       <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-sm text-muted-foreground">
             {/* Left side - Company info */}

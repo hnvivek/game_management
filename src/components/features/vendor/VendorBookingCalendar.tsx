@@ -2,13 +2,11 @@
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Calendar, Filter, Settings, RefreshCw, ChevronLeft, ChevronRight, Clock, X, Search, Plus } from 'lucide-react'
+import { Calendar, Settings, RefreshCw, ChevronLeft, ChevronRight, Clock, X, Plus, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useVendor } from '@/hooks/use-vendor'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { theme } from '@/styles/theme/tokens'
@@ -17,6 +15,7 @@ import { useBookingsCache } from '@/hooks/use-bookings-cache'
 import { getSportColor, hexToRgba } from '@/styles/theme/sport-colors'
 import { toast } from 'sonner'
 import { BookingDetailsModal } from './BookingDetailsModal'
+import { BookingFilters } from './BookingFilters'
 
 interface CalendarBooking {
   id: string
@@ -49,12 +48,13 @@ interface CalendarResource {
 }
 
 interface VendorBookingCalendarProps {
+  filters: BookingFilters
   onError?: (error: string) => void
 }
 
 type ViewMode = 'day' | 'week' | 'month'
 
-export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
+export function VendorBookingCalendar({ filters, onError }: VendorBookingCalendarProps) {
   const { vendorId } = useVendor()
   const [bookings, setBookings] = useState<CalendarBooking[]>([])
   const [resources, setResources] = useState<CalendarResource[]>([])
@@ -66,48 +66,6 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
   // Shared bookings cache
   const { getCached, setCached, findOverlappingRange, clearCache } = useBookingsCache()
 
-  // Filter states with persistence
-  const FILTER_STORAGE_KEY = `vendor-calendar-filters-${vendorId || 'default'}`
-  
-  const loadFiltersFromStorage = () => {
-    if (typeof window === 'undefined') return {}
-    try {
-      const stored = localStorage.getItem(FILTER_STORAGE_KEY)
-      return stored ? JSON.parse(stored) : {}
-    } catch {
-      return {}
-    }
-  }
-
-  const saveFiltersToStorage = (filters: Record<string, string>) => {
-    if (typeof window === 'undefined') return
-    try {
-      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters))
-    } catch {
-      // Ignore storage errors
-    }
-  }
-
-  const savedFilters = loadFiltersFromStorage()
-  const [selectedVenue, setSelectedVenue] = useState<string>(savedFilters.venue || 'all')
-  const [selectedCourt, setSelectedCourt] = useState<string>(savedFilters.court || 'all')
-  const [selectedSport, setSelectedSport] = useState<string>(savedFilters.sport || 'all')
-  const [selectedStatus, setSelectedStatus] = useState<string>(savedFilters.status || 'all')
-  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>(savedFilters.paymentStatus || 'all')
-  const [searchQuery, setSearchQuery] = useState<string>(savedFilters.search || '')
-
-  // Save filters to localStorage whenever they change
-  useEffect(() => {
-    saveFiltersToStorage({
-      venue: selectedVenue,
-      court: selectedCourt,
-      sport: selectedSport,
-      status: selectedStatus,
-      paymentStatus: selectedPaymentStatus,
-      search: searchQuery,
-    })
-  }, [selectedVenue, selectedCourt, selectedSport, selectedStatus, selectedPaymentStatus, searchQuery, FILTER_STORAGE_KEY])
-  
   // Filter options data
   const [allSports, setAllSports] = useState<Array<{ id: string; name: string; displayName: string }>>([])
   
@@ -116,13 +74,25 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
   const [courtColumnWidth, setCourtColumnWidth] = useState(150)
   const [timeSlotWidth, setTimeSlotWidth] = useState(60)
   
+  // Zoom constraints
+  const MIN_TIME_SLOT_WIDTH = 40
+  const MAX_TIME_SLOT_WIDTH = 200
+  const ZOOM_STEP = 2 // Smaller step for smoother zoom (was 5)
+  
   // Resize state
   const [isResizing, setIsResizing] = useState<string | null>(null)
   const resizeStartX = useRef<number>(0)
   const resizeStartWidth = useRef<number>(0)
   
+  // Calendar grid ref for zoom
+  const calendarGridRef = useRef<HTMLDivElement>(null)
+  
+  // Smooth zoom state - use ref to avoid re-renders on every scroll
+  const zoomPendingRef = useRef<number | null>(null)
+  const zoomRafRef = useRef<number | null>(null)
+  
   // Debounced search
-  const debouncedSearch = useDebounce(searchQuery, 300)
+  const debouncedSearch = useDebounce(filters.search, 300)
 
   // Booking details modal state
   const [selectedBooking, setSelectedBooking] = useState<CalendarBooking | null>(null)
@@ -166,27 +136,21 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
   }
 
   const handleContextMenuAction = (action: string, booking: CalendarBooking) => {
-    switch (action) {
-      case 'view':
-        handleEventClick(booking)
-        break
-      case 'edit':
-        handleEditBooking(booking)
-        break
-      case 'sms':
-        sendSMS(booking)
-        break
-      case 'cancel':
-        cancelBooking(booking.id)
-        break
-      case 'complete':
-        markComplete(booking.id)
-        break
-      case 'customer':
-        handleViewCustomer(booking.customerEmail)
-        break
-    }
+    // Always open the modal first so user can see booking details
+    setSelectedBooking(booking)
+    setIsModalOpen(true)
+    
+    // Close context menu
     setContextMenu({ visible: false, x: 0, y: 0, booking: null })
+    
+    // The modal has action buttons for all these actions:
+    // - Edit (onEdit prop)
+    // - Cancel (onCancel prop)
+    // - Complete (onComplete prop)
+    // - Send SMS (onSendSMS prop)
+    // - View Customer (onViewCustomer prop)
+    // So we just open the modal and let the user click the buttons
+    // For 'view', we're done - modal is open
   }
 
   // Add API functions for context menu actions with toast notifications
@@ -412,6 +376,70 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
     }
   }, [contextMenu.visible])
 
+  // Smooth mouse wheel zoom handler for calendar grid (Ctrl/Cmd + Scroll or scroll over time slots)
+  useEffect(() => {
+    let lastUpdateTime = 0
+    const THROTTLE_MS = 16 // ~60fps for smooth updates
+    
+    const handleWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement
+      
+      // Check if wheel event is over the calendar grid
+      if (!calendarGridRef.current?.contains(target)) {
+        return
+      }
+
+      // Check if hovering over time slot columns (more intuitive - zoom without modifier)
+      const isOverTimeSlot = target.closest('[data-time-slot]') !== null
+      
+      // Allow zoom if:
+      // 1. Ctrl/Cmd is pressed (standard zoom pattern), OR
+      // 2. Hovering directly over time slot columns (more intuitive)
+      const shouldZoom = e.ctrlKey || e.metaKey || isOverTimeSlot
+
+      if (!shouldZoom) {
+        return // Allow normal scrolling within calendar
+      }
+
+      // Prevent default scroll behavior when zooming (both page and calendar scroll)
+      e.preventDefault()
+      e.stopPropagation()
+
+      // Throttle updates for smoother performance
+      const now = Date.now()
+      if (now - lastUpdateTime < THROTTLE_MS) {
+        return
+      }
+      lastUpdateTime = now
+
+      // Calculate new width based on scroll direction
+      // Scroll down = zoom out (smaller), scroll up = zoom in (larger)
+      // Use smaller delta for finer control
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+      
+      // Get current width from state (use functional update to avoid stale closure)
+      setTimeSlotWidth(prevWidth => {
+        const newWidth = Math.max(
+          MIN_TIME_SLOT_WIDTH,
+          Math.min(MAX_TIME_SLOT_WIDTH, prevWidth + delta)
+        )
+        return newWidth
+      })
+    }
+
+    const gridElement = calendarGridRef.current
+    if (gridElement) {
+      // Use capture phase to catch events before they bubble
+      gridElement.addEventListener('wheel', handleWheel, { passive: false, capture: true })
+    }
+
+    return () => {
+      if (gridElement) {
+        gridElement.removeEventListener('wheel', handleWheel, { capture: true })
+      }
+    }
+  }, []) // Empty deps - handler doesn't depend on timeSlotWidth
+
   // Fetch venues and courts data
   const fetchVenuesAndCourts = async () => {
     if (!vendorId) return []
@@ -527,25 +555,34 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
       // This ensures we fetch bookings for the dates the user is viewing
       const baseDate = new Date(currentDate)
       
-      // For day view: fetch 1 month before and 2 months after current date
-      // For week view: fetch 1 month before and 2 months after current week
-      // For month view: fetch 1 month before and 2 months after current month
+      // OPTIMIZED: Reduce date range based on view mode to improve performance
+      // For day view: fetch 7 days before and 7 days after (2 weeks total)
+      // For week view: fetch 1 week before and 2 weeks after (4 weeks total)
+      // For month view: fetch 1 week before and 2 weeks after (4 weeks total)
       let startDate: Date
       let endDate: Date
       
       if (viewMode === 'day') {
-        startDate = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, baseDate.getDate())
-        endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 2, baseDate.getDate())
+        startDate = new Date(baseDate)
+        startDate.setDate(baseDate.getDate() - 7)
+        endDate = new Date(baseDate)
+        endDate.setDate(baseDate.getDate() + 7)
       } else if (viewMode === 'week') {
-        // Start from beginning of week, go back 1 month, forward 2 months
+        // Start from beginning of week, go back 1 week, forward 2 weeks
         const weekStart = new Date(baseDate)
         weekStart.setDate(baseDate.getDate() - baseDate.getDay())
-        startDate = new Date(weekStart.getFullYear(), weekStart.getMonth() - 1, weekStart.getDate())
-        endDate = new Date(weekStart.getFullYear(), weekStart.getMonth() + 2, weekStart.getDate() + 6)
+        startDate = new Date(weekStart)
+        startDate.setDate(weekStart.getDate() - 7)
+        endDate = new Date(weekStart)
+        endDate.setDate(weekStart.getDate() + 14)
       } else {
-        // Month view: start from beginning of month
-        startDate = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1)
-        endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 2, 0)
+        // Month view: show 2 weeks, fetch 1 week before and 1 week after
+        const weekStart = new Date(baseDate)
+        weekStart.setDate(baseDate.getDate() - baseDate.getDay())
+        startDate = new Date(weekStart)
+        startDate.setDate(weekStart.getDate() - 7)
+        endDate = new Date(weekStart)
+        endDate.setDate(weekStart.getDate() + 14)
       }
 
       const dateFrom = startDate.toISOString().split('T')[0]
@@ -569,32 +606,34 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
       }
 
       // Base filters - same for all pages
+      // OPTIMIZED: Skip summary stats for calendar view to improve API performance
       const baseFilters: VendorBookingFilters = {
         limit: 100, // Fetch 100 per page for better performance
         dateFrom,
         dateTo,
         sortBy: 'startTime',
-        sortOrder: 'asc'
+        sortOrder: 'asc',
+        includeSummary: false // Skip summary stats for calendar view
       }
 
       // Add optional filters
       if (debouncedSearch) {
         baseFilters.search = debouncedSearch
       }
-      if (selectedVenue !== 'all') {
-        baseFilters.venueId = selectedVenue
+      if (filters.venueId && filters.venueId !== 'all') {
+        baseFilters.venueId = filters.venueId
       }
-      if (selectedCourt !== 'all') {
-        baseFilters.courtId = selectedCourt
+      if (filters.courtId && filters.courtId !== 'all') {
+        baseFilters.courtId = filters.courtId
       }
-      if (selectedSport !== 'all') {
-        baseFilters.sportId = selectedSport
+      if (filters.sportId && filters.sportId !== 'all') {
+        baseFilters.sportId = filters.sportId
       }
-      if (selectedStatus !== 'all' && statusMap[selectedStatus]) {
-        baseFilters.status = statusMap[selectedStatus]
+      if (filters.status && filters.status !== 'all' && statusMap[filters.status]) {
+        baseFilters.status = statusMap[filters.status]
       }
-      if (selectedPaymentStatus !== 'all' && paymentMap[selectedPaymentStatus]) {
-        baseFilters.paymentStatus = paymentMap[selectedPaymentStatus]
+      if (filters.paymentStatus && filters.paymentStatus !== 'all' && paymentMap[filters.paymentStatus]) {
+        baseFilters.paymentStatus = paymentMap[filters.paymentStatus]
       }
 
       // Step 1: Check cache for exact match
@@ -701,9 +740,10 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
         }
         currentPage++
 
-        // Safety limit: don't fetch more than 50 pages (5000 bookings)
-        if (currentPage >= 50) {
-          console.warn('Calendar: Reached maximum page limit (50 pages). Some bookings may not be displayed.')
+        // OPTIMIZED: Safety limit reduced - don't fetch more than 20 pages (2000 bookings)
+        // This should be enough for most calendar views with the reduced date range
+        if (currentPage >= 20) {
+          console.warn('Calendar: Reached maximum page limit (20 pages). Some bookings may not be displayed.')
           break
         }
       }
@@ -749,7 +789,7 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
       }
       return []
     }
-  }, [vendorId, currentDate, viewMode, debouncedSearch, selectedVenue, selectedCourt, selectedSport, selectedStatus, selectedPaymentStatus, onError, getCached, setCached, findOverlappingRange])
+  }, [vendorId, currentDate, viewMode, debouncedSearch, filters, onError, getCached, setCached, findOverlappingRange])
 
   // Load venues and courts once on mount or when vendorId changes
   const loadResources = useCallback(async () => {
@@ -923,13 +963,50 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
 
   // Get active venue timezone (from selected venue or first venue)
   const getActiveVenueTimezone = useMemo(() => {
-    if (selectedVenue !== 'all') {
-      const venue = resources.find(r => r.venueName === selectedVenue)
+    if (filters.venueId && filters.venueId !== 'all') {
+      const venue = resources.find(r => r.venueId === filters.venueId)
       return venue?.venueTimezone
     }
     // If no venue selected, use first venue's timezone
     return resources.length > 0 ? resources[0]?.venueTimezone : undefined
-  }, [resources, selectedVenue])
+  }, [resources, filters.venueId])
+
+  // Helper to get timezone label (e.g., "IST", "EST")
+  const getTimezoneLabel = useMemo(() => {
+    const tz = getActiveVenueTimezone
+    if (!tz) return ''
+    
+    // Common timezone abbreviations
+    const tzMap: Record<string, string> = {
+      'Asia/Kolkata': 'IST',
+      'Asia/Calcutta': 'IST',
+      'America/New_York': 'EST',
+      'America/Chicago': 'CST',
+      'America/Denver': 'MST',
+      'America/Los_Angeles': 'PST',
+      'Europe/London': 'GMT',
+      'UTC': 'UTC',
+    }
+    
+    return tzMap[tz] || tz.split('/').pop()?.toUpperCase() || tz
+  }, [getActiveVenueTimezone])
+
+  // Initialize currentDate in venue timezone when resources load
+  useEffect(() => {
+    if (resources.length > 0 && getActiveVenueTimezone) {
+      // Get "today" in venue timezone
+      const now = new Date()
+      const venueTodayStr = now.toLocaleDateString('en-US', { timeZone: getActiveVenueTimezone })
+      const browserTodayStr = now.toLocaleDateString('en-US')
+      
+      // If dates differ, adjust currentDate to venue timezone's "today"
+      if (venueTodayStr !== browserTodayStr) {
+        const [month, day, year] = venueTodayStr.split('/').map(Number)
+        const venueToday = new Date(year, month - 1, day)
+        setCurrentDate(venueToday)
+      }
+    }
+  }, [resources.length, getActiveVenueTimezone])
 
   // Helper function to format date in venue timezone
   const formatDateInVenueTimezone = (date: Date, venueTimezone?: string): string => {
@@ -1072,20 +1149,20 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
   const filteredResources = useMemo(() => {
     let filtered = resources
 
-    if (selectedVenue !== 'all') {
-      filtered = filtered.filter(r => r.venueName === selectedVenue)
+    if (filters.venueId && filters.venueId !== 'all') {
+      filtered = filtered.filter(r => r.venueId === filters.venueId)
     }
 
-    if (selectedCourt !== 'all') {
-      filtered = filtered.filter(r => r.id === selectedCourt)
+    if (filters.courtId && filters.courtId !== 'all') {
+      filtered = filtered.filter(r => r.id === filters.courtId)
     }
     
-    if (selectedSport !== 'all') {
-      filtered = filtered.filter(r => r.sportId === selectedSport)
+    if (filters.sportId && filters.sportId !== 'all') {
+      filtered = filtered.filter(r => r.sportId === filters.sportId)
     }
 
     return filtered
-  }, [resources, selectedVenue, selectedCourt, selectedSport])
+  }, [resources, filters.venueId, filters.courtId, filters.sportId])
 
   // Get unique venues for filter
   const uniqueVenues = useMemo(() => {
@@ -1095,11 +1172,11 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
 
   // Get filtered courts based on selected venue
   const filteredCourts = useMemo(() => {
-    if (selectedVenue === 'all') {
+    if (!filters.venueId || filters.venueId === 'all') {
       return resources
     }
-    return resources.filter(r => r.venueName === selectedVenue)
-  }, [resources, selectedVenue])
+    return resources.filter(r => r.venueId === filters.venueId)
+  }, [resources, filters.venueId])
 
   // Group resources by sport - depends on filteredResources
   const resourcesBySport = useMemo(() => {
@@ -1157,49 +1234,43 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
     return dates
   }, [currentDate, viewMode])
 
-  // Generate time slots for the day - all 24 hours (00:00 to 23:00)
+  // OPTIMIZED: Pre-compute bookings by court/date to avoid repeated filtering in render
+  const bookingsByCourtDate = useMemo(() => {
+    const map = new Map<string, CalendarBooking[]>()
+    
+    bookings.forEach(booking => {
+      const bookingStart = new Date(booking.start)
+      const venueTimezone = booking.venueTimezone || getActiveVenueTimezone
+      
+      // Create a key for each court/date combination
+      dateRange.forEach(date => {
+        if (isSameDayInVenueTimezone(bookingStart, date, venueTimezone)) {
+          const key = `${booking.resourceId}-${date.toISOString()}`
+          if (!map.has(key)) {
+            map.set(key, [])
+          }
+          map.get(key)!.push(booking)
+        }
+      })
+    })
+    
+    return map
+  }, [bookings, dateRange, getActiveVenueTimezone, isSameDayInVenueTimezone])
+
+  // OPTIMIZED: Generate time slots based on view mode and operating hours
+  // For day view: show all 24 hours
+  // For week/month view: show only business hours (6 AM to 11 PM) to reduce DOM elements
   const generateTimeSlots = useMemo((): string[] => {
     const slots: string[] = []
-    for (let hour = 0; hour <= 23; hour++) {
+    const startHour = viewMode === 'day' ? 0 : 6 // Start at 6 AM for week/month views
+    const endHour = viewMode === 'day' ? 23 : 23 // End at 11 PM
+    
+    for (let hour = startHour; hour <= endHour; hour++) {
       slots.push(`${hour.toString().padStart(2, '0')}:00`)
     }
     return slots
-  }, [])
+  }, [viewMode])
 
-  // Reset court filter when venue changes
-  const handleVenueChange = (venue: string) => {
-    setSelectedVenue(venue)
-    setSelectedCourt('all')
-  }
-  
-  const handleSportChange = (sportId: string) => {
-    setSelectedSport(sportId)
-    // Reset court if it doesn't match the sport
-    if (sportId !== 'all') {
-      const currentCourt = resources.find(r => r.id === selectedCourt)
-      if (currentCourt && currentCourt.sportId !== sportId) {
-        setSelectedCourt('all')
-      }
-    }
-  }
-
-  // Clear all filters
-  const clearFilters = () => {
-    setSelectedVenue('all')
-    setSelectedCourt('all')
-    setSelectedSport('all')
-    setSelectedStatus('all')
-    setSelectedPaymentStatus('all')
-    setSearchQuery('')
-  }
-
-  // Check if any filters are active
-  const hasActiveFilters = selectedVenue !== 'all' || 
-    selectedCourt !== 'all' || 
-    selectedSport !== 'all' || 
-    selectedStatus !== 'all' || 
-    selectedPaymentStatus !== 'all' || 
-    searchQuery !== ''
 
   // Early return AFTER all hooks
   if (loading && resources.length === 0) {
@@ -1276,222 +1347,12 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
   const columnWidth = getColumnWidth()
 
   return (
-    <div className="space-y-4">
-      {/* Filters Section - Always visible, no grouping */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Filters</span>
-          </div>
-
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear Filters
-            </Button>
-          )}
-        </div>
-
-        {/* Filters in a single row, matching table view */}
-        <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px] sm:max-w-[220px]">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search bookings..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          {/* Venue */}
-          <Select value={selectedVenue === 'all' ? undefined : selectedVenue} onValueChange={handleVenueChange}>
-            <SelectTrigger className="w-full sm:w-[150px]">
-              <SelectValue placeholder="Venue" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Venues</SelectItem>
-              {uniqueVenues.map((venue) => (
-                <SelectItem key={venue} value={venue}>
-                  {venue}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Court */}
-          <Select
-            value={selectedCourt === 'all' ? undefined : selectedCourt}
-            onValueChange={setSelectedCourt}
-            disabled={filteredCourts.length === 0}
-          >
-            <SelectTrigger className="w-full sm:w-[150px]">
-              <SelectValue placeholder="Court" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Courts</SelectItem>
-              {filteredCourts.map((court) => (
-                <SelectItem key={court.id} value={court.id}>
-                  {court.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Sport */}
-          <Select value={selectedSport === 'all' ? undefined : selectedSport} onValueChange={handleSportChange}>
-            <SelectTrigger className="w-full sm:w-[150px]">
-              <SelectValue placeholder="Sport" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sports</SelectItem>
-              {allSports.map((sport) => (
-                <SelectItem key={sport.id} value={sport.id}>
-                  {sport.displayName || sport.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Status */}
-          <Select value={selectedStatus === 'all' ? undefined : selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="w-full sm:w-[140px] text-foreground">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Confirmed">Confirmed</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
-              <SelectItem value="Cancelled">Cancelled</SelectItem>
-              <SelectItem value="No-Show">No Show</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Payment Status */}
-          <Select value={selectedPaymentStatus === 'all' ? undefined : selectedPaymentStatus} onValueChange={setSelectedPaymentStatus}>
-            <SelectTrigger className="w-full sm:w-[140px] text-foreground">
-              <SelectValue placeholder="Payment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Payment</SelectItem>
-              <SelectItem value="Paid">Paid</SelectItem>
-              <SelectItem value="Partially Paid">Partially Paid</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Refunded">Refunded</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {hasActiveFilters && (
-          <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg">
-            <span className="text-sm font-medium text-blue-800">Active Filters:</span>
-            {searchQuery && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                Search: {searchQuery}
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="ml-1 hover:text-blue-600"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-            {selectedVenue !== 'all' && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                Venue: {selectedVenue}
-                <button
-                  onClick={() => handleVenueChange('all')}
-                  className="ml-1 hover:text-blue-600"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-            {selectedCourt !== 'all' && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                Court: {resources.find(r => r.id === selectedCourt)?.title || selectedCourt}
-                <button
-                  onClick={() => setSelectedCourt('all')}
-                  className="ml-1 hover:text-blue-600"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-            {selectedSport !== 'all' && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                Sport: {allSports.find(s => s.id === selectedSport)?.displayName || selectedSport}
-                <button
-                  onClick={() => setSelectedSport('all')}
-                  className="ml-1 hover:text-blue-600"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-            {selectedStatus !== 'all' && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                Status: {selectedStatus}
-                <button
-                  onClick={() => setSelectedStatus('all')}
-                  className="ml-1 hover:text-blue-600"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-            {selectedPaymentStatus !== 'all' && (
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                Payment: {selectedPaymentStatus}
-                <button
-                  onClick={() => setSelectedPaymentStatus('all')}
-                  className="ml-1 hover:text-blue-600"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 p-3 bg-muted/30 rounded-lg">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-green-500 rounded"></div>
-          <span className="text-sm">Confirmed</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-          <span className="text-sm">Pending</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-red-500 rounded"></div>
-          <span className="text-sm">Cancelled</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-blue-500 rounded"></div>
-          <span className="text-sm">Completed</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-purple-500 rounded"></div>
-          <span className="text-sm">No Show</span>
-        </div>
-      </div>
-
+    <div className="space-y-4 h-full flex flex-col overflow-hidden">
       {/* Calendar Header and View - Grouped together */}
-      <div>
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Compact Unified Header - Theme Colors */}
         <div 
-          className="bg-white border border-gray-200 shadow-sm p-3"
+          className="bg-white border border-gray-200 shadow-sm p-3 flex-shrink-0"
           style={{ 
             borderBottom: 'none',
             borderTopLeftRadius: '0.5rem',
@@ -1518,6 +1379,9 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
                 </h2>
                 <p className="text-xs" style={{ color: theme.colors.primary[700] }}>
                   {formatDateInVenueTimezone(currentDate, getActiveVenueTimezone)}
+                  {getTimezoneLabel && (
+                    <span className="ml-1 font-medium">({getTimezoneLabel})</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -1584,7 +1448,18 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
                   <ChevronLeft className="h-3 w-3" />
                 </button>
                 <button
-                  onClick={() => setCurrentDate(new Date())}
+                  onClick={() => {
+                    // Set "Today" in venue timezone, not browser timezone
+                    if (getActiveVenueTimezone) {
+                      const now = new Date()
+                      const venueTodayStr = now.toLocaleDateString('en-US', { timeZone: getActiveVenueTimezone })
+                      const [month, day, year] = venueTodayStr.split('/').map(Number)
+                      const venueToday = new Date(year, month - 1, day)
+                      setCurrentDate(venueToday)
+                    } else {
+                      setCurrentDate(new Date())
+                    }
+                  }}
                   className="px-2 py-1 text-xs font-medium rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground"
                 >
                   Today
@@ -1606,15 +1481,51 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
               >
                 <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
+
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-0.5 rounded-lg bg-muted border border-border/50">
+                <button
+                  onClick={() => {
+                    const newWidth = Math.max(MIN_TIME_SLOT_WIDTH, timeSlotWidth - ZOOM_STEP * 2)
+                    setTimeSlotWidth(newWidth)
+                  }}
+                  disabled={timeSlotWidth <= MIN_TIME_SLOT_WIDTH}
+                  className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Zoom Out (Ctrl/Cmd + Scroll Down)"
+                >
+                  <ZoomOut className="h-3 w-3" />
+                </button>
+                <div className="px-1.5 text-[10px] font-medium text-muted-foreground min-w-[32px] text-center">
+                  {Math.round((timeSlotWidth / 60) * 100)}%
+                </div>
+                <button
+                  onClick={() => {
+                    const newWidth = Math.min(MAX_TIME_SLOT_WIDTH, timeSlotWidth + ZOOM_STEP * 2)
+                    setTimeSlotWidth(newWidth)
+                  }}
+                  disabled={timeSlotWidth >= MAX_TIME_SLOT_WIDTH}
+                  className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Zoom In (Ctrl/Cmd + Scroll Up)"
+                >
+                  <ZoomIn className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={() => setTimeSlotWidth(60)}
+                  className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground"
+                  title="Reset Zoom"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Calendar View - Attached to header */}
-        <Card className="rounded-t-none border-t-0 py-0">
-        <CardContent className="px-4 py-0 overflow-x-auto">
+        <Card className="rounded-t-none border-t-0 py-0 flex-1 min-h-0 overflow-hidden flex flex-col">
+        <CardContent className="px-4 py-0 flex-1 overflow-auto min-h-0">
           {/* Date-based horizontal timeline */}
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4" ref={calendarGridRef}>
             {/* Date rows for week/month view */}
             {dateRange.map((date) => {
               return (
@@ -1632,13 +1543,22 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
                     </h4>
                     <div className="text-xs text-muted-foreground">
                       {formatYearInVenueTimezone(date, getActiveVenueTimezone)}
+                      {getTimezoneLabel && (
+                        <span className="ml-1">({getTimezoneLabel})</span>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Horizontal timeline for this date */}
                 <div className="overflow-x-auto">
-                  <div style={{ minWidth: `${sportColumnWidth + courtColumnWidth + (timeSlots.length * timeSlotWidth)}px` }}>
+                  <div 
+                    style={{ 
+                      minWidth: `${sportColumnWidth + courtColumnWidth + (timeSlots.length * timeSlotWidth)}px`,
+                      transition: 'min-width 0.08s cubic-bezier(0.4, 0, 0.2, 1)',
+                      willChange: 'min-width'
+                    }}
+                  >
                   {/* Time header */}
                   <div className="flex border-b">
                     {/* Sport column header */}
@@ -1664,10 +1584,26 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
                     {timeSlots.map((slot, index) => (
                       <div
                         key={slot}
-                        className="border-r p-1 text-center text-xs font-medium relative group"
-                        style={{ width: `${timeSlotWidth}px`, minWidth: `${timeSlotWidth}px` }}
+                        data-time-slot
+                        className="border-r p-1 text-center text-xs font-medium relative group cursor-zoom-in"
+                        style={{ 
+                          width: `${timeSlotWidth}px`, 
+                          minWidth: `${timeSlotWidth}px`,
+                          transition: 'width 0.08s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.08s cubic-bezier(0.4, 0, 0.2, 1)',
+                          willChange: 'width, min-width'
+                        }}
+                        title="Scroll to zoom time columns"
                       >
-                        {slot}
+                        {index === 0 && getTimezoneLabel ? (
+                          <div className="flex flex-col items-center">
+                            <div className="text-[10px] text-muted-foreground font-normal mb-0.5">
+                              {getTimezoneLabel}
+                            </div>
+                            <div>{slot}</div>
+                          </div>
+                        ) : (
+                          slot
+                        )}
                         {/* Resize handle - only show on first time slot */}
                         {index === 0 && (
                           <div
@@ -1742,19 +1678,19 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
                             </div>
 
                       {/* Time slots for this court on this date */}
+                      {/* OPTIMIZED: Use pre-computed bookings map for better performance */}
                       {timeSlots.map((slot) => {
                         const [hours, minutes] = slot.split(':').map(Number)
                         const venueTimezone = resource.venueTimezone || getActiveVenueTimezone
                         
-                        // Find bookings for this specific court and time slot
-                        const slotBookings = bookings.filter(booking => {
-                          if (booking.resourceId !== resource.id) return false
-                          
+                        // Get pre-filtered bookings for this court/date
+                        const key = `${resource.id}-${date.toISOString()}`
+                        const courtDateBookings = bookingsByCourtDate.get(key) || []
+                        
+                        // Find bookings that overlap with this time slot
+                        const slotBookings = courtDateBookings.filter(booking => {
                           const bookingStart = new Date(booking.start)
                           const bookingEnd = new Date(booking.end)
-                          
-                          // Check if booking is on the same day in venue timezone
-                          if (!isSameDayInVenueTimezone(bookingStart, date, venueTimezone)) return false
                           
                           // Get booking time components in venue timezone
                           const bookingStartComponents = getDateComponentsInVenueTimezone(bookingStart, venueTimezone)
@@ -1777,18 +1713,22 @@ export function VendorBookingCalendar({ onError }: VendorBookingCalendarProps) {
                         return (
                           <div
                             key={`${resource.id}-${date.toISOString()}-${slot}`}
+                            data-time-slot
                             onDragOver={(e) => handleDragOver(e, resource.id, date, slot)}
                             onDrop={(e) => handleDrop(e, resource.id, date, slot)}
                             className={cn(
-                              "relative border-r hover:bg-muted/20 transition-colors",
+                              "relative border-r hover:bg-muted/20 transition-colors cursor-zoom-in",
                               isDragOver && "bg-blue-100 border-blue-400 border-2"
                             )}
                             style={{ 
                               width: `${timeSlotWidth}px`,
                               minWidth: `${timeSlotWidth}px`,
                               height: '40px',
-                              backgroundColor: isDragOver ? '#dbeafe' : sportBgColor
+                              backgroundColor: isDragOver ? '#dbeafe' : sportBgColor,
+                              transition: 'width 0.08s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.08s cubic-bezier(0.4, 0, 0.2, 1)',
+                              willChange: 'width, min-width'
                             }}
+                            title="Scroll to zoom time columns"
                           >
                             {/* Booking blocks */}
                             {slotBookings.map((booking) => {

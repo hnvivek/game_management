@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   BarChart3,
@@ -27,6 +26,7 @@ import {
   UserCog
 } from 'lucide-react'
 import { useVendor } from '@/hooks/use-vendor'
+import Footer from '@/components/footer'
 
 interface NavigationItem {
   title: string
@@ -88,7 +88,7 @@ interface VendorLayoutProps {
 }
 
 export function VendorLayout({ children, title, subtitle }: VendorLayoutProps) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const pathname = usePathname()
   const { vendor, isLoading: vendorLoading } = useVendor()
@@ -155,43 +155,50 @@ export function VendorLayout({ children, title, subtitle }: VendorLayoutProps) {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="flex h-screen bg-background">
-        {/* Sidebar */}
+      <div className="flex h-screen bg-background overflow-hidden">
+        {/* Sidebar - Fixed position */}
         <div
           className={cn(
-            'relative flex flex-col bg-card border-r transition-all duration-300 ease-in-out',
+            'h-screen flex flex-col bg-card border-r transition-all duration-300 ease-in-out flex-shrink-0',
             isSidebarOpen ? 'w-64' : 'w-16'
           )}
         >
           {/* Sidebar Header */}
-          <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center gap-2 px-4 py-2 border-b h-16 flex-shrink-0">
             {isSidebarOpen ? (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-lg">
+              <>
+                <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-lg flex-shrink-0">
                   <Store className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <div>
-                  <h2 className="font-semibold text-sm">Vendor Portal</h2>
-                  <p className="text-xs text-muted-foreground">Manage your venues</p>
+                <div className="flex-1 min-w-0">
+                  <h2 className="font-semibold text-sm truncate">Vendor Portal</h2>
+                  <p className="text-xs text-muted-foreground truncate">Manage your venues</p>
                 </div>
-              </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleSidebar}
+                  className="hidden md:flex flex-shrink-0"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </>
             ) : (
-              <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-lg mx-auto">
-                <Store className="h-4 w-4 text-primary-foreground" />
+              <div className="flex items-center justify-center w-full">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleSidebar}
+                  className="hidden md:flex"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleSidebar}
-              className="hidden md:flex"
-            >
-              <Menu className="h-4 w-4" />
-            </Button>
           </div>
 
           {/* Navigation */}
-          <ScrollArea className="flex-1 p-4">
+          <div className="flex-1 overflow-hidden p-2">
             <nav className="space-y-2">
               {navigationItems.map((item) => {
                 const active = isActive(item.href)
@@ -229,69 +236,15 @@ export function VendorLayout({ children, title, subtitle }: VendorLayoutProps) {
                 )
               })}
             </nav>
-          </ScrollArea>
-
-          {/* Sidebar Footer */}
-          <div className="p-4 border-t">
-            {isSidebarOpen ? (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-full">
-                  <User className="h-4 w-4 text-green-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {vendor?.name || 'Loading...'}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {user?.role === 'VENDOR_ADMIN' ? 'Vendor Admin' : user?.role === 'VENDOR_STAFF' ? 'Vendor Staff' : 'Vendor Account'}
-                  </p>
-                </div>
-                <span className={cn(
-                  "text-xs px-2 py-1 rounded-full",
-                  vendor?.isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground"
-                )}>
-                  {vendor?.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-            ) : (
-              <div className="flex justify-center">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-full">
-                      <User className="h-4 w-4 text-green-600" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <div className="text-sm">
-                      <div className="font-medium">{vendor?.name || 'Loading...'}</div>
-                      <div className="text-muted-foreground">
-                        {user?.role === 'VENDOR_ADMIN' ? 'Vendor Admin' : user?.role === 'VENDOR_STAFF' ? 'Vendor Staff' : 'Vendor Account'}
-                      </div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <header className="bg-card border-b px-6 py-4">
-            <div className="flex items-center justify-between">
+        {/* Main Content - Fixed height container */}
+        <div className="flex-1 flex flex-col h-screen overflow-hidden">
+          {/* Header - Fixed at top */}
+          <header className="bg-card border-b px-4 py-2 h-16 flex-shrink-0">
+            <div className="flex items-center justify-between h-full">
               <div className="flex items-center gap-4">
-                {!isMobile && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleSidebar}
-                  >
-                    <Menu className="h-4 w-4" />
-                  </Button>
-                )}
                 <div>
                   <h1 className="text-xl font-semibold">{title}</h1>
                   {subtitle && (
@@ -343,10 +296,15 @@ export function VendorLayout({ children, title, subtitle }: VendorLayoutProps) {
             </div>
           </header>
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto bg-background">
+          {/* Page Content - Scrollable area */}
+          <main className="flex-1 bg-background overflow-y-auto">
             {children}
           </main>
+
+          {/* Footer - Fixed at bottom */}
+          <div className="bg-card border-t flex-shrink-0 z-10">
+            <Footer />
+          </div>
         </div>
 
         {/* Mobile Overlay */}

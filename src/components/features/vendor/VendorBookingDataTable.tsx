@@ -4,12 +4,10 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import {
   ColumnDef,
-  ColumnFiltersState,
   SortingState,
   VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
@@ -52,6 +50,9 @@ import { fetchVendorBookings, VendorBookingFilters } from '@/lib/api/vendor/book
 import { useBookingsCache } from '@/hooks/use-bookings-cache'
 import { useVendor } from '@/hooks/use-vendor'
 import { useDebounce } from '@/hooks/use-debounce'
+import { BookingFilters } from './BookingFilters'
+import { BookingDetailsModal } from './BookingDetailsModal'
+import { toast } from 'sonner'
 
 type Booking = {
   id: string
@@ -72,7 +73,7 @@ type Booking = {
   location: string
 }
 
-const createColumns = (currencySymbol: string = '₹'): ColumnDef<Booking>[] => [
+const createColumns = (currencySymbol: string = '₹', onBookingClick?: (booking: Booking) => void): ColumnDef<Booking>[] => [
   {
     id: 'select',
     header: ({ table }) => (
@@ -269,35 +270,48 @@ const createColumns = (currencySymbol: string = '₹'): ColumnDef<Booking>[] => 
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
+              onClick={() => onBookingClick?.(booking)}
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem
               onClick={() => navigator.clipboard.writeText(booking.id)}
             >
               Copy booking ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href={`/vendor/bookings/${booking.id}`}>
-                View details
-              </Link>
+            <DropdownMenuItem
+              onClick={() => onBookingClick?.(booking)}
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Edit Booking
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {booking.status === 'Pending' && (
               <>
-                <DropdownMenuItem className="text-green-600">
+                <DropdownMenuItem 
+                  className="text-green-600"
+                  onClick={() => onBookingClick?.(booking)}
+                >
                   <CheckCircle className="mr-2 h-4 w-4" />
                   Confirm booking
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-red-600">
+                <DropdownMenuItem 
+                  className="text-red-600"
+                  onClick={() => onBookingClick?.(booking)}
+                >
                   <XCircle className="mr-2 h-4 w-4" />
                   Cancel booking
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
             )}
-            <DropdownMenuItem>
-              Contact customer
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              View payment details
+            <DropdownMenuItem
+              onClick={() => onBookingClick?.(booking)}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              View Customer
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -306,7 +320,7 @@ const createColumns = (currencySymbol: string = '₹'): ColumnDef<Booking>[] => 
   },
 ]
 
-export function VendorBookingDataTable() {
+export function VendorBookingDataTable({ filters }: { filters: BookingFilters }) {
   const { vendorId, vendor } = useVendor()
   const router = useRouter()
   const pathname = usePathname()
@@ -315,241 +329,179 @@ export function VendorBookingDataTable() {
   // Shared bookings cache
   const { getCached, setCached, clearCache } = useBookingsCache()
   
-  // URL state management - sync filters with URL for bookmarkable/shareable links
-  const getFilterFromUrl = (key: string, defaultValue: string = 'all') => {
-    return searchParams.get(key) || defaultValue
-  }
-
-  const updateUrlFilters = useCallback((updates: Record<string, string | null>) => {
-    const params = new URLSearchParams(searchParams.toString())
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value && value !== 'all') {
-        params.set(key, value)
-      } else {
-        params.delete(key)
-      }
-    })
-    // Reset to page 1 when filters change
-    params.set('page', '1')
-    router.push(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [searchParams, router, pathname])
-
   // State management
   const [data, setData] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [currencySymbol, setCurrencySymbol] = useState<string>('₹')
   const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState({})
-  const [globalFilter, setGlobalFilter] = useState(getFilterFromUrl('search', ''))
   const [pagination, setPagination] = useState({ 
-    page: parseInt(getFilterFromUrl('page', '1')), 
+    page: parseInt(searchParams.get('page') || '1'), 
     totalPages: 1, 
     totalCount: 0, 
     limit: 20 
   })
+
+  // Modal state
+  const [selectedBooking, setSelectedBooking] = useState<any>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [courts, setCourts] = useState<Array<{ id: string; name: string; venueName: string; sportName: string; venueId: string }>>([])
   
-  // Filter options - all available data
-  const [allVenues, setAllVenues] = useState<Array<{ id: string; name: string }>>([])
-  const [allCourts, setAllCourts] = useState<Array<{ id: string; name: string; venueId: string; sportId: string }>>([])
-  const [allSports, setAllSports] = useState<Array<{ id: string; name: string; displayName: string }>>([])
-  
-  // Selected filters - initialized from URL
-  const [selectedVenueId, setSelectedVenueId] = useState<string>(getFilterFromUrl('venueId'))
-  const [selectedCourtId, setSelectedCourtId] = useState<string>(getFilterFromUrl('courtId'))
-  const [selectedSportId, setSelectedSportId] = useState<string>(getFilterFromUrl('sportId'))
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean
+    x: number
+    y: number
+    booking: Booking | null
+  }>({ visible: false, x: 0, y: 0, booking: null })
+  const contextMenuRef = useRef<HTMLDivElement>(null)
+
+  const contextMenuActions = [
+    { label: 'View Details', action: 'view', icon: '👁️' },
+    { label: 'Edit Booking', action: 'edit', icon: '✏️' },
+    { label: 'Send SMS', action: 'sms', icon: '💬' },
+    { label: 'Cancel Booking', action: 'cancel', icon: '🚫' },
+    { label: 'Mark Complete', action: 'complete', icon: '✅' },
+    { label: 'View Customer', action: 'customer', icon: '👤' }
+  ]
+
+  // Transform Booking to CalendarBooking format for modal
+  const transformBookingToCalendarBooking = useCallback((booking: Booking): any => {
+    const statusMap: Record<string, 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW'> = {
+      'Confirmed': 'CONFIRMED',
+      'Pending': 'PENDING',
+      'Completed': 'COMPLETED',
+      'Cancelled': 'CANCELLED',
+      'No-Show': 'NO_SHOW'
+    }
+
+    return {
+      id: booking.id,
+      title: `${booking.customerName} - ${booking.sport}`,
+      start: booking.startTime,
+      end: booking.endTime,
+      resourceId: booking.courtId || '',
+      status: statusMap[booking.status] || 'PENDING',
+      customerName: booking.customerName,
+      customerEmail: booking.customerEmail,
+      courtName: booking.courtName,
+      venueName: booking.venueName,
+      totalAmount: booking.totalAmount,
+      paymentStatus: booking.paymentStatus,
+    }
+  }, [])
+
+  // Action handlers
+  const handleEventClick = useCallback((booking: Booking) => {
+    const calendarBooking = transformBookingToCalendarBooking(booking)
+    setSelectedBooking(calendarBooking)
+    setIsModalOpen(true)
+  }, [transformBookingToCalendarBooking])
+
+  const handleEditBooking = useCallback((booking: any) => {
+    window.open(`/vendor/bookings/${booking.id}/edit`, '_blank')
+  }, [])
+
+  const handleViewCustomer = useCallback((email: string) => {
+    window.open(`/vendor/customers?email=${email}`, '_blank')
+  }, [])
+
+  const sendSMS = useCallback(async (booking: any) => {
+    try {
+      const response = await fetch('/api/notifications/sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          to: booking.customerEmail,
+          message: `Your booking at ${booking.courtName} is confirmed for ${new Date(booking.start).toLocaleString()}`
+        })
+      })
+      if (response.ok) {
+        toast.success('SMS sent successfully!')
+      } else {
+        const error = await response.json().catch(() => ({ error: 'Failed to send SMS' }))
+        toast.error(error.error || 'Failed to send SMS')
+      }
+    } catch (error) {
+      console.error('Failed to send SMS:', error)
+      toast.error('Failed to send SMS. Please try again.')
+    }
+  }, [])
+
+  const handleContextMenu = (e: React.MouseEvent, booking: Booking) => {
+    e.preventDefault()
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      booking
+    })
+  }
+
+  const handleContextMenuAction = (action: string, booking: Booking) => {
+    // Close context menu first
+    setContextMenu({ visible: false, x: 0, y: 0, booking: null })
+    
+    // Transform booking for actions that need CalendarBooking format
+    const calendarBooking = transformBookingToCalendarBooking(booking)
+    
+    // Execute action based on type
+    switch (action) {
+      case 'view':
+        // Only "View Details" opens the modal
+        handleEventClick(booking)
+        break
+      case 'edit':
+        handleEditBooking(calendarBooking)
+        break
+      case 'sms':
+        sendSMS(calendarBooking)
+        break
+      case 'cancel':
+        cancelBooking(booking.id)
+        break
+      case 'complete':
+        markComplete(booking.id)
+        break
+      case 'customer':
+        handleViewCustomer(booking.customerEmail)
+        break
+    }
+  }
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
+        setContextMenu({ visible: false, x: 0, y: 0, booking: null })
+      }
+    }
+
+    if (contextMenu.visible) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [contextMenu.visible])
 
   // Request cancellation ref
   const abortControllerRef = useRef<AbortController | null>(null)
 
+  // Ensure filters is always defined with defaults
+  const safeFilters: BookingFilters = filters || {
+    search: '',
+    venueId: 'all',
+    courtId: 'all',
+    sportId: 'all',
+    status: 'all',
+    paymentStatus: 'all'
+  }
+
   // Debounced search - prevents excessive API calls
-  const debouncedSearch = useDebounce(globalFilter, 300)
-
-  // Computed filtered options based on cascading logic
-  const { venues, courts, sports } = useMemo(() => {
-    let filteredVenues = allVenues
-    let filteredCourts = allCourts
-    let filteredSports = allSports
-
-    // If sport is selected, filter venues and courts by sport
-    if (selectedSportId && selectedSportId !== 'all') {
-      const venueIdsWithSport = new Set(
-        allCourts
-          .filter(c => c.sportId === selectedSportId)
-          .map(c => c.venueId)
-      )
-      filteredVenues = filteredVenues.filter(v => venueIdsWithSport.has(v.id))
-      filteredCourts = filteredCourts.filter(c => c.sportId === selectedSportId)
-    }
-
-    // If venue is selected, filter courts and sports by venue
-    if (selectedVenueId && selectedVenueId !== 'all') {
-      const sportIdsAtVenue = new Set(
-        allCourts
-          .filter(c => c.venueId === selectedVenueId)
-          .map(c => c.sportId)
-      )
-      filteredSports = filteredSports.filter(s => sportIdsAtVenue.has(s.id))
-      filteredCourts = filteredCourts.filter(c => c.venueId === selectedVenueId)
-    }
-
-    // If both venue and sport are selected, filter courts by both
-    if (selectedVenueId !== 'all' && selectedSportId !== 'all') {
-      filteredCourts = filteredCourts.filter(
-        c => c.venueId === selectedVenueId && c.sportId === selectedSportId
-      )
-    }
-
-    return { venues: filteredVenues, courts: filteredCourts, sports: filteredSports }
-  }, [selectedVenueId, selectedSportId, allVenues, allCourts, allSports])
-
-  // Handle cascading filter updates with batched state updates
-  const handleVenueChange = useCallback((venueId: string) => {
-    const newVenueId = venueId || 'all'
-    setSelectedVenueId(newVenueId)
-    
-    // Reset court if it doesn't belong to new venue
-    if (newVenueId !== 'all') {
-      const currentCourt = allCourts.find(c => c.id === selectedCourtId)
-      if (currentCourt && currentCourt.venueId !== newVenueId) {
-        setSelectedCourtId('all')
-        updateUrlFilters({ venueId: newVenueId, courtId: null })
-      } else {
-        updateUrlFilters({ venueId: newVenueId })
-      }
-    } else {
-      updateUrlFilters({ venueId: null })
-    }
-  }, [selectedCourtId, allCourts, updateUrlFilters])
-
-  const handleCourtChange = useCallback((courtId: string) => {
-    const newCourtId = courtId || 'all'
-    setSelectedCourtId(newCourtId)
-    
-    // Auto-select sport for the court
-    if (newCourtId !== 'all') {
-      const court = allCourts.find(c => c.id === newCourtId)
-      if (court?.sportId) {
-        setSelectedSportId(court.sportId)
-        updateUrlFilters({ courtId: newCourtId, sportId: court.sportId })
-      } else {
-        updateUrlFilters({ courtId: newCourtId })
-      }
-    } else {
-      updateUrlFilters({ courtId: null })
-    }
-  }, [allCourts, updateUrlFilters])
-
-  const handleSportChange = useCallback((sportId: string) => {
-    const newSportId = sportId || 'all'
-    setSelectedSportId(newSportId)
-    
-    // Reset court if it doesn't match sport
-    if (newSportId !== 'all') {
-      const currentCourt = allCourts.find(c => c.id === selectedCourtId)
-      if (currentCourt && currentCourt.sportId !== newSportId) {
-        setSelectedCourtId('all')
-        updateUrlFilters({ sportId: newSportId, courtId: null })
-      } else {
-        updateUrlFilters({ sportId: newSportId })
-      }
-    } else {
-      updateUrlFilters({ sportId: null })
-    }
-  }, [selectedCourtId, allCourts, updateUrlFilters])
-
-  // Initialize data on mount
-  useEffect(() => {
-    if (vendorId) {
-      fetchVenues()
-      fetchCourts()
-    }
-  }, [vendorId])
-
-  // Fetch venues for the vendor
-  const fetchVenues = async () => {
-    if (!vendorId) return
-    try {
-      const response = await fetch(`/api/vendors/${vendorId}/venues?limit=100&status=active`, {
-        credentials: 'include'
-      })
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success && result.data) {
-          setAllVenues(result.data.map((venue: any) => ({
-            id: venue.id,
-            name: venue.name
-          })))
-        } else {
-          console.error('Invalid venues response:', result)
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Failed to fetch venues:', response.status, errorData)
-      }
-    } catch (error) {
-      console.error('Error fetching venues:', error)
-    }
-  }
-
-  // Fetch all courts for the vendor and extract distinct sports
-  const fetchCourts = async () => {
-    if (!vendorId) return
-    try {
-      const response = await fetch(`/api/courts?vendorId=${vendorId}&limit=1000`, {
-        credentials: 'include'
-      })
-      if (response.ok) {
-        const data = await response.json()
-        if (data.courts && Array.isArray(data.courts)) {
-          // Extract distinct courts with venue and sport info
-          const distinctCourts = new Map<string, { id: string; name: string; venueId: string; sportId: string }>()
-          // Extract distinct sports from vendor's courts
-          const distinctSports = new Map<string, { id: string; name: string; displayName: string }>()
-          
-          data.courts.forEach((court: any) => {
-            // Add court with venue and sport info
-            if (court.venue?.id && court.sport?.id) {
-              distinctCourts.set(court.id, {
-                id: court.id,
-                name: court.name,
-                venueId: court.venue.id,
-                sportId: court.sport.id
-              })
-            }
-            // Add sport
-            if (court.sport) {
-              distinctSports.set(court.sport.id, {
-                id: court.sport.id,
-                name: court.sport.name,
-                displayName: court.sport.displayName || court.sport.name
-              })
-            }
-          })
-          
-          const courtsArray = Array.from(distinctCourts.values())
-          const sportsArray = Array.from(distinctSports.values())
-          console.log('Fetched courts:', courtsArray.length, courtsArray)
-          setAllCourts(courtsArray) // Store all courts
-          setAllSports(sportsArray) // Store all sports
-        } else {
-          console.error('Invalid courts response format:', data)
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Failed to fetch courts:', response.status, errorData)
-      }
-    } catch (error) {
-      console.error('Error fetching courts:', error)
-    }
-  }
-
-  // Fetch sports - filter to only sports that the vendor has courts for
-  const fetchSports = async () => {
-    // This is now handled in fetchCourts to avoid duplicate API calls
-    // Keeping this function for backwards compatibility but it's no longer needed
-  }
+  const debouncedSearch = useDebounce(safeFilters.search || '', 300)
 
   // Main API call with debouncing and request cancellation
   const fetchBookings = useCallback(async () => {
@@ -568,9 +520,6 @@ export function VendorBookingDataTable() {
       setLoading(true)
 
       // Build filters
-      const statusFilter = columnFilters.find(f => f.id === 'status')
-      const paymentFilter = columnFilters.find(f => f.id === 'paymentStatus')
-
       const statusMap: Record<string, 'CONFIRMED' | 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'> = {
         'Confirmed': 'CONFIRMED',
         'Pending': 'PENDING',
@@ -596,20 +545,20 @@ export function VendorBookingDataTable() {
       if (debouncedSearch) {
         baseFilters.search = debouncedSearch
       }
-      if (statusFilter?.value && statusMap[statusFilter.value as string]) {
-        baseFilters.status = statusMap[statusFilter.value as string]
+      if (safeFilters.status && safeFilters.status !== 'all' && statusMap[safeFilters.status]) {
+        baseFilters.status = statusMap[safeFilters.status]
       }
-      if (paymentFilter?.value && paymentMap[paymentFilter.value as string]) {
-        baseFilters.paymentStatus = paymentMap[paymentFilter.value as string]
+      if (safeFilters.paymentStatus && safeFilters.paymentStatus !== 'all' && paymentMap[safeFilters.paymentStatus]) {
+        baseFilters.paymentStatus = paymentMap[safeFilters.paymentStatus]
       }
-      if (selectedVenueId && selectedVenueId !== 'all') {
-        baseFilters.venueId = selectedVenueId
+      if (safeFilters.venueId && safeFilters.venueId !== 'all') {
+        baseFilters.venueId = safeFilters.venueId
       }
-      if (selectedCourtId && selectedCourtId !== 'all') {
-        baseFilters.courtId = selectedCourtId
+      if (safeFilters.courtId && safeFilters.courtId !== 'all') {
+        baseFilters.courtId = safeFilters.courtId
       }
-      if (selectedSportId && selectedSportId !== 'all') {
-        baseFilters.sportId = selectedSportId
+      if (safeFilters.sportId && safeFilters.sportId !== 'all') {
+        baseFilters.sportId = safeFilters.sportId
       }
 
       // Check cache first (cache doesn't include pagination)
@@ -685,13 +634,13 @@ export function VendorBookingDataTable() {
       }
 
       // Cache miss - fetch from API with pagination
-      const filters: VendorBookingFilters = {
+      const apiFilters: VendorBookingFilters = {
         ...baseFilters,
         page: pagination.page,
         limit: pagination.limit,
       }
 
-      const result = await fetchVendorBookings(vendorId, filters)
+      const result = await fetchVendorBookings(vendorId, apiFilters)
       
       // Check if request was cancelled
       if (abortController.signal.aborted) {
@@ -786,7 +735,55 @@ export function VendorBookingDataTable() {
       setLoading(false)
     }
   }
-  }, [vendorId, sorting, columnFilters, debouncedSearch, pagination.page, selectedVenueId, selectedCourtId, selectedSportId, getCached, setCached])
+  }, [vendorId, sorting, debouncedSearch, pagination.page, safeFilters, getCached, setCached])
+
+  // Action handlers that depend on fetchBookings (defined after fetchBookings)
+  const cancelBooking = useCallback(async (bookingId: string) => {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+      if (response.ok) {
+        clearCache()
+        fetchBookings()
+        toast.success('Booking cancelled successfully!')
+        setIsModalOpen(false)
+      } else {
+        const error = await response.json().catch(() => ({ error: 'Failed to cancel booking' }))
+        toast.error(error.error || 'Failed to cancel booking')
+      }
+    } catch (error) {
+      console.error('Failed to cancel booking:', error)
+      toast.error('Failed to cancel booking. Please try again.')
+    }
+  }, [clearCache, fetchBookings])
+
+  const markComplete = useCallback(async (bookingId: string) => {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/complete`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+      if (response.ok) {
+        clearCache()
+        fetchBookings()
+        toast.success('Booking marked as complete!')
+        setIsModalOpen(false)
+      } else {
+        const error = await response.json().catch(() => ({ error: 'Failed to mark booking as complete' }))
+        toast.error(error.error || 'Failed to mark booking as complete')
+      }
+    } catch (error) {
+      console.error('Failed to mark complete:', error)
+      toast.error('Failed to mark booking as complete. Please try again.')
+    }
+  }, [clearCache, fetchBookings])
+
+  const handleUpdateBooking = useCallback(async (updatedBooking: any) => {
+    clearCache()
+    await fetchBookings()
+  }, [clearCache, fetchBookings])
 
   // Effect to fetch bookings when filters change (with debouncing)
   useEffect(() => {
@@ -802,21 +799,36 @@ export function VendorBookingDataTable() {
     }
   }, [vendorId, fetchBookings])
 
-  // Sync URL when search changes (only if different from URL)
+  // Sync pagination with URL on mount or URL change
   useEffect(() => {
-    const currentSearch = getFilterFromUrl('search', '')
-    if (debouncedSearch !== currentSearch) {
-      updateUrlFilters({ search: debouncedSearch || null })
-    }
-  }, [debouncedSearch]) // Removed updateUrlFilters from deps to prevent loop
-
-  // Sync pagination with URL on mount or URL change (but not from our own updates)
-  useEffect(() => {
-    const pageFromUrl = parseInt(getFilterFromUrl('page', '1'))
+    const pageFromUrl = parseInt(searchParams.get('page') || '1')
     if (pageFromUrl !== pagination.page && pageFromUrl >= 1) {
       setPagination(prev => ({ ...prev, page: pageFromUrl }))
     }
-  }, [searchParams.get('page')]) // Only depend on page param, not entire searchParams
+  }, [searchParams.get('page')])
+
+  // Fetch courts for modal
+  useEffect(() => {
+    if (vendorId) {
+      fetch(`/api/courts?vendorId=${vendorId}&limit=1000`, {
+        credentials: 'include'
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.courts && Array.isArray(data.courts)) {
+            const courtsList = data.courts.map((court: any) => ({
+              id: court.id,
+              name: court.name,
+              venueName: court.venue?.name || '',
+              sportName: court.sport?.displayName || court.sport?.name || '',
+              venueId: court.venue?.id || '',
+            }))
+            setCourts(courtsList)
+          }
+        })
+        .catch(err => console.error('Failed to fetch courts:', err))
+    }
+  }, [vendorId])
 
   // Filter data by court if needed (client-side filtering removed - handled by API)
   const filteredData = useMemo(() => {
@@ -825,40 +837,19 @@ export function VendorBookingDataTable() {
 
   const table = useReactTable({
     data: filteredData,
-    columns: createColumns(currencySymbol),
+    columns: createColumns(currencySymbol, handleEventClick),
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
-    onGlobalFilterChange: setGlobalFilter,
     state: {
       sorting,
-      columnFilters,
       columnVisibility,
       rowSelection,
-      globalFilter,
     },
   })
-
-  const handleStatusFilter = (status: string) => {
-    if (status === 'all') {
-      table.getColumn('status')?.setFilterValue(undefined)
-    } else {
-      table.getColumn('status')?.setFilterValue(status)
-    }
-  }
-
-  const handlePaymentFilter = (status: string) => {
-    if (status === 'all') {
-      table.getColumn('paymentStatus')?.setFilterValue(undefined)
-    } else {
-      table.getColumn('paymentStatus')?.setFilterValue(status)
-    }
-  }
 
   if (!vendorId) {
     return (
@@ -875,105 +866,8 @@ export function VendorBookingDataTable() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Booking Management
-        </CardTitle>
-      </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-            {/* 1. Search - Most general filter, text-based */}
-            <div className="relative flex-1 min-w-[200px] sm:max-w-[220px]">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search bookings..."
-                value={globalFilter ?? ''}
-                onChange={(e) => setGlobalFilter(String(e.target.value))}
-                className="pl-10"
-              />
-            </div>
-
-            {/* 2. Venue - Location hierarchy starts here */}
-            <Select value={selectedVenueId === 'all' ? undefined : selectedVenueId} onValueChange={handleVenueChange}>
-              <SelectTrigger className="w-full sm:w-[150px]">
-                <SelectValue placeholder="Venue" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Venues</SelectItem>
-                {venues.map((venue) => (
-                  <SelectItem key={venue.id} value={venue.id}>
-                    {venue.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* 3. Court - Filtered by venue and sport (cascading) */}
-            <Select 
-              value={selectedCourtId === 'all' ? undefined : selectedCourtId} 
-              onValueChange={handleCourtChange}
-            >
-              <SelectTrigger className="w-full sm:w-[150px]">
-                <SelectValue placeholder="Court" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Courts</SelectItem>
-                {courts.map((court) => (
-                  <SelectItem key={court.id} value={court.id}>
-                    {court.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* 4. Sport - Activity type */}
-            <Select value={selectedSportId === 'all' ? undefined : selectedSportId} onValueChange={handleSportChange}>
-              <SelectTrigger className="w-full sm:w-[150px]">
-                <SelectValue placeholder="Sport" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sports</SelectItem>
-                {sports.map((sport) => (
-                  <SelectItem key={sport.id} value={sport.id}>
-                    {sport.displayName || sport.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* 5. Status - Booking state */}
-            <Select onValueChange={handleStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[140px] text-foreground">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Confirmed">Confirmed</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="Cancelled">Cancelled</SelectItem>
-                <SelectItem value="No-Show">No Show</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* 6. Payment - Payment state */}
-            <Select onValueChange={handlePaymentFilter}>
-              <SelectTrigger className="w-full sm:w-[140px] text-foreground">
-                <SelectValue placeholder="Payment" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Payment</SelectItem>
-                <SelectItem value="Paid">Paid</SelectItem>
-                <SelectItem value="Partially Paid">Partially Paid</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="Refunded">Refunded</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Selected Actions */}
           {table.getFilteredSelectedRowModel().rows.length > 0 && (
             <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
@@ -1021,6 +915,8 @@ export function VendorBookingDataTable() {
                     <TableRow
                       key={row.id}
                       data-state={row.getIsSelected() && 'selected'}
+                      onContextMenu={(e) => handleContextMenu(e, row.original)}
+                      className="cursor-pointer"
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
@@ -1052,7 +948,7 @@ export function VendorBookingDataTable() {
               {table.getFilteredSelectedRowModel().rows.length > 0 && (
                 <span>
                   {table.getFilteredSelectedRowModel().rows.length} of{' '}
-                  {table.getFilteredRowModel().rows.length} row(s) selected.
+                  {table.getRowModel().rows.length} row(s) selected.
                 </span>
               )}
               {!loading && (
@@ -1070,7 +966,9 @@ export function VendorBookingDataTable() {
                 onClick={() => {
                   const newPage = pagination.page - 1
                   setPagination(prev => ({ ...prev, page: newPage }))
-                  updateUrlFilters({ page: newPage.toString() })
+                  const params = new URLSearchParams(searchParams.toString())
+                  params.set('page', newPage.toString())
+                  router.push(`${pathname}?${params.toString()}`, { scroll: false })
                 }}
                 disabled={pagination.page === 1 || loading}
               >
@@ -1085,7 +983,9 @@ export function VendorBookingDataTable() {
                 onClick={() => {
                   const newPage = pagination.page + 1
                   setPagination(prev => ({ ...prev, page: newPage }))
-                  updateUrlFilters({ page: newPage.toString() })
+                  const params = new URLSearchParams(searchParams.toString())
+                  params.set('page', newPage.toString())
+                  router.push(`${pathname}?${params.toString()}`, { scroll: false })
                 }}
                 disabled={pagination.page >= pagination.totalPages || loading}
               >
@@ -1095,6 +995,45 @@ export function VendorBookingDataTable() {
           </div>
         </div>
       </CardContent>
+
+      {/* Booking Details Modal */}
+      <BookingDetailsModal
+        booking={selectedBooking}
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        onEdit={handleEditBooking}
+        onCancel={cancelBooking}
+        onComplete={markComplete}
+        onSendSMS={sendSMS}
+        onViewCustomer={handleViewCustomer}
+        onUpdate={handleUpdateBooking}
+        vendorId={vendorId || undefined}
+        courts={courts}
+      />
+
+      {/* Context Menu */}
+      {contextMenu.visible && contextMenu.booking && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          {contextMenuActions.map((action) => (
+            <button
+              key={action.action}
+              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center gap-2 transition-colors"
+              onClick={() => handleContextMenuAction(action.action, contextMenu.booking!)}
+            >
+              <span>{action.icon}</span>
+              <span>{action.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </Card>
   )
 }

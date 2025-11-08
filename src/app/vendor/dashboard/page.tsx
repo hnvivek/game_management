@@ -150,7 +150,7 @@ export default function VendorDashboard() {
   if (!vendorId) {
     return (
       <VendorLayout title="Dashboard" subtitle="Welcome back! Here's what's happening with your venues today.">
-        <div className="p-6">
+        <div className="h-full flex flex-col overflow-hidden p-4">
           <Skeleton className="h-8 w-48 mb-4" />
           <Skeleton className="h-64 w-full" />
         </div>
@@ -205,8 +205,7 @@ export default function VendorDashboard() {
       title="Dashboard"
       subtitle="Comprehensive overview of your bookings, revenue, and performance metrics"
     >
-      <div className="p-6 space-y-6">
-        {/* Breadcrumb */}
+      <div className="p-4 space-y-6">
         <VendorBreadcrumb />
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -490,7 +489,6 @@ export default function VendorDashboard() {
           </CardContent>
         </Card>
       </div>
-
     </div>
     </VendorLayout>
   )
