@@ -1,0 +1,23 @@
+{
+  // Markdown settings
+  "markdown.preview.breaks": true,
+  "markdown.preview.fontSize": 14,
+  
+  // File associations - ensure .md files are treated as markdown, not MDX
+  "files.associations": {
+    "*.md": "markdown"
+  },
+  
+  // Exclude markdown files from certain processing
+  "files.exclude": {},
+  
+  // Editor settings
+  "editor.wordWrap": "on",
+  "editor.formatOnSave": true,
+  
+  // TypeScript/JavaScript settings
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}
+
+

@@ -70,13 +70,16 @@ interface Venue {
       displayName: string
       icon?: string
     }
-    format: {
-      id: string
-      name: string
-      displayName: string
-      minPlayers: number
-      maxPlayers: number
-    }
+    supportedFormats?: Array<{
+      format: {
+        id: string
+        name: string
+        displayName: string
+        playersPerTeam: number
+        maxTotalPlayers?: number | null
+      }
+      maxSlots: number
+    }>
   }>
 }
 
@@ -380,16 +383,25 @@ export default function VenueDetailsPage() {
                             {!court.isActive && <Badge variant="secondary">Inactive</Badge>}
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {court.sport.displayName} • {court.format.displayName}
+                            {court.sport.displayName}
+                            {court.supportedFormats && court.supportedFormats.length > 0 && (
+                              <> • {court.supportedFormats.map(sf => sf.format.displayName).join(', ')}</>
+                            )}
                           </p>
                           {court.description && (
                             <p className="text-sm text-muted-foreground">{court.description}</p>
                           )}
                           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                            <div className="flex items-center space-x-1">
-                              <Users className="h-3 w-3" />
-                              <span>{court.format.minPlayers}-{court.format.maxPlayers} players</span>
-                            </div>
+                            {court.supportedFormats && court.supportedFormats.length > 0 && (
+                              <div className="flex items-center space-x-1">
+                                <Users className="h-3 w-3" />
+                                <span>
+                                  {court.supportedFormats.map(sf => 
+                                    `${sf.format.playersPerTeam} per team (${sf.format.playersPerTeam * 2} total${sf.format.maxTotalPlayers && sf.format.maxTotalPlayers > sf.format.playersPerTeam * 2 ? `, up to ${sf.format.maxTotalPlayers}` : ''})`
+                                  ).join(', ')}
+                                </span>
+                              </div>
+                            )}
                             <div className="flex items-center space-x-1">
                               <span>{formatCurrency(Number(court.pricePerHour), venue.currencyCode)}/hour</span>
                             </div>

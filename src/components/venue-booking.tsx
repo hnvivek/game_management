@@ -20,8 +20,8 @@ interface Format {
   id: string
   name: string
   displayName: string
-  minPlayers: number
-  maxPlayers: number
+  playersPerTeam: number
+  maxTotalPlayers?: number | null
 }
 
 interface Vendor {

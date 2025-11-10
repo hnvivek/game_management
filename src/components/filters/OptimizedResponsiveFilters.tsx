@@ -29,8 +29,8 @@ interface Format {
   id: string
   name: string
   displayName: string
-  minPlayers: number
-  maxPlayers: number
+  playersPerTeam: number
+  maxTotalPlayers?: number | null
 }
 
 interface Venue {
@@ -494,7 +494,7 @@ export default function OptimizedResponsiveFilters({
                     <div>
                       <div className="font-medium">{format.displayName}</div>
                       <div className="text-xs text-muted-foreground">
-                        {format.minPlayers}-{format.maxPlayers} players
+                        {format.playersPerTeam} per team ({format.playersPerTeam * 2} total{format.maxTotalPlayers && format.maxTotalPlayers > format.playersPerTeam * 2 ? `, up to ${format.maxTotalPlayers}` : ''})
                       </div>
                     </div>
                   </div>

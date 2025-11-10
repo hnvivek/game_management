@@ -35,7 +35,7 @@ export async function GET(
         isActive: true
       },
       orderBy: [
-        { maxPlayers: 'desc' },
+        { playersPerTeam: 'desc' },
         { name: 'asc' }
       ]
     })
@@ -53,8 +53,8 @@ export async function GET(
         name: format.name,
         displayName: format.displayName,
         description: format.description,
-        minPlayers: format.minPlayers,
-        maxPlayers: format.maxPlayers,
+        playersPerTeam: format.playersPerTeam,
+        maxTotalPlayers: format.maxTotalPlayers,
         isActive: format.isActive
       }))
     })

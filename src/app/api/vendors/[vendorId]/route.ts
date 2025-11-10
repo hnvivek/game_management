@@ -17,51 +17,55 @@ export async function GET(
         slug: vendorId,
         deletedAt: null
       },
-      include: {
-        venues: {
-          where: { isActive: true },
-          include: {
-            courts: {
-              where: { isActive: true },
-              include: {
-                sport: {
-                  select: {
-                    id: true,
-                    name: true,
-                    displayName: true,
-                    icon: true,
+        include: {
+          venues: {
+            where: { isActive: true },
+            include: {
+              courts: {
+                where: { isActive: true },
+                include: {
+                  sport: {
+                    select: {
+                      id: true,
+                      name: true,
+                      displayName: true,
+                      icon: true,
+                    },
+                  },
+                  supportedFormats: {
+                    include: {
+                      format: {
+                        select: {
+                          id: true,
+                          name: true,
+                          displayName: true,
+                          playersPerTeam: true,
+                          maxTotalPlayers: true,
+                        },
+                      },
+                    },
                   },
                 },
-                format: {
-                  select: {
-                    id: true,
-                    name: true,
-                    displayName: true,
-                    minPlayers: true,
-                    maxPlayers: true,
-                  },
+              },
+              operatingHours: {
+                where: {
+                  isOpen: true,
+                },
+                orderBy: {
+                  dayOfWeek: 'asc',
                 },
               },
             },
-            operatingHours: {
-              where: {
-                isOpen: true,
-              },
-              orderBy: {
-                dayOfWeek: 'asc',
+          },
+          vendorSettings: true,
+          _count: {
+            select: {
+              venues: {
+                where: { isActive: true }
               },
             },
           },
         },
-        settings: true,
-        _count: {
-          select: {
-            venues: {
-              where: { isActive: true }
-            },
-          },
-        },
-      },
     })
 
     // If not found by slug, try by ID
@@ -86,13 +90,17 @@ export async function GET(
                       icon: true,
                     },
                   },
-                  format: {
-                    select: {
-                      id: true,
-                      name: true,
-                      displayName: true,
-                      minPlayers: true,
-                      maxPlayers: true,
+                  supportedFormats: {
+                    include: {
+                      format: {
+                        select: {
+                          id: true,
+                          name: true,
+                          displayName: true,
+                          playersPerTeam: true,
+                          maxTotalPlayers: true,
+                        },
+                      },
                     },
                   },
                 },
@@ -107,7 +115,7 @@ export async function GET(
               },
             },
           },
-          settings: true,
+          vendorSettings: true,
           _count: {
             select: {
               venues: {
@@ -167,22 +175,44 @@ export async function GET(
           features: court.features,
           images: court.images,
           sport: court.sport,
-          format: court.format,
+          supportedFormats: court.supportedFormats?.map(sf => ({
+            format: sf.format,
+            maxSlots: sf.maxSlots,
+          })) || [],
         })),
         operatingHours: venue.operatingHours,
         openingHours: venue.operatingHours.length > 0
           ? `${Math.min(...venue.operatingHours.map(h => parseInt(h.openingTime.split(':')[0])))}:00 - ${Math.max(...venue.operatingHours.map(h => parseInt(h.closingTime.split(':')[0])))}:00`
           : 'Not specified',
       })),
-      settings: vendor.settings,
+      settings: vendor.vendorSettings,
       createdAt: vendor.createdAt,
       updatedAt: vendor.updatedAt,
     }
 
     return NextResponse.json({ vendor: transformedVendor })
   } catch (error) {
+    console.error('Error fetching vendor:', error);
+    
+    // Log more details for debugging
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    
+    // Check if vendor not found
+    if (error instanceof Error && error.message.includes('not found')) {
+      return NextResponse.json(
+        { error: 'Vendor not found' },
+        { status: 404 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to fetch vendor' },
+      { 
+        error: 'Failed to fetch vendor',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }

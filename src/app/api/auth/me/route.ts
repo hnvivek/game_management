@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import jwt from 'jsonwebtoken';
+import { withPerformanceTracking } from '@/lib/middleware/performance';
 
-export async function GET(request: NextRequest) {
+export const GET = withPerformanceTracking(async function GET(request: NextRequest) {
   try {
+    const startTime = Date.now();
+    
     // Get token from cookie or Authorization header
     const token = request.cookies.get('auth-token')?.value ||
                  request.headers.get('authorization')?.replace('Bearer ', '');
-
-    console.log('Auth/me endpoint called, token found:', !!token);
 
     if (!token) {
       return NextResponse.json(
@@ -21,9 +22,7 @@ export async function GET(request: NextRequest) {
     let decoded: any;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
-      console.log('Token decoded, userId:', decoded.userId);
     } catch (jwtError: any) {
-      console.error('JWT verification failed:', jwtError.name, jwtError.message);
       if (jwtError.name === 'JsonWebTokenError' || jwtError.name === 'TokenExpiredError' || jwtError.name === 'NotBeforeError') {
         return NextResponse.json(
           { error: 'Invalid or expired authentication token' },
@@ -33,11 +32,11 @@ export async function GET(request: NextRequest) {
       throw jwtError;
     }
 
-    // Fetch user details with vendor information
-    const user = await db.user.findFirst({
+    // Optimized: Fetch user first with minimal fields to check role
+    // Then conditionally fetch vendorStaff only if needed
+    const user = await db.user.findUnique({
       where: { 
-        id: decoded.userId,
-        deletedAt: null
+        id: decoded.userId
       },
       select: {
         id: true,
@@ -49,44 +48,26 @@ export async function GET(request: NextRequest) {
         avatarUrl: true,
         createdAt: true,
         updatedAt: true,
-        vendorStaff: {
-          select: {
-            vendorId: true,
-            vendor: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                isActive: true
-              }
-            }
-          }
-        }
+        deletedAt: true,
       },
     });
 
     if (!user) {
-      // Check if user exists but is soft-deleted
-      const deletedUser = await db.user.findFirst({
-        where: { id: decoded.userId },
-        select: { id: true, email: true, deletedAt: true }
-      });
-      
-      if (deletedUser) {
-        console.error('User found but is soft-deleted:', deletedUser.email, deletedUser.deletedAt);
-        return NextResponse.json(
-          { error: 'User account has been deleted' },
-          { status: 401 }
-        );
-      }
-      
-      console.error('User not found in database for userId:', decoded.userId);
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
+    // Check soft delete
+    if (user.deletedAt) {
+      return NextResponse.json(
+        { error: 'User account has been deleted' },
+        { status: 401 }
+      );
+    }
+
+    // Check if active
     if (!user.isActive) {
       return NextResponse.json(
         { error: 'Account is deactivated' },
@@ -94,25 +75,48 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('User found:', user.email, user.role);
+    // Only fetch vendorStaff if user is vendor-related (optimization)
+    let vendorId: string | null = null;
+    let vendor: { id: string; name: string; slug: string; isActive: boolean } | null = null;
 
-    // Extract vendor info from vendorStaff relation
-    const vendorStaff = user.vendorStaff?.[0];
-    const vendorId = vendorStaff?.vendorId || null;
-    const vendor = vendorStaff?.vendor || null;
+    if (user.role === 'VENDOR_ADMIN' || user.role === 'VENDOR_STAFF') {
+      const vendorStaff = await db.vendorStaff.findFirst({
+        where: {
+          userId: user.id,
+          isActive: true,
+        },
+        select: {
+          vendorId: true,
+          vendor: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              isActive: true
+            }
+          }
+        },
+      });
 
-    // Remove vendorStaff from response as it's an internal relation
-    const { vendorStaff: _, ...userWithoutVendorStaff } = user;
+      vendorId = vendorStaff?.vendorId || null;
+      vendor = vendorStaff?.vendor || null;
+    }
 
-    const response = NextResponse.json({
+    const queryTime = Date.now() - startTime;
+    if (queryTime > 100) {
+      console.warn(`⚠️  Slow auth/me query: ${queryTime}ms`);
+    }
+
+    // Remove deletedAt from response
+    const { deletedAt: _, ...userWithoutInternalFields } = user;
+
+    return NextResponse.json({
       user: {
-        ...userWithoutVendorStaff,
+        ...userWithoutInternalFields,
         vendorId,
         vendor
       },
     });
-    console.log('Returning successful response');
-    return response;
   } catch (error: any) {
     console.error('Error fetching current user:', error);
 
@@ -130,4 +134,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, 'GET /api/auth/me');

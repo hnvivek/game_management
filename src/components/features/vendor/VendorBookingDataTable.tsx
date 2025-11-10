@@ -504,8 +504,25 @@ export function VendorBookingDataTable({ filters }: { filters: BookingFilters })
   const debouncedSearch = useDebounce(safeFilters.search || '', 300)
 
   // Main API call with debouncing and request cancellation
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = useCallback(async (force = false) => {
     if (!vendorId) return
+
+    // Create request key for deduplication
+    const requestKey = JSON.stringify({
+      vendorId,
+      filters: safeFilters,
+      sorting,
+      debouncedSearch,
+      pagination
+    })
+
+    // Prevent duplicate requests
+    if (!force && isLoadingBookingsRef.current && lastRequestKeyRef.current === requestKey) {
+      return
+    }
+
+    isLoadingBookingsRef.current = true
+    lastRequestKeyRef.current = requestKey
 
     // Cancel previous request if it exists
     if (abortControllerRef.current) {
@@ -746,7 +763,7 @@ export function VendorBookingDataTable({ filters }: { filters: BookingFilters })
       })
       if (response.ok) {
         clearCache()
-        fetchBookings()
+        await fetchBookings(true) // Force reload after cancellation
         toast.success('Booking cancelled successfully!')
         setIsModalOpen(false)
       } else {
@@ -767,7 +784,7 @@ export function VendorBookingDataTable({ filters }: { filters: BookingFilters })
       })
       if (response.ok) {
         clearCache()
-        fetchBookings()
+        await fetchBookings(true) // Force reload after completion
         toast.success('Booking marked as complete!')
         setIsModalOpen(false)
       } else {
@@ -782,13 +799,13 @@ export function VendorBookingDataTable({ filters }: { filters: BookingFilters })
 
   const handleUpdateBooking = useCallback(async (updatedBooking: any) => {
     clearCache()
-    await fetchBookings()
+    await fetchBookings(true) // Force reload after update
   }, [clearCache, fetchBookings])
 
-  // Effect to fetch bookings when filters change (with debouncing)
+  // Effect to fetch bookings when filters change (with deduplication)
   useEffect(() => {
     if (vendorId) {
-      fetchBookings()
+      fetchBookings(false)
     }
     
     // Cleanup: cancel request on unmount or when dependencies change
@@ -797,7 +814,8 @@ export function VendorBookingDataTable({ filters }: { filters: BookingFilters })
         abortControllerRef.current.abort()
       }
     }
-  }, [vendorId, fetchBookings])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorId, safeFilters.venueId, safeFilters.courtId, safeFilters.sportId, safeFilters.status, safeFilters.paymentStatus, debouncedSearch, sorting, pagination.page, pagination.limit])
 
   // Sync pagination with URL on mount or URL change
   useEffect(() => {
@@ -916,7 +934,8 @@ export function VendorBookingDataTable({ filters }: { filters: BookingFilters })
                       key={row.id}
                       data-state={row.getIsSelected() && 'selected'}
                       onContextMenu={(e) => handleContextMenu(e, row.original)}
-                      className="cursor-pointer"
+                      onClick={() => handleEventClick(row.original)}
+                      className="cursor-pointer hover:bg-muted/50"
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>

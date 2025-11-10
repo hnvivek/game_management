@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { UserRole } from "@/lib/auth/authorize";
+import { useAuth as useAuthContext } from "@/components/features/auth/AuthProvider";
 
 interface RoleProtectedRouteProps {
   children: React.ReactNode;
@@ -32,78 +33,57 @@ export function RoleProtectedRoute({
   redirectTo = "/auth/signin",
   requireOwnership,
 }: RoleProtectedRouteProps) {
-  const [isLoading, setIsLoading] = useState(true);
+  const { user: authUser, isLoading: authLoading } = useAuthContext();
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/auth/me", {
-          credentials: 'include', // Important for cookies
-        });
+    // Wait for auth to load
+    if (authLoading) {
+      return;
+    }
 
-        if (!response.ok) {
-          if (response.status === 401) {
-            router.push(redirectTo);
-          } else {
-            setError("Failed to verify authentication");
-          }
-          setIsLoading(false);
-          return;
-        }
+    // If no user, redirect to login
+    if (!authUser) {
+      router.push(redirectTo);
+      return;
+    }
 
-        const data = await response.json();
-        const currentUser: User = {
-          id: data.user.id,
-          email: data.user.email,
-          name: data.user.name,
-          role: data.user.role as UserRole,
-          vendorId: data.user.vendorStaff?.[0]?.vendorId || null,
-          isActive: data.user.isActive
-        };
-
-        setUser(currentUser);
-
-        // Check if user has required role
-        if (!requiredRoles.includes(currentUser.role)) {
-          setError(`Access denied. Required roles: ${requiredRoles.join(", ")}`);
-          setIsLoading(false);
-          return;
-        }
-
-        // Check ownership requirements if specified
-        if (requireOwnership) {
-          if (requireOwnership.vendorId && currentUser.role !== 'PLATFORM_ADMIN') {
-            if (!currentUser.vendorId || currentUser.vendorId !== requireOwnership.vendorId) {
-              setError("Access denied. You can only access your own vendor resources.");
-              setIsLoading(false);
-              return;
-            }
-          }
-
-          if (requireOwnership.userId && currentUser.id !== requireOwnership.userId) {
-            setError("Access denied. You can only access your own resources.");
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        setIsAuthorized(true);
-      } catch (error) {
-        console.error("Auth check failed:", error);
-        setError("Failed to verify authentication");
-      } finally {
-        setIsLoading(false);
-      }
+    const currentUser: User = {
+      id: authUser.id,
+      email: authUser.email,
+      name: authUser.name,
+      role: authUser.role as UserRole,
+      vendorId: (authUser as any).vendorId || null,
+      isActive: authUser.isActive
     };
 
-    checkAuth();
-  }, [router, redirectTo, requiredRoles, requireOwnership]);
+    // Check if user has required role
+    if (!requiredRoles.includes(currentUser.role)) {
+      setError(`Access denied. Required roles: ${requiredRoles.join(", ")}`);
+      return;
+    }
 
-  if (isLoading) {
+    // Check ownership requirements if specified
+    if (requireOwnership) {
+      if (requireOwnership.vendorId && currentUser.role !== 'PLATFORM_ADMIN') {
+        if (!currentUser.vendorId || currentUser.vendorId !== requireOwnership.vendorId) {
+          setError("Access denied. You can only access your own vendor resources.");
+          return;
+        }
+      }
+
+      if (requireOwnership.userId && currentUser.id !== requireOwnership.userId) {
+        setError("Access denied. You can only access your own resources.");
+        return;
+      }
+    }
+
+    setIsAuthorized(true);
+  }, [authUser, authLoading, router, redirectTo, requiredRoles, requireOwnership]);
+
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
@@ -179,37 +159,19 @@ export function VendorAdminProtectedRoute({
 
 /**
  * Hook to get current user and check permissions
+ * Uses AuthProvider context instead of making separate API calls
  */
-export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export function useRoleAuth() {
+  const { user: authUser, isLoading } = useAuthContext();
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch("/api/auth/me", {
-          credentials: 'include', // Important for cookies
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setUser({
-            id: data.user.id,
-            email: data.user.email,
-            name: data.user.name,
-            role: data.user.role as UserRole,
-            vendorId: data.user.vendorStaff?.[0]?.vendorId || null,
-            isActive: data.user.isActive
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch user:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, []);
+  const user: User | null = authUser ? {
+    id: authUser.id,
+    email: authUser.email,
+    name: authUser.name,
+    role: authUser.role as UserRole,
+    vendorId: (authUser as any).vendorId || null,
+    isActive: authUser.isActive
+  } : null;
 
   const hasRole = (role: UserRole) => {
     return user?.role === role;

@@ -24,8 +24,8 @@ interface Format {
   id: string
   name: string
   displayName: string
-  minPlayers: number
-  maxPlayers: number
+  playersPerTeam: number
+  maxTotalPlayers?: number | null
 }
 
 interface Vendor {
@@ -463,7 +463,7 @@ export default function CollapsibleSearchContainer({
                       <SelectItem value="all">All formats</SelectItem>
                       {formats.map((format) => (
                         <SelectItem key={format.id} value={format.id}>
-                          {format.displayName} ({format.minPlayers}-{format.maxPlayers} players)
+                          {format.displayName} ({format.playersPerTeam} per team, {format.playersPerTeam * 2} total{format.maxTotalPlayers && format.maxTotalPlayers > format.playersPerTeam * 2 ? `, up to ${format.maxTotalPlayers}` : ''})
                         </SelectItem>
                       ))}
                     </SelectContent>

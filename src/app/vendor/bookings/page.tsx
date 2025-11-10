@@ -7,7 +7,7 @@ import { BookingFiltersComponent, BookingFilters } from '@/components/features/v
 import { BookingStatusLegend } from '@/components/features/vendor/BookingStatusLegend'
 import { Button } from '@/components/ui/button'
 import { Calendar, List, XCircle } from 'lucide-react'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useVendor } from '@/hooks/use-vendor'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -20,6 +20,29 @@ export default function VendorBookingsPage() {
   const searchParams = useSearchParams()
   const [calendarError, setCalendarError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('calendar')
+  
+  // Shared data state - fetched once and passed to children
+  const [allVenues, setAllVenues] = useState<Array<{ id: string; name: string; timezone?: string }>>([])
+  const [allCourts, setAllCourts] = useState<Array<{ 
+    id: string
+    name: string
+    venueId: string
+    sportId: string
+    supportedFormats?: Array<{
+      id: string
+      formatId: string
+      maxSlots: number
+      format: {
+        id: string
+        name: string
+        displayName: string
+        playersPerTeam: number
+        maxTotalPlayers: number | null
+      }
+    }>
+  }>>([])
+  const [allSports, setAllSports] = useState<Array<{ id: string; name: string; displayName: string }>>([])
+  const [isLoadingData, setIsLoadingData] = useState(true)
 
   // Get filters from URL or use defaults
   const getFilterFromUrl = (key: string, defaultValue: string = 'all') => {
@@ -81,6 +104,82 @@ export default function VendorBookingsPage() {
     })
   }, [updateUrlFilters])
 
+  // Fetch venues and courts once - shared by both filters and calendar
+  useEffect(() => {
+    if (!vendorId) return
+
+    const fetchSharedData = async () => {
+      setIsLoadingData(true)
+      try {
+        // OPTIMIZED: Fetch venues and courts in parallel instead of sequentially
+        const [venuesResponse, courtsResponse] = await Promise.all([
+          fetch(`/api/vendors/${vendorId}/venues?limit=100&status=active`, {
+            credentials: 'include'
+          }),
+          fetch(`/api/courts?vendorId=${vendorId}&limit=1000`, {
+            credentials: 'include'
+          })
+        ])
+
+        // Process venues
+        if (venuesResponse.ok) {
+          const venuesResult = await venuesResponse.json()
+          if (venuesResult.success && venuesResult.data) {
+            setAllVenues(venuesResult.data.map((venue: any) => ({
+              id: venue.id,
+              name: venue.name,
+              timezone: venue.timezone
+            })))
+          }
+        }
+
+        // Process courts - OPTIMIZED: Store full court data including supportedFormats
+        if (courtsResponse.ok) {
+          const courtsData = await courtsResponse.json()
+          if (courtsData.courts && Array.isArray(courtsData.courts)) {
+            const distinctCourts = new Map<string, {
+              id: string
+              name: string
+              venueId: string
+              sportId: string
+              supportedFormats?: Array<any>
+            }>()
+            const distinctSports = new Map<string, { id: string; name: string; displayName: string }>()
+            
+            courtsData.courts.forEach((court: any) => {
+              if (court.venue?.id && court.sport?.id) {
+                distinctCourts.set(court.id, {
+                  id: court.id,
+                  name: court.name,
+                  venueId: court.venue.id,
+                  sportId: court.sport.id,
+                  // OPTIMIZED: Include supportedFormats from initial fetch - no need for individual requests!
+                  supportedFormats: court.supportedFormats || []
+                })
+              }
+              if (court.sport) {
+                distinctSports.set(court.sport.id, {
+                  id: court.sport.id,
+                  name: court.sport.name,
+                  displayName: court.sport.displayName || court.sport.name
+                })
+              }
+            })
+            
+            setAllCourts(Array.from(distinctCourts.values()))
+            setAllSports(Array.from(distinctSports.values()))
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching shared data:', error)
+      } finally {
+        setIsLoadingData(false)
+      }
+    }
+
+    fetchSharedData()
+  }, [vendorId])
+
   if (!vendorId) {
     return (
       <VendorLayout title="Bookings" subtitle="Manage your venue bookings">
@@ -99,11 +198,18 @@ export default function VendorBookingsPage() {
     >
       <div className="p-4 space-y-4">
         {/* Shared Filters */}
-        <BookingFiltersComponent 
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          onClearFilters={handleClearFilters}
-        />
+        {isLoadingData ? (
+          <Skeleton className="h-20 w-full" />
+        ) : (
+          <BookingFiltersComponent 
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            onClearFilters={handleClearFilters}
+            venues={allVenues}
+            courts={allCourts}
+            sports={allSports}
+          />
+        )}
 
         {/* View Toggle and Legend - Same line */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -148,12 +254,19 @@ export default function VendorBookingsPage() {
           </Alert>
         )}
 
-        {/* Render based on view mode */}
+        {/* Render based on view mode - only mount the active component to prevent duplicate requests */}
         <div>
           {viewMode === 'table' ? (
-            <VendorBookingDataTable filters={filters} />
+            <VendorBookingDataTable key="table-view" filters={filters} />
           ) : (
-            <VendorBookingCalendar filters={filters} onError={setCalendarError} />
+            <VendorBookingCalendar 
+              key="calendar-view"
+              filters={filters} 
+              onError={setCalendarError}
+              venues={allVenues}
+              courts={allCourts}
+              sports={allSports}
+            />
           )}
         </div>
       </div>

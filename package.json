@@ -19,7 +19,9 @@
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
     "db:seed": "npx tsx src/lib/seed-all.ts",
+    "db:reset:seed": "npx tsx src/lib/reset-and-seed.ts",
     "db:seed:phase0": "npx tsx src/lib/seed-phase0.ts",
+    "db:check:football": "npx tsx scripts/check-today-football-bookings.ts",
     "lib:seed-all": "npx tsx src/lib/seed-all.ts",
     "lib:seed-phase0": "npx tsx src/lib/seed-phase0.ts"
   },
@@ -36,7 +38,6 @@
     "@fullcalendar/timegrid": "^6.1.19",
     "@fullcalendar/timeline": "^6.1.19",
     "@hookform/resolvers": "^5.1.1",
-    "@mdxeditor/editor": "^3.39.1",
     "@prisma/client": "^6.11.1",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",

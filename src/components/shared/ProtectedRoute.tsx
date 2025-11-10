@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "./LoadingSpinner";
+import { useAuth } from "@/components/features/auth/AuthProvider";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,29 +16,14 @@ export function ProtectedRoute({
   fallback,
   redirectTo = "/auth/signin",
 }: ProtectedRouteProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/auth/me");
-        if (response.ok) {
-          setIsAuthenticated(true);
-        } else {
-          router.push(redirectTo);
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-        router.push(redirectTo);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [router, redirectTo]);
+    if (!isLoading && !user) {
+      router.push(redirectTo);
+    }
+  }, [user, isLoading, router, redirectTo]);
 
   if (isLoading) {
     return (
@@ -47,7 +33,7 @@ export function ProtectedRoute({
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return fallback || null;
   }
 

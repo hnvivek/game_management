@@ -177,6 +177,8 @@ const bookingSchema = z.object({
   duration: z.number().int().min(30).max(480).multipleOf(30),
   playerCount: z.number().int().min(1).max(50).optional(),
   notes: z.string().max(500).optional(),
+  formatId: z.string().nullable().optional(),
+  slotNumber: z.number().int().min(1).nullable().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -192,6 +194,8 @@ export async function POST(request: NextRequest) {
       duration,
       playerCount,
       notes,
+      formatId,
+      slotNumber,
     } = validatedData
 
     // Parse date and time
@@ -204,7 +208,7 @@ export async function POST(request: NextRequest) {
     const endMinutes = minutes + (duration % 60)
     const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`
 
-    // Check if court exists and is available
+    // Check if court exists and get supported formats
     const court = await prisma.court.findUnique({
       where: { id: courtId },
       include: {
@@ -222,6 +226,20 @@ export async function POST(request: NextRequest) {
             displayName: true,
           },
         },
+        supportedFormats: {
+          where: {
+            isActive: true,
+          },
+          include: {
+            format: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -233,29 +251,186 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Court does not belong to this venue' }, { status: 400 })
     }
 
-    // Check if the requested time slot is available
-    const conflictingBooking = await prisma.booking.findFirst({
-      where: {
-        courtId,
-        date: bookingDate,
-        status: {
-          in: ['PENDING', 'CONFIRMED'],
-        },
-        OR: [
-          // Overlap cases
-          {
-            startTime: { lt: endTime },
-            endTime: { gt: startTime },
-          },
-        ],
-      },
-    })
-
-    if (conflictingBooking) {
-      return NextResponse.json(
-        { error: 'This time slot is already booked' },
-        { status: 409 }
+    // If formatId is provided, validate it's supported by the court
+    if (formatId) {
+      const formatSupported = court.supportedFormats.some(
+        (cf) => cf.formatId === formatId && cf.isActive
       )
+      if (!formatSupported) {
+        return NextResponse.json(
+          { error: 'The requested format is not supported by this court' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Calculate start and end DateTime objects for proper comparison
+    const startDateTime = new Date(`${date}T${startTime}:00.000Z`)
+    const endDateTime = new Date(`${date}T${endTime}:00.000Z`)
+
+    // Check availability based on format
+    if (formatId) {
+      // Get the court format configuration and format details
+      const courtFormat = court.supportedFormats.find((cf) => cf.formatId === formatId)
+      if (!courtFormat) {
+        return NextResponse.json(
+          { error: 'Format configuration not found for this court' },
+          { status: 400 }
+        )
+      }
+
+      // Get format details to determine size (for conflict checking)
+      const formatDetails = await prisma.formatType.findUnique({
+        where: { id: formatId },
+        select: {
+          id: true,
+          playersPerTeam: true,
+          maxTotalPlayers: true,
+        },
+      })
+
+      if (!formatDetails) {
+        return NextResponse.json(
+          { error: 'Format not found' },
+          { status: 404 }
+        )
+      }
+
+      // Get all overlapping bookings (regardless of format) to check conflicts
+      const allOverlappingBookings = await prisma.booking.findMany({
+        where: {
+          courtId,
+          date: bookingDate,
+          status: {
+            in: ['PENDING', 'CONFIRMED'],
+          },
+          AND: [
+            { startTime: { lt: endDateTime } },
+            { endTime: { gt: startDateTime } },
+          ],
+        },
+        include: {
+          format: {
+            select: {
+              id: true,
+              playersPerTeam: true,
+              maxTotalPlayers: true,
+            },
+          },
+        },
+      })
+
+      // Get all supported formats for this court to calculate slot allocation
+      const allCourtFormats = await prisma.courtFormat.findMany({
+        where: {
+          courtId,
+          isActive: true,
+        },
+        include: {
+          format: {
+            select: {
+              id: true,
+              playersPerTeam: true,
+              maxTotalPlayers: true,
+            },
+          },
+        },
+      })
+
+      // Calculate total slots = max(maxSlots) of all formats (or use the largest maxSlots)
+      const totalSlots = Math.max(...allCourtFormats.map(cf => cf.maxSlots), 1)
+
+      // Calculate slots per instance for each format: slotsPerInstance = totalSlots / maxSlots(format)
+      const getSlotsPerInstance = (formatMaxSlots: number) => {
+        return totalSlots / formatMaxSlots
+      }
+
+      const requestedSlotsPerInstance = getSlotsPerInstance(courtFormat.maxSlots)
+
+      // Calculate slots used by existing bookings
+      let slotsUsed = 0
+      let hasSmallerFormat = false
+      let hasLargerFormat = false
+      const requestedFormatSize = formatDetails.maxTotalPlayers || formatDetails.playersPerTeam * 2
+
+      for (const existingBooking of allOverlappingBookings) {
+        if (!existingBooking.format) continue
+
+        // Find the court format for this booking's format
+        const existingCourtFormat = allCourtFormats.find(cf => cf.formatId === existingBooking.formatId)
+        if (!existingCourtFormat) continue
+
+        const existingSlotsPerInstance = getSlotsPerInstance(existingCourtFormat.maxSlots)
+        slotsUsed += existingSlotsPerInstance
+
+        // Check for mutual exclusion based on format size
+        const existingFormatSize = existingBooking.format.maxTotalPlayers || 
+          existingBooking.format.playersPerTeam * 2
+
+        if (existingFormatSize < requestedFormatSize) {
+          // Smaller format exists - will block larger format
+          hasSmallerFormat = true
+        }
+        if (existingFormatSize > requestedFormatSize) {
+          // Larger format exists - will block smaller format
+          hasLargerFormat = true
+        }
+      }
+
+      // Mutual exclusion checks
+      if (hasSmallerFormat) {
+        return NextResponse.json(
+          { 
+            error: `This time slot is blocked by a smaller format booking. Smaller formats block larger formats when court is divided.`,
+          },
+          { status: 409 }
+        )
+      }
+
+      if (hasLargerFormat) {
+        return NextResponse.json(
+          { 
+            error: `This time slot is blocked by a larger format booking. Larger formats block smaller formats when full court is used.`,
+          },
+          { status: 409 }
+        )
+      }
+
+      // Check if enough slots are available
+      const remainingSlots = totalSlots - slotsUsed
+      if (remainingSlots < requestedSlotsPerInstance) {
+        return NextResponse.json(
+          { 
+            error: `Not enough slots available. Required: ${requestedSlotsPerInstance}, Available: ${remainingSlots}`,
+            requiredSlots: requestedSlotsPerInstance,
+            availableSlots: remainingSlots,
+            totalSlots,
+          },
+          { status: 409 }
+        )
+      }
+    } else {
+      // If no format specified, check for any overlapping bookings (backward compatibility)
+      const conflictingBooking = await prisma.booking.findFirst({
+        where: {
+          courtId,
+          date: bookingDate,
+          status: {
+            in: ['PENDING', 'CONFIRMED'],
+          },
+          AND: [
+            { startTime: { lt: endDateTime } },
+            { endTime: { gt: startDateTime } },
+          ],
+        },
+      })
+
+      if (conflictingBooking) {
+        return NextResponse.json(
+          { error: 'This time slot is already booked' },
+          { status: 409 }
+        )
+      }
     }
 
     // Get current user ID (in a real app, this would come from authentication)
@@ -297,6 +472,8 @@ export async function POST(request: NextRequest) {
         status: 'PENDING',
         playerCount: playerCount || 1,
         notes: notes || null,
+        formatId: formatId || null,
+        slotNumber: slotNumber || null,
         paymentStatus: 'PENDING',
         paymentMethod: 'ONLINE',
         // Auto-confirm for now (in real app, this might require vendor approval)

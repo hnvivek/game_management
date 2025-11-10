@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Search, X } from 'lucide-react'
-import { useVendor } from '@/hooks/use-vendor'
 
 export interface BookingFilters {
   search: string
@@ -21,82 +20,12 @@ interface BookingFiltersProps {
   filters: BookingFilters
   onFiltersChange: (filters: BookingFilters) => void
   onClearFilters: () => void
+  venues: Array<{ id: string; name: string }>
+  courts: Array<{ id: string; name: string; venueId: string; sportId: string }>
+  sports: Array<{ id: string; name: string; displayName: string }>
 }
 
-export function BookingFiltersComponent({ filters, onFiltersChange, onClearFilters }: BookingFiltersProps) {
-  const { vendorId } = useVendor()
-  
-  // Filter options data
-  const [allVenues, setAllVenues] = useState<Array<{ id: string; name: string }>>([])
-  const [allCourts, setAllCourts] = useState<Array<{ id: string; name: string; venueId: string; sportId: string }>>([])
-  const [allSports, setAllSports] = useState<Array<{ id: string; name: string; displayName: string }>>([])
-
-  // Fetch venues
-  useEffect(() => {
-    if (vendorId) {
-      fetchVenues()
-      fetchCourts()
-    }
-  }, [vendorId])
-
-  const fetchVenues = async () => {
-    if (!vendorId) return
-    try {
-      const response = await fetch(`/api/vendors/${vendorId}/venues?limit=100&status=active`, {
-        credentials: 'include'
-      })
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success && result.data) {
-          setAllVenues(result.data.map((venue: any) => ({
-            id: venue.id,
-            name: venue.name
-          })))
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching venues:', error)
-    }
-  }
-
-  const fetchCourts = async () => {
-    if (!vendorId) return
-    try {
-      const response = await fetch(`/api/courts?vendorId=${vendorId}&limit=1000`, {
-        credentials: 'include'
-      })
-      if (response.ok) {
-        const data = await response.json()
-        if (data.courts && Array.isArray(data.courts)) {
-          const distinctCourts = new Map<string, { id: string; name: string; venueId: string; sportId: string }>()
-          const distinctSports = new Map<string, { id: string; name: string; displayName: string }>()
-          
-          data.courts.forEach((court: any) => {
-            if (court.venue?.id && court.sport?.id) {
-              distinctCourts.set(court.id, {
-                id: court.id,
-                name: court.name,
-                venueId: court.venue.id,
-                sportId: court.sport.id
-              })
-            }
-            if (court.sport) {
-              distinctSports.set(court.sport.id, {
-                id: court.sport.id,
-                name: court.sport.name,
-                displayName: court.sport.displayName || court.sport.name
-              })
-            }
-          })
-          
-          setAllCourts(Array.from(distinctCourts.values()))
-          setAllSports(Array.from(distinctSports.values()))
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching courts:', error)
-    }
-  }
+export function BookingFiltersComponent({ filters, onFiltersChange, onClearFilters, venues: allVenues, courts: allCourts, sports: allSports }: BookingFiltersProps) {
 
   // Computed filtered options based on cascading logic
   const { venues, courts, sports } = useMemo(() => {
@@ -182,8 +111,8 @@ export function BookingFiltersComponent({ filters, onFiltersChange, onClearFilte
   }
 
   const hasActiveFilters = filters.venueId !== 'all' || 
-    filters.courtId !== 'all' || 
     filters.sportId !== 'all' || 
+    filters.courtId !== 'all' || 
     filters.status !== 'all' || 
     filters.paymentStatus !== 'all' || 
     filters.search !== ''
@@ -232,6 +161,21 @@ export function BookingFiltersComponent({ filters, onFiltersChange, onClearFilte
           </SelectContent>
         </Select>
 
+        {/* Sport */}
+        <Select value={filters.sportId === 'all' ? undefined : filters.sportId} onValueChange={handleSportChange}>
+          <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectValue placeholder="Sport" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sports</SelectItem>
+            {sports.map((sport) => (
+              <SelectItem key={sport.id} value={sport.id}>
+                {sport.displayName || sport.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Court */}
         <Select 
           value={filters.courtId === 'all' ? undefined : filters.courtId} 
@@ -245,21 +189,6 @@ export function BookingFiltersComponent({ filters, onFiltersChange, onClearFilte
             {courts.map((court) => (
               <SelectItem key={court.id} value={court.id}>
                 {court.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Sport */}
-        <Select value={filters.sportId === 'all' ? undefined : filters.sportId} onValueChange={handleSportChange}>
-          <SelectTrigger className="w-full sm:w-[150px]">
-            <SelectValue placeholder="Sport" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Sports</SelectItem>
-            {sports.map((sport) => (
-              <SelectItem key={sport.id} value={sport.id}>
-                {sport.displayName || sport.name}
               </SelectItem>
             ))}
           </SelectContent>

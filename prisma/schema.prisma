@@ -11,33 +11,50 @@ datasource db {
 }
 
 model User {
-  id              String   @id @default(cuid())
-  email           String   @unique
+  id              String    @id @default(cuid())
+  email           String    @unique
   name            String?
   phone           String?
   password        String?
-  role            UserRole @default(CUSTOMER)
-  isActive        Boolean  @default(true)
-  isEmailVerified Boolean  @default(false)
+  role            UserRole  @default(CUSTOMER)
+  isActive        Boolean   @default(true)
+  isEmailVerified Boolean   @default(false)
   avatarUrl       String?
   lastLoginAt     DateTime?
   deletedAt       DateTime? // Soft delete timestamp
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Profile Information
+  bio  String? // User bio/description (max 500 chars)
+  area String? // Area/neighborhood within city
 
   // Location Information
-  city            String?
-  state           String?
-  country         String?   // Full country name
-  countryCode     String?   // ISO country code (e.g., 'IN', 'US')
-  currencyCode    String?   // ISO currency code (e.g., 'INR', 'USD')
-  timezone        String?   // IANA timezone (e.g., 'Asia/Kolkata')
-  locale          String?   // Language/locale (e.g., 'en-IN')
+  city         String?
+  state        String?
+  country      String? // Full country name
+  countryCode  String? // ISO country code (e.g., 'IN', 'US')
+  currencyCode String? // ISO currency code (e.g., 'INR', 'USD')
+  timezone     String? // IANA timezone (e.g., 'Asia/Kolkata')
+  locale       String? // Language/locale (e.g., 'en-IN') - maps from 'language' in API
+
+  // Display Preferences
+  dateFormat String? // Date format preference: 'DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'
+  timeFormat String? // Time format preference: '12h', '24h'
+
+  // Social Links (stored as JSON string for SQLite compatibility)
+  socialLinks String? // JSON: { website, linkedin, twitter, instagram, github }
+
+  // Notification Preferences (stored as JSON string for SQLite compatibility)
+  notificationPreferences String? // JSON: { emailNotifications, pushNotifications, smsNotifications, bookingReminders, teamInvites, matchInvites }
+
+  // Privacy Settings (stored as JSON string for SQLite compatibility)
+  privacySettings String? // JSON: { profileVisibility, showEmail, showPhone, allowTeamInvites, allowMatchInvites }
 
   // Relations
-  vendorStaff     VendorStaff[]
-  bookings        Booking[]
-  teamMembers     TeamMember[]
+  vendorStaff VendorStaff[]
+  bookings    Booking[]
+  teamMembers TeamMember[]
 
   @@index([email])
   @@index([role])
@@ -50,49 +67,50 @@ model User {
 }
 
 model Vendor {
-  id              String    @id @default(cuid())
-  name            String    @unique
-  slug            String    @unique
-  description     String?
-  logoUrl         String?
-  website         String?
-  email           String    @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  logoUrl     String?
+  website     String?
+  email       String  @unique
 
   // Phone Information - Split for better normalization
-  phoneCountryCode String?  // Country calling code (e.g., "+1", "+91")
-  phoneNumber     String?   // Local phone number without country code
+  phoneCountryCode String? // Country calling code (e.g., "+1", "+91")
+  phoneNumber      String? // Local phone number without country code
 
-  isActive        Boolean   @default(true)
-  autoApprove     Boolean   @default(false)
-  onboardedAt     DateTime  @default(now())
-  deletedAt       DateTime? // Soft delete timestamp
+  isActive    Boolean   @default(true)
+  autoApprove Boolean   @default(false)
+  onboardedAt DateTime  @default(now())
+  deletedAt   DateTime? // Soft delete timestamp
 
   // Address Information
-  address         String?
-  postalCode      String?
-  country         String?   // Full country name
-  state           String?   // State/province name
-  city            String?   // City name
+  address    String?
+  postalCode String?
+  country    String? // Full country name
+  state      String? // State/province name
+  city       String? // City name
 
   // International Settings
-  countryCode     String    // ISO country code
-  currencyCode    String    // ISO currency code
-  timezone        String    // IANA timezone
-  locale          String    // Language/locale
+  countryCode  String // ISO country code
+  currencyCode String // ISO currency code
+  timezone     String // IANA timezone
+  locale       String // Language/locale
 
   // Branding & Theming
-  primaryColor    String?   @default("#3B82F6")
-  secondaryColor  String?   @default("#64748B")
-  accentColor     String?   @default("#F59E0B")
+  primaryColor   String? @default("#3B82F6")
+  secondaryColor String? @default("#64748B")
+  accentColor    String? @default("#F59E0B")
 
   // Dates
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  venues          Venue[]
-  vendorStaff     VendorStaff[]
-  vendorSettings  VendorSettings?
+  venues         Venue[]
+  vendorStaff    VendorStaff[]
+  vendorSettings VendorSettings?
+  formats        FormatType[]
 
   @@index([slug])
   @@index([isActive])
@@ -105,13 +123,13 @@ model VendorStaff {
   vendorId    String
   userId      String
   role        UserRole @default(VENDOR_STAFF)
-  permissions String?  // JSON string for SQLite compatibility
+  permissions String? // JSON string for SQLite compatibility
   isActive    Boolean  @default(true)
   hiredAt     DateTime @default(now())
 
   // Relations
-  vendor      Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([vendorId, userId])
   @@index([vendorId])
@@ -120,64 +138,64 @@ model VendorStaff {
 }
 
 model VendorSettings {
-  id                        String   @id @default(cuid())
-  vendorId                  String   @unique
-  advanceBookingDays        Int      @default(30)
-  maxConcurrentBookings     Int      @default(10)
-  requiresDeposit           Boolean  @default(false)
-  basePrice                 Decimal  @default(1000)
-  taxRate                   Decimal  @default(18.0)
-  taxIncluded               Boolean  @default(false)
-  taxId                     String?  // Tax ID number
-  showBookingCalendar       Boolean  @default(true)
-  showPricingPublicly       Boolean  @default(true)
-  allowOnlinePayments       Boolean  @default(true)
-  emailNotifications        Boolean  @default(true)
-  bookingReminders          Boolean  @default(true)
-  newBookingAlerts          Boolean  @default(true)
-  autoApproval              Boolean  @default(false)
-  
+  id                    String  @id @default(cuid())
+  vendorId              String  @unique
+  advanceBookingDays    Int     @default(30)
+  maxConcurrentBookings Int     @default(10)
+  requiresDeposit       Boolean @default(false)
+  basePrice             Decimal @default(1000)
+  taxRate               Decimal @default(18.0)
+  taxIncluded           Boolean @default(false)
+  taxId                 String? // Tax ID number
+  showBookingCalendar   Boolean @default(true)
+  showPricingPublicly   Boolean @default(true)
+  allowOnlinePayments   Boolean @default(true)
+  emailNotifications    Boolean @default(true)
+  bookingReminders      Boolean @default(true)
+  newBookingAlerts      Boolean @default(true)
+  autoApproval          Boolean @default(false)
+
   // Granular notification settings (JSON)
-  emailNotificationSettings String?  // JSON: { newBookings, bookingCancellations, paymentConfirmations, weeklyReports, marketingUpdates }
-  smsNotificationSettings    String?  // JSON: { newBookings, bookingCancellations, urgentAlerts, silentHours }
-  
+  emailNotificationSettings String? // JSON: { newBookings, bookingCancellations, paymentConfirmations, weeklyReports, marketingUpdates }
+  smsNotificationSettings   String? // JSON: { newBookings, bookingCancellations, urgentAlerts, silentHours }
+
   // Payment settings (JSON)
-  paymentSettings           String?  // JSON: { acceptedPaymentMethods[], refundPolicy, preferredPaymentMethod, payoutSchedule }
-  
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  paymentSettings String? // JSON: { acceptedPaymentMethods[], refundPolicy, preferredPaymentMethod, payoutSchedule }
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  vendor                    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@map("vendor_settings")
 }
 
 model Venue {
-  id          String   @id @default(cuid())
-  vendorId    String
-  name        String
-  description String?
-  address     String?
-  city        String?
-  postalCode  String?
-  latitude    Decimal?
-  longitude   Decimal?
-  phone       String?
-  email       String?
-  website     String?
-  countryCode String?
-  currencyCode String?
-  timezone    String   @default("UTC")
+  id            String    @id @default(cuid())
+  vendorId      String
+  name          String
+  description   String?
+  address       String?
+  city          String?
+  postalCode    String?
+  latitude      Decimal?
+  longitude     Decimal?
+  phone         String?
+  email         String?
+  website       String?
+  countryCode   String?
+  currencyCode  String?
+  timezone      String    @default("UTC")
   featuredImage String?
-  isActive    Boolean  @default(true)
-  deletedAt   DateTime? // Soft delete timestamp
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive      Boolean   @default(true)
+  deletedAt     DateTime? // Soft delete timestamp
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
-  vendor      Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  courts      Court[]
+  vendor         Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  courts         Court[]
   operatingHours VenueOperatingHours[]
 
   @@index([vendorId])
@@ -189,41 +207,41 @@ model Venue {
 }
 
 model VenueOperatingHours {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   venueId     String
-  dayOfWeek   Int      // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  openingTime String   // HH:mm format
-  closingTime String   // HH:mm format
-  isOpen      Boolean  @default(true)
+  dayOfWeek   Int // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  openingTime String // HH:mm format
+  closingTime String // HH:mm format
+  isOpen      Boolean @default(true)
 
   // Relations
-  venue       Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@unique([venueId, dayOfWeek])
   @@map("venue_operating_hours")
 }
 
 model Court {
-  id            String    @id @default(cuid())
-  venueId       String
-  sportId       String
-  formatId      String?
-  name          String
-  courtNumber   String
-  description   String?
-  surface       String?
-  pricePerHour  Decimal   @default(1000)
-  isActive      Boolean   @default(true)
-  maxPlayers    Int       @default(10)
-  features      String?  // JSON array of court features
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String  @id @default(cuid())
+  venueId      String
+  sportId      String
+  name         String
+  courtNumber  String
+  description  String?
+  surface      String?
+  pricePerHour Decimal @default(1000)
+  isActive     Boolean @default(true)
+  maxPlayers   Int     @default(10)
+  features     String? // JSON array of court features
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  venue         Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  sport         SportType   @relation(fields: [sportId], references: [id], onDelete: Cascade)
-  format        FormatType? @relation(fields: [formatId], references: [id], onDelete: SetNull)
-  bookings      Booking[]
+  venue            Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  sport            SportType     @relation(fields: [sportId], references: [id], onDelete: Cascade)
+  supportedFormats CourtFormat[]
+  bookings         Booking[]
 
   @@unique([venueId, courtNumber])
   @@index([venueId])
@@ -242,108 +260,134 @@ model SportType {
   icon        String?
   description String?
   teamSize    Int?
-  duration    Int?     // Duration in minutes
+  duration    Int? // Duration in minutes
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
-  courts      Court[]
-  formats     FormatType[]
-  teams       Team[]
+  courts  Court[]
+  formats FormatType[]
+  teams   Team[]
 
   @@index([isActive])
   @@map("sport_types")
 }
 
 model FormatType {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
+  vendorId    String // Vendor-specific formats
   sportId     String
   name        String
   displayName String
   description String?
 
   // Format Configuration
-  minPlayers  Int
-  maxPlayers  Int
-  isActive    Boolean  @default(true)
+  playersPerTeam  Int // Players per team (e.g., 5 for 5-a-side)
+  maxTotalPlayers Int? // Maximum total players including substitutes (defaults to playersPerTeam * 2)
+  isActive        Boolean @default(true)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Format Dimensions (Optional)
+  length Decimal? // Required length in meters for this format
+  width  Decimal? // Required width in meters for this format
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  sport       SportType @relation(fields: [sportId], references: [id], onDelete: Cascade)
-  teams       Team[]
-  courts      Court[]
+  vendor       Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  sport        SportType     @relation(fields: [sportId], references: [id], onDelete: Cascade)
+  teams        Team[]
+  courtFormats CourtFormat[]
+  bookings     Booking[]
 
-  @@unique([sportId, name])
+  @@unique([vendorId, sportId, name]) // Unique per vendor per sport
+  @@index([vendorId])
   @@index([sportId])
+  @@index([vendorId, sportId])
   @@map("format_types")
 }
 
 model Booking {
-  id          String      @id @default(cuid())
+  id          String        @id @default(cuid())
   userId      String
   courtId     String
+  formatId    String? // Format booked
+  slotNumber  Int? // Which slot (1, 2, 3, 4 for multi-slot formats)
   date        DateTime
   startTime   DateTime
   endTime     DateTime
   totalAmount Decimal
   status      BookingStatus @default(PENDING)
   notes       String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   // Relations
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  court       Court       @relation(fields: [courtId], references: [id], onDelete: Cascade)
-  payments    Payment[]
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  court    Court       @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  format   FormatType? @relation(fields: [formatId], references: [id], onDelete: SetNull)
+  payments Payment[]
 
   @@index([userId])
   @@index([courtId])
+  @@index([formatId])
   @@index([date])
   @@index([status])
+  @@index([startTime]) // For date range queries (most common)
+  @@index([createdAt]) // For sorting by creation date
+  @@index([courtId, formatId, slotNumber]) // For availability queries
+  @@index([courtId, startTime, status]) // For court availability with status
+  @@index([userId, startTime]) // For user bookings with date range
+  @@index([userId, status]) // For user bookings filtered by status
+  @@index([startTime, status]) // For date range + status filtering (very common)
+  @@index([userId, createdAt]) // For customer queries - groupBy and sorting
+  @@index([userId, status, createdAt]) // For customer status breakdown queries
   @@map("bookings")
 }
 
 model Payment {
-  id          String       @id @default(cuid())
-  bookingId   String
-  userId      String
-  amount      Decimal
-  method      PaymentMethod
-  status      PaymentStatus @default(PENDING)
+  id            String        @id @default(cuid())
+  bookingId     String
+  userId        String
+  amount        Decimal
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
   transactionId String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   // Relations
-  booking     Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
   @@index([userId])
   @@index([status])
+  @@index([createdAt]) // For date range queries
+  @@index([bookingId, status]) // For booking payment status queries
+  @@index([userId, createdAt]) // For user payment history
+  @@index([status, createdAt]) // For payment status reports
   @@map("payments")
 }
 
 model Team {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  sportId     String
-  formatId    String?
-  city        String?
-  maxPlayers  Int
-  minPlayers  Int
-  isActive    Boolean  @default(true)
-  isRecruiting Boolean @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  sportId      String
+  formatId     String?
+  city         String?
+  maxPlayers   Int
+  minPlayers   Int
+  isActive     Boolean  @default(true)
+  isRecruiting Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  sport       SportType   @relation(fields: [sportId], references: [id], onDelete: Cascade)
-  format      FormatType? @relation(fields: [formatId], references: [id], onDelete: SetNull)
-  members     TeamMember[]
+  sport   SportType    @relation(fields: [sportId], references: [id], onDelete: Cascade)
+  format  FormatType?  @relation(fields: [formatId], references: [id], onDelete: SetNull)
+  members TeamMember[]
 
   @@index([sportId])
   @@index([city])
@@ -352,17 +396,36 @@ model Team {
   @@map("teams")
 }
 
-model TeamMember {
-  id       String     @id @default(cuid())
-  teamId   String
-  userId   String
-  role     TeamRole   @default(MEMBER)
-  isActive Boolean    @default(true)
-  joinedAt DateTime   @default(now())
+model CourtFormat {
+  id        String   @id @default(cuid())
+  courtId   String
+  formatId  String
+  maxSlots  Int      @default(1) // How many slots of this format (e.g., 4 for 5-a-side)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  team     Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  court  Court      @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  format FormatType @relation(fields: [formatId], references: [id], onDelete: Cascade)
+
+  @@unique([courtId, formatId])
+  @@index([courtId])
+  @@index([formatId])
+  @@map("court_formats")
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  userId   String
+  role     TeamRole @default(MEMBER)
+  isActive Boolean  @default(true)
+  joinedAt DateTime @default(now())
+
+  // Relations
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
   @@index([teamId])

@@ -29,8 +29,8 @@ interface Format {
   id: string
   name: string
   displayName: string
-  minPlayers: number
-  maxPlayers: number
+  playersPerTeam: number
+  maxTotalPlayers?: number | null
 }
 
 interface Vendor {
@@ -690,7 +690,7 @@ export default function CourtAvailability({
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {court.format.minPlayers}-{court.format.maxPlayers} players
+                        {court.format.playersPerTeam} per team ({court.format.playersPerTeam * 2} total{court.format.maxTotalPlayers && court.format.maxTotalPlayers > court.format.playersPerTeam * 2 ? `, up to ${court.format.maxTotalPlayers}` : ''})
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="text-lg">{court.sport.icon}</span>

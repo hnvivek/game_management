@@ -2,7 +2,8 @@
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Calendar, Settings, RefreshCw, ChevronLeft, ChevronRight, Clock, X, Plus, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
+import { Calendar, Settings, RefreshCw, ChevronLeft, ChevronRight, Clock, X, Plus, ZoomIn, ZoomOut, Maximize2, RotateCcw as ResetIcon, MoreVertical, AlertTriangle } from 'lucide-react'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useVendor } from '@/hooks/use-vendor'
@@ -16,6 +17,24 @@ import { getSportColor, hexToRgba } from '@/styles/theme/sport-colors'
 import { toast } from 'sonner'
 import { BookingDetailsModal } from './BookingDetailsModal'
 import { BookingFilters } from './BookingFilters'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu'
+import { useCalendarPreferences } from '@/hooks/use-calendar-preferences'
 
 interface CalendarBooking {
   id: string
@@ -34,6 +53,15 @@ interface CalendarBooking {
   sportId?: string
   sportName?: string
   paymentStatus?: string
+  formatId?: string | null
+  slotNumber?: number | null
+  format?: {
+    id: string
+    name: string
+    displayName: string
+    playersPerTeam: number
+    maxTotalPlayers?: number | null
+  } | null
 }
 
 interface CalendarResource {
@@ -45,16 +73,40 @@ interface CalendarResource {
   sportId: string
   sportName: string
   venueTimezone?: string
+  courtId?: string // Original court ID (when format view is enabled)
+  formatId?: string // Format ID (when format view is enabled)
+  formatName?: string // Format display name (when format view is enabled)
 }
 
 interface VendorBookingCalendarProps {
   filters: BookingFilters
   onError?: (error: string) => void
+  venues?: Array<{ id: string; name: string; timezone?: string }>
+  courts?: Array<{
+    id: string
+    name: string
+    venueId: string
+    sportId: string
+    supportedFormats?: Array<{
+      id: string
+      formatId: string
+      maxSlots: number
+      isActive?: boolean
+      format: {
+        id: string
+        name: string
+        displayName: string
+        playersPerTeam: number
+        maxTotalPlayers: number | null
+      }
+    }>
+  }>
+  sports?: Array<{ id: string; name: string; displayName: string }>
 }
 
 type ViewMode = 'day' | 'week' | 'month'
 
-export function VendorBookingCalendar({ filters, onError }: VendorBookingCalendarProps) {
+export function VendorBookingCalendar({ filters, onError, venues: propVenues, courts: propCourts, sports: propSports }: VendorBookingCalendarProps) {
   const { vendorId } = useVendor()
   const [bookings, setBookings] = useState<CalendarBooking[]>([])
   const [resources, setResources] = useState<CalendarResource[]>([])
@@ -66,31 +118,95 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   // Shared bookings cache
   const { getCached, setCached, findOverlappingRange, clearCache } = useBookingsCache()
 
-  // Filter options data
-  const [allSports, setAllSports] = useState<Array<{ id: string; name: string; displayName: string }>>([])
-  
-  // Resizable column widths
-  const [sportColumnWidth, setSportColumnWidth] = useState(100)
-  const [courtColumnWidth, setCourtColumnWidth] = useState(150)
-  const [timeSlotWidth, setTimeSlotWidth] = useState(60)
-  
-  // Zoom constraints
-  const MIN_TIME_SLOT_WIDTH = 40
-  const MAX_TIME_SLOT_WIDTH = 200
-  const ZOOM_STEP = 2 // Smaller step for smoother zoom (was 5)
-  
+  // Filter options data - use props if provided, otherwise fetch
+  const allSports = propSports || []
+
+  // Calendar preferences with localStorage persistence
+  const {
+    preferences,
+    isLoaded: preferencesLoaded,
+    updatePreference,
+    resetToDefaults,
+  } = useCalendarPreferences(viewMode)
+
+  // Column widths from preferences (will be updated when preferences load)
+  const [venueColumnWidth, setVenueColumnWidth] = useState(preferences.venueWidth)
+  const [sportColumnWidth, setSportColumnWidth] = useState(preferences.sportWidth)
+  const [courtColumnWidth, setCourtColumnWidth] = useState(preferences.courtWidth)
+  const [formatColumnWidth, setFormatColumnWidth] = useState(preferences.formatWidth || 120)
+  const [timeSlotWidth, setTimeSlotWidth] = useState(preferences.timeSlotWidth)
+  const [showVenueColumn, setShowVenueColumn] = useState(false) // Will be set in useEffect
+  const [showFormatColumn, setShowFormatColumn] = useState(false) // Default to false for faster initial load
+
+  // Container ref for calculating available width
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Update column widths when preferences load (but not when we're actively resizing)
+  // Use a ref to track if we're resizing to avoid dependency issues
+  const isResizingRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (preferencesLoaded && !isResizingRef.current) {
+      setVenueColumnWidth(preferences.venueWidth)
+      setSportColumnWidth(preferences.sportWidth)
+      setCourtColumnWidth(preferences.courtWidth)
+      setFormatColumnWidth(preferences.formatWidth || 120)
+      setTimeSlotWidth(preferences.timeSlotWidth)
+    }
+  }, [preferences, preferencesLoaded])
+
+  // Check if user has multiple venues (for column visibility) - must be before useEffect that uses it
+  const hasMultipleVenues = useMemo(() => {
+    const uniqueVenueIds = new Set(resources.map(r => r.venueId))
+    return uniqueVenueIds.size > 1
+  }, [resources])
+
+  // Update format column visibility when preferences load
+  useEffect(() => {
+    if (preferencesLoaded) {
+      setShowFormatColumn(preferences.showFormatColumn)
+    }
+  }, [preferences.showFormatColumn, preferencesLoaded])
+
+  // Update venue column visibility when venues are loaded
+  useEffect(() => {
+    if (preferencesLoaded && resources.length > 0) {
+      // Only show venue column if user has multiple venues and preference is enabled
+      setShowVenueColumn(preferences.showVenueColumn && hasMultipleVenues)
+    }
+  }, [preferences, preferencesLoaded, resources, hasMultipleVenues])
+
+  // Zoom constraints - removed limits to allow unlimited zoom
+  const MIN_TIME_SLOT_WIDTH = 10 // Very small minimum to prevent UI breaking
+  const MAX_TIME_SLOT_WIDTH = 1000 // Very large maximum to allow unlimited zoom
+  const ZOOM_STEP = 5 // Zoom step size
+
+  // OPTIMIZED: Generate time slots based on view mode and operating hours
+  // For day view: show all 24 hours (0-23)
+  // For week/month view: show only business hours (6 AM to 11 PM) to reduce DOM elements
+  const generateTimeSlots = useMemo((): string[] => {
+    const slots: string[] = []
+    const startHour = viewMode === 'day' ? 0 : 6 // Start at 6 AM for week/month views
+    const endHour = Math.min(viewMode === 'day' ? 23 : 23, 23) // End at 11 PM (23:00), never exceed 23
+
+    // Generate slots from startHour to endHour (inclusive)
+    // Cap at 23 to ensure we never show times beyond 23:00
+    for (let hour = startHour; hour <= endHour; hour++) {
+      if (hour > 23) break // Safety check to prevent going beyond 23:00
+      slots.push(`${hour.toString().padStart(2, '0')}:00`)
+    }
+    return slots
+  }, [viewMode])
+
   // Resize state
   const [isResizing, setIsResizing] = useState<string | null>(null)
   const resizeStartX = useRef<number>(0)
   const resizeStartWidth = useRef<number>(0)
-  
-  // Calendar grid ref for zoom
+  const currentResizeWidth = useRef<number>(0) // Track current width during resize
+
+  // Calendar grid ref
   const calendarGridRef = useRef<HTMLDivElement>(null)
-  
-  // Smooth zoom state - use ref to avoid re-renders on every scroll
-  const zoomPendingRef = useRef<number | null>(null)
-  const zoomRafRef = useRef<number | null>(null)
-  
+
   // Debounced search
   const debouncedSearch = useDebounce(filters.search, 300)
 
@@ -100,6 +216,17 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   const [draggedBooking, setDraggedBooking] = useState<CalendarBooking | null>(null)
   const [dragOverSlot, setDragOverSlot] = useState<{ courtId: string; date: Date; slot: string } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+
+  // Confirmation modal state for drag and drop
+  const [pendingChange, setPendingChange] = useState<{
+    booking: CalendarBooking
+    targetCourtId: string
+    targetDate: Date
+    targetSlot: string
+    newStartTime: Date
+    newEndTime: Date
+    venueTimezone?: string
+  } | null>(null)
 
   // Create booking state
   const [createBookingSlot, setCreateBookingSlot] = useState<{ courtId: string; date: Date; startTime: string } | null>(null)
@@ -113,6 +240,11 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   }>({ visible: false, x: 0, y: 0, booking: null })
 
   const contextMenuRef = useRef<HTMLDivElement>(null)
+  const isLoadingBookingsRef = useRef(false)
+  const lastBookingsRequestRef = useRef<string>('')
+  const isInitialMountRef = useRef(true)
+  const isLoadingResourcesRef = useRef(false)
+  const lastResourcesKeyRef = useRef<string>('')
 
   // Add context menu actions
   const contextMenuActions = [
@@ -139,10 +271,10 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
     // Always open the modal first so user can see booking details
     setSelectedBooking(booking)
     setIsModalOpen(true)
-    
+
     // Close context menu
     setContextMenu({ visible: false, x: 0, y: 0, booking: null })
-    
+
     // The modal has action buttons for all these actions:
     // - Edit (onEdit prop)
     // - Cancel (onCancel prop)
@@ -186,7 +318,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       if (response.ok) {
         // Clear cache to force refresh
         clearCache()
-        loadBookings(true)
+        loadBookings(true, true) // Force reload after cancellation
         toast.success('Booking cancelled successfully!')
         setIsModalOpen(false)
       } else {
@@ -208,7 +340,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       if (response.ok) {
         // Clear cache to force refresh
         clearCache()
-        loadBookings(true)
+        loadBookings(true, true) // Force reload after completion
         toast.success('Booking marked as complete!')
         setIsModalOpen(false)
       } else {
@@ -243,25 +375,57 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
 
   const handleDrop = async (e: React.DragEvent, targetCourtId: string, targetDate: Date, targetSlot: string) => {
     e.preventDefault()
-    
+
     if (!draggedBooking) return
 
+    // Get venue timezone for the target court
+    const targetCourt = resources.find(r => r.id === targetCourtId)
+    const venueTimezone = targetCourt?.venueTimezone || draggedBooking.venueTimezone || getActiveVenueTimezone
+
+    // Parse target slot time (this is in vendor timezone)
     const [hours, minutes] = targetSlot.split(':').map(Number)
-    const newStart = new Date(targetDate)
-    newStart.setHours(hours, minutes, 0, 0)
-    
+
+    // Get the date string in vendor timezone (not UTC!)
+    // We need to format the targetDate in vendor timezone to get the correct date
+    let targetDateStr: string
+    if (venueTimezone) {
+      // Format date in vendor timezone
+      const dateParts = targetDate.toLocaleDateString('en-US', {
+        timeZone: venueTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      })
+      // Convert from MM/DD/YYYY to YYYY-MM-DD
+      const [month, day, year] = dateParts.split('/')
+      targetDateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    } else {
+      // Fallback to UTC if no timezone
+      targetDateStr = targetDate.toISOString().split('T')[0]
+    }
+
+    const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
+
+    // Create a date string that represents the local time in vendor timezone
+    // Format: YYYY-MM-DDTHH:mm:ss (this will be interpreted as vendor timezone)
+    const localDateTimeStr = `${targetDateStr}T${timeStr}`
+
+    // Convert vendor timezone time to UTC Date object
+    // We'll use a helper function to properly convert
+    const newStartUTC = convertVendorTimezoneToUTC(localDateTimeStr, venueTimezone)
+
     const oldStart = new Date(draggedBooking.start)
     const oldEnd = new Date(draggedBooking.end)
     const duration = oldEnd.getTime() - oldStart.getTime()
-    
-    const newEnd = new Date(newStart.getTime() + duration)
 
-    // Check for conflicts
-    const conflicts = bookings.filter(b => 
+    const newEndUTC = new Date(newStartUTC.getTime() + duration)
+
+    // Check for conflicts using UTC times
+    const conflicts = bookings.filter(b =>
       b.id !== draggedBooking.id &&
       b.resourceId === targetCourtId &&
-      new Date(b.start).toISOString().split('T')[0] === targetDate.toISOString().split('T')[0] &&
-      ((new Date(b.start) < newEnd && new Date(b.end) > newStart))
+      new Date(b.start).toISOString().split('T')[0] === newStartUTC.toISOString().split('T')[0] &&
+      ((new Date(b.start) < newEndUTC && new Date(b.end) > newStartUTC))
     )
 
     if (conflicts.length > 0) {
@@ -270,22 +434,116 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       return
     }
 
+    // Store pending change and show confirmation modal
+    setPendingChange({
+      booking: draggedBooking,
+      targetCourtId,
+      targetDate,
+      targetSlot,
+      newStartTime: newStartUTC,
+      newEndTime: newEndUTC,
+      venueTimezone
+    })
+
+    handleDragEnd()
+  }
+
+  // Helper function to convert vendor timezone time to UTC
+  // Takes a date/time string in vendor timezone and returns a UTC Date object
+  const convertVendorTimezoneToUTC = (localDateTimeStr: string, venueTimezone?: string): Date => {
+    if (!venueTimezone) {
+      // Fallback: treat as UTC
+      return new Date(localDateTimeStr + 'Z')
+    }
+
+    // Parse: YYYY-MM-DDTHH:mm:ss
+    const [datePart, timePart] = localDateTimeStr.split('T')
+    const [year, month, day] = datePart.split('-').map(Number)
+    const [hour, minute, second = 0] = timePart.split(':').map(Number)
+
+    // Create a date string in ISO format (without timezone)
+    const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:${second.toString().padStart(2, '0')}`
+
+    // Method: Find the UTC time that, when formatted in vendor timezone, equals our target time
+    // We'll use an iterative approach that converges quickly
+
+    // Start with a reasonable guess: treat as UTC first
+    let candidateUTC = new Date(dateStr + 'Z')
+
+    // Iterate to find the correct UTC time (usually converges in 1-2 iterations)
+    for (let i = 0; i < 5; i++) {
+      // Format candidate UTC time in vendor timezone
+      const vendorFormatted = candidateUTC.toLocaleString('en-US', {
+        timeZone: venueTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      })
+
+      // Parse formatted string
+      const [vDate, vTime] = vendorFormatted.split(', ')
+      const [vMonth, vDay, vYear] = vDate.split('/').map(Number)
+      const [vHour, vMinute, vSecond] = vTime.split(':').map(Number)
+
+      // Check if we've found the correct time
+      if (vYear === year && vMonth === month && vDay === day &&
+        vHour === hour && vMinute === minute && Math.abs(vSecond - second) <= 1) {
+        break
+      }
+
+      // Calculate the difference between target and actual
+      // Create date objects for comparison (in local time, not UTC)
+      const targetLocal = new Date(year, month - 1, day, hour, minute, second)
+      const actualLocal = new Date(vYear, vMonth - 1, vDay, vHour, vMinute, vSecond)
+
+      // Calculate difference in milliseconds
+      const diffMs = targetLocal.getTime() - actualLocal.getTime()
+
+      // Adjust candidate UTC time by the difference
+      candidateUTC = new Date(candidateUTC.getTime() + diffMs)
+
+      // Safety check: if difference is very small, we're close enough
+      if (Math.abs(diffMs) < 1000) {
+        break
+      }
+    }
+
+    return candidateUTC
+  }
+
+  // Confirm the booking change
+  const confirmBookingChange = async () => {
+    if (!pendingChange) return
+
     try {
-      // Update booking via API
-      const response = await fetch(`/api/bookings/${draggedBooking.id}`, {
+      // Update booking via API with UTC times
+      const response = await fetch(`/api/bookings/${pendingChange.booking.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          startTime: newStart.toISOString(),
-          endTime: newEnd.toISOString(),
-          courtId: targetCourtId,
+          startTime: pendingChange.newStartTime.toISOString(),
+          endTime: pendingChange.newEndTime.toISOString(),
+          courtId: pendingChange.targetCourtId,
         })
       })
 
       if (response.ok) {
+        const result = await response.json()
+
+        // Clear cache to force refresh
         clearCache()
-        loadBookings(true)
+
+        // Close modal first
+        setPendingChange(null)
+
+        // Reload bookings to show updated data (force reload)
+        await loadBookings(true, true)
+
         toast.success('Booking rescheduled successfully!')
       } else {
         const error = await response.json().catch(() => ({ error: 'Failed to reschedule booking' }))
@@ -295,8 +553,11 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       console.error('Failed to reschedule booking:', error)
       toast.error('Failed to reschedule booking. Please try again.')
     }
+  }
 
-    handleDragEnd()
+  // Cancel the pending change
+  const cancelBookingChange = () => {
+    setPendingChange(null)
   }
 
   // Create booking handler
@@ -310,17 +571,27 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
     }
   }
 
-  // Resize handlers
-  const handleResizeStart = (column: 'sport' | 'court' | 'timeSlot', e: React.MouseEvent) => {
+  // Resize handlers - save to preferences when resizing
+  const handleResizeStart = (column: 'venue' | 'sport' | 'court' | 'format' | 'timeSlot', e: React.MouseEvent) => {
     e.preventDefault()
     setIsResizing(column)
+    isResizingRef.current = column // Update ref
     resizeStartX.current = e.clientX
-    if (column === 'sport') {
+    if (column === 'venue') {
+      resizeStartWidth.current = venueColumnWidth
+      currentResizeWidth.current = venueColumnWidth
+    } else if (column === 'sport') {
       resizeStartWidth.current = sportColumnWidth
+      currentResizeWidth.current = sportColumnWidth
     } else if (column === 'court') {
       resizeStartWidth.current = courtColumnWidth
+      currentResizeWidth.current = courtColumnWidth
+    } else if (column === 'format') {
+      resizeStartWidth.current = formatColumnWidth
+      currentResizeWidth.current = formatColumnWidth
     } else {
       resizeStartWidth.current = timeSlotWidth
+      currentResizeWidth.current = timeSlotWidth
     }
   }
 
@@ -329,19 +600,44 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       if (!isResizing) return
 
       const diff = e.clientX - resizeStartX.current
-      const newWidth = Math.max(50, resizeStartWidth.current + diff) // Minimum 50px
+      const newWidth = Math.max(10, resizeStartWidth.current + diff) // Very small minimum to prevent UI breaking
+      currentResizeWidth.current = newWidth // Store current width
 
-      if (isResizing === 'sport') {
+      if (isResizing === 'venue') {
+        setVenueColumnWidth(newWidth)
+      } else if (isResizing === 'sport') {
         setSportColumnWidth(newWidth)
       } else if (isResizing === 'court') {
         setCourtColumnWidth(newWidth)
+      } else if (isResizing === 'format') {
+        setFormatColumnWidth(newWidth)
       } else if (isResizing === 'timeSlot') {
-        setTimeSlotWidth(Math.max(40, newWidth)) // Minimum 40px for time slots
+        setTimeSlotWidth(Math.max(10, newWidth)) // Very small minimum to prevent UI breaking
       }
     }
 
     const handleResizeEnd = () => {
+      if (isResizing) {
+        // Use the current width from the ref to ensure we save the latest value
+        const finalWidth = currentResizeWidth.current || resizeStartWidth.current
+
+        // Save preferences when resize ends
+        const column = isResizing as 'venue' | 'sport' | 'court' | 'format' | 'timeSlot'
+        if (column === 'venue') {
+          updatePreference('venueWidth', finalWidth)
+        } else if (column === 'sport') {
+          updatePreference('sportWidth', finalWidth)
+        } else if (column === 'court') {
+          updatePreference('courtWidth', finalWidth)
+        } else if (column === 'format') {
+          updatePreference('formatWidth', finalWidth)
+        } else if (column === 'timeSlot') {
+          updatePreference('timeSlotWidth', finalWidth)
+        }
+      }
       setIsResizing(null)
+      isResizingRef.current = null // Clear ref
+      currentResizeWidth.current = 0 // Reset
     }
 
     if (isResizing) {
@@ -357,7 +653,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [isResizing, sportColumnWidth, courtColumnWidth, timeSlotWidth])
+  }, [isResizing, venueColumnWidth, sportColumnWidth, courtColumnWidth, formatColumnWidth, timeSlotWidth, updatePreference])
 
   // Add click outside handler for context menu
   useEffect(() => {
@@ -376,69 +672,8 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
     }
   }, [contextMenu.visible])
 
-  // Smooth mouse wheel zoom handler for calendar grid (Ctrl/Cmd + Scroll or scroll over time slots)
-  useEffect(() => {
-    let lastUpdateTime = 0
-    const THROTTLE_MS = 16 // ~60fps for smooth updates
-    
-    const handleWheel = (e: WheelEvent) => {
-      const target = e.target as HTMLElement
-      
-      // Check if wheel event is over the calendar grid
-      if (!calendarGridRef.current?.contains(target)) {
-        return
-      }
-
-      // Check if hovering over time slot columns (more intuitive - zoom without modifier)
-      const isOverTimeSlot = target.closest('[data-time-slot]') !== null
-      
-      // Allow zoom if:
-      // 1. Ctrl/Cmd is pressed (standard zoom pattern), OR
-      // 2. Hovering directly over time slot columns (more intuitive)
-      const shouldZoom = e.ctrlKey || e.metaKey || isOverTimeSlot
-
-      if (!shouldZoom) {
-        return // Allow normal scrolling within calendar
-      }
-
-      // Prevent default scroll behavior when zooming (both page and calendar scroll)
-      e.preventDefault()
-      e.stopPropagation()
-
-      // Throttle updates for smoother performance
-      const now = Date.now()
-      if (now - lastUpdateTime < THROTTLE_MS) {
-        return
-      }
-      lastUpdateTime = now
-
-      // Calculate new width based on scroll direction
-      // Scroll down = zoom out (smaller), scroll up = zoom in (larger)
-      // Use smaller delta for finer control
-      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
-      
-      // Get current width from state (use functional update to avoid stale closure)
-      setTimeSlotWidth(prevWidth => {
-        const newWidth = Math.max(
-          MIN_TIME_SLOT_WIDTH,
-          Math.min(MAX_TIME_SLOT_WIDTH, prevWidth + delta)
-        )
-        return newWidth
-      })
-    }
-
-    const gridElement = calendarGridRef.current
-    if (gridElement) {
-      // Use capture phase to catch events before they bubble
-      gridElement.addEventListener('wheel', handleWheel, { passive: false, capture: true })
-    }
-
-    return () => {
-      if (gridElement) {
-        gridElement.removeEventListener('wheel', handleWheel, { capture: true })
-      }
-    }
-  }, []) // Empty deps - handler doesn't depend on timeSlotWidth
+  // Removed scroll/wheel event handler - was causing UI issues with vendor layout
+  // Zoom functionality is still available via zoom buttons in the header
 
   // Fetch venues and courts data
   const fetchVenuesAndCourts = async () => {
@@ -479,7 +714,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
                 sportName: court.sport?.displayName || court.sport?.name || 'Unknown',
                 venueTimezone: court.venue?.timezone
               })
-              
+
               // Extract sports
               if (court.sport) {
                 distinctSports.set(court.sport.id, {
@@ -490,9 +725,6 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
               }
             }
           }
-          
-          // Update sports state
-          setAllSports(Array.from(distinctSports.values()))
         } else {
           for (const venue of venues) {
             if (venue.courts && Array.isArray(venue.courts)) {
@@ -554,14 +786,14 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       // Calculate date range based on currentDate and viewMode
       // This ensures we fetch bookings for the dates the user is viewing
       const baseDate = new Date(currentDate)
-      
+
       // OPTIMIZED: Reduce date range based on view mode to improve performance
       // For day view: fetch 7 days before and 7 days after (2 weeks total)
       // For week view: fetch 1 week before and 2 weeks after (4 weeks total)
       // For month view: fetch 1 week before and 2 weeks after (4 weeks total)
       let startDate: Date
       let endDate: Date
-      
+
       if (viewMode === 'day') {
         startDate = new Date(baseDate)
         startDate.setDate(baseDate.getDate() - 7)
@@ -606,14 +838,12 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       }
 
       // Base filters - same for all pages
-      // OPTIMIZED: Skip summary stats for calendar view to improve API performance
       const baseFilters: VendorBookingFilters = {
         limit: 100, // Fetch 100 per page for better performance
         dateFrom,
         dateTo,
         sortBy: 'startTime',
-        sortOrder: 'asc',
-        includeSummary: false // Skip summary stats for calendar view
+        sortOrder: 'asc'
       }
 
       // Add optional filters
@@ -649,13 +879,15 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
               'REFUNDED': 'Refunded',
               'PARTIALLY_REFUNDED': 'Partially Paid'
             }
-            
+
             return {
               id: booking.id,
               title: `${booking.user?.name || 'Unknown'} - ${booking.court?.sport?.displayName || booking.court?.sport?.name || 'Unknown'}`,
               start: booking.startTime,
               end: booking.endTime,
-              resourceId: booking.court.id,
+              resourceId: showFormatColumn && booking.formatId
+                ? `${booking.court.id}-${booking.formatId}`
+                : booking.court.id,
               status: booking.status,
               customerName: booking.user?.name || 'Unknown',
               customerEmail: booking.user?.email || '',
@@ -666,7 +898,10 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
               totalAmount: Number(booking.totalAmount) || 0,
               sportId: booking.court?.sport?.id,
               sportName: booking.court?.sport?.displayName || booking.court?.sport?.name,
-              paymentStatus: paymentStatusMap[booking.paymentInfo?.status] || booking.paymentInfo?.status || 'Pending'
+              paymentStatus: paymentStatusMap[booking.paymentInfo?.status] || booking.paymentInfo?.status || 'Pending',
+              formatId: booking.formatId || null,
+              slotNumber: booking.slotNumber || null,
+              format: booking.format || null
             }
           })
         return calendarBookings
@@ -685,13 +920,15 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
               'REFUNDED': 'Refunded',
               'PARTIALLY_REFUNDED': 'Partially Paid'
             }
-            
+
             return {
               id: booking.id,
               title: `${booking.user?.name || 'Unknown'} - ${booking.court?.sport?.displayName || booking.court?.sport?.name || 'Unknown'}`,
               start: booking.startTime,
               end: booking.endTime,
-              resourceId: booking.court.id,
+              resourceId: showFormatColumn && booking.formatId
+                ? `${booking.court.id}-${booking.formatId}`
+                : booking.court.id,
               status: booking.status,
               customerName: booking.user?.name || 'Unknown',
               customerEmail: booking.user?.email || '',
@@ -702,10 +939,13 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
               totalAmount: Number(booking.totalAmount) || 0,
               sportId: booking.court?.sport?.id,
               sportName: booking.court?.sport?.displayName || booking.court?.sport?.name,
-              paymentStatus: paymentStatusMap[booking.paymentInfo?.status] || booking.paymentInfo?.status || 'Pending'
+              paymentStatus: paymentStatusMap[booking.paymentInfo?.status] || booking.paymentInfo?.status || 'Pending',
+              formatId: booking.formatId || null,
+              slotNumber: booking.slotNumber || null,
+              format: booking.format || null
             }
           })
-        
+
         // Store in cache for future use
         setCached(baseFilters, overlappingData, undefined, vendorId)
         return calendarBookings
@@ -743,7 +983,6 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
         // OPTIMIZED: Safety limit reduced - don't fetch more than 20 pages (2000 bookings)
         // This should be enough for most calendar views with the reduced date range
         if (currentPage >= 20) {
-          console.warn('Calendar: Reached maximum page limit (20 pages). Some bookings may not be displayed.')
           break
         }
       }
@@ -760,13 +999,15 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
             'REFUNDED': 'Refunded',
             'PARTIALLY_REFUNDED': 'Partially Paid'
           }
-          
+
           return {
             id: booking.id,
             title: `${booking.user?.name || 'Unknown'} - ${booking.court?.sport?.displayName || booking.court?.sport?.name || 'Unknown'}`,
             start: booking.startTime,
             end: booking.endTime,
-            resourceId: booking.court.id,
+            resourceId: showFormatColumn && booking.formatId
+              ? `${booking.court.id}-${booking.formatId}`
+              : booking.court.id,
             status: booking.status,
             customerName: booking.user?.name || 'Unknown',
             customerEmail: booking.user?.email || '',
@@ -777,7 +1018,10 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
             totalAmount: Number(booking.totalAmount) || 0,
             sportId: booking.court?.sport?.id,
             sportName: booking.court?.sport?.displayName || booking.court?.sport?.name,
-            paymentStatus: paymentStatusMap[booking.paymentInfo?.status] || booking.paymentInfo?.status || 'Pending'
+            paymentStatus: paymentStatusMap[booking.paymentInfo?.status] || booking.paymentInfo?.status || 'Pending',
+            formatId: booking.formatId || null,
+            slotNumber: booking.slotNumber || null,
+            format: booking.format || null
           }
         })
 
@@ -789,16 +1033,138 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       }
       return []
     }
-  }, [vendorId, currentDate, viewMode, debouncedSearch, filters, onError, getCached, setCached, findOverlappingRange])
+  }, [vendorId, currentDate, viewMode, debouncedSearch, filters, onError, getCached, setCached, findOverlappingRange, showFormatColumn])
 
-  // Load venues and courts once on mount or when vendorId changes
-  const loadResources = useCallback(async () => {
+  // Load venues and courts - use props if provided, otherwise fetch
+  const loadResources = useCallback(async (force = false) => {
     if (!vendorId) return
+
+    // Create a unique key for resources based on props
+    const resourcesKey = JSON.stringify({
+      vendorId,
+      showFormatColumn,
+      venuesCount: propVenues?.length || 0,
+      courtsCount: propCourts?.length || 0
+    })
+
+    // Prevent duplicate resource loading
+    if (!force && isLoadingResourcesRef.current && lastResourcesKeyRef.current === resourcesKey) {
+      return
+    }
+
+    isLoadingResourcesRef.current = true
+    lastResourcesKeyRef.current = resourcesKey
 
     try {
       setLoading(true)
-      const resourcesData = await fetchVenuesAndCourts()
-      setResources(resourcesData)
+
+      // If props are provided, use them to build resources
+      if (propVenues && propCourts) {
+        const calendarResources: CalendarResource[] = []
+
+        // OPTIMIZED: If format column is disabled, skip format fetching entirely for faster load
+        if (!showFormatColumn) {
+          // Fast path: no format fetching needed
+          for (const court of propCourts) {
+            const venue = propVenues.find(v => v.id === court.venueId)
+            const sport = propSports?.find(s => s.id === court.sportId)
+
+            if (venue && sport) {
+              calendarResources.push({
+                id: court.id,
+                title: `${court.name} (${venue.name})`,
+                venueName: venue.name,
+                courtType: sport.displayName || sport.name || 'Unknown',
+                venueId: venue.id,
+                sportId: sport.id,
+                sportName: sport.displayName || sport.name || 'Unknown',
+                venueTimezone: venue.timezone,
+                courtId: court.id
+              })
+            }
+          }
+
+          setResources(calendarResources)
+          isLoadingResourcesRef.current = false
+          return // Early return - no format fetching needed
+        }
+
+        // If format column is enabled, create format-based resources
+        if (showFormatColumn) {
+          // OPTIMIZED: Use formats from props instead of fetching individually - eliminates 11+ API calls!
+          // Formats are already included in the initial /api/courts response
+          for (const court of propCourts) {
+            const venue = propVenues.find(v => v.id === court.venueId)
+            const sport = propSports?.find(s => s.id === court.sportId)
+
+            if (!venue || !sport) continue
+
+            // Use formats from props (already fetched in initial courts request)
+            const supportedFormats = court.supportedFormats || []
+
+            if (supportedFormats.length > 0) {
+              // Create a resource for each format
+              for (const courtFormat of supportedFormats) {
+                // Check if format exists and is active (isActive is optional, default to true if not present)
+                if (courtFormat.format && (courtFormat.isActive !== false)) {
+                  const formatName = courtFormat.format.displayName || courtFormat.format.name || 'Unknown Format'
+                  calendarResources.push({
+                    id: `${court.id}-${courtFormat.format.id}`, // Unique ID: courtId-formatId
+                    title: `${court.name} - ${formatName}`,
+                    venueName: venue.name,
+                    courtType: sport.displayName || sport.name || 'Unknown',
+                    venueId: venue.id,
+                    sportId: sport.id,
+                    sportName: sport.displayName || sport.name || 'Unknown',
+                    venueTimezone: venue.timezone,
+                    courtId: court.id, // Store original court ID
+                    formatId: courtFormat.format.id,
+                    formatName: formatName
+                  })
+                }
+              }
+            } else {
+              // If no formats, create a single resource (fallback)
+              calendarResources.push({
+                id: court.id,
+                title: `${court.name} (${venue.name})`,
+                venueName: venue.name,
+                courtType: sport.displayName || sport.name || 'Unknown',
+                venueId: venue.id,
+                sportId: sport.id,
+                sportName: sport.displayName || sport.name || 'Unknown',
+                venueTimezone: venue.timezone,
+                courtId: court.id
+              })
+            }
+          }
+        } else {
+          // Default: one resource per court
+          for (const court of propCourts) {
+            const venue = propVenues.find(v => v.id === court.venueId)
+            const sport = propSports?.find(s => s.id === court.sportId)
+
+            if (venue && sport) {
+              calendarResources.push({
+                id: court.id,
+                title: `${court.name} (${venue.name})`,
+                venueName: venue.name,
+                courtType: sport.displayName || sport.name || 'Unknown',
+                venueId: venue.id,
+                sportId: sport.id,
+                sportName: sport.displayName || sport.name || 'Unknown',
+                venueTimezone: venue.timezone
+              })
+            }
+          }
+        }
+
+        setResources(calendarResources)
+      } else {
+        // Fallback to fetching if props not provided
+        const resourcesData = await fetchVenuesAndCourts()
+        setResources(resourcesData)
+      }
     } catch (err) {
       console.error('Error loading resources:', err)
       if (onError) {
@@ -807,11 +1173,42 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
     } finally {
       setLoading(false)
     }
-  }, [vendorId, onError])
+  }, [vendorId, onError, propVenues, propCourts, propSports, showFormatColumn])
 
   // Load bookings when filters, currentDate, or viewMode change
-  const loadBookings = useCallback(async (showRefreshing = false) => {
+  const loadBookings = useCallback(async (showRefreshing = false, force = false) => {
     if (!vendorId) return
+
+    // Create a unique request key based on filters to prevent duplicate requests
+    const requestKey = JSON.stringify({
+      vendorId,
+      currentDate: currentDate.toISOString(),
+      viewMode,
+      debouncedSearch,
+      filters,
+      showFormatColumn
+    })
+
+    // Prevent duplicate requests unless forced
+    // Check BEFORE setting the ref to prevent race conditions
+    if (!force) {
+      if (isLoadingBookingsRef.current) {
+        // If already loading the same request, skip
+        if (lastBookingsRequestRef.current === requestKey) {
+          return
+        }
+        // If loading a different request, wait a bit and check again
+        // This handles rapid filter changes
+        await new Promise(resolve => setTimeout(resolve, 50))
+        if (isLoadingBookingsRef.current && lastBookingsRequestRef.current === requestKey) {
+          return
+        }
+      }
+    }
+
+    // Mark as loading and store request key BEFORE starting the request
+    isLoadingBookingsRef.current = true
+    lastBookingsRequestRef.current = requestKey
 
     try {
       if (showRefreshing) {
@@ -830,28 +1227,50 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
     } finally {
       setLoading(false)
       setRefreshing(false)
+      isLoadingBookingsRef.current = false
     }
-  }, [vendorId, onError, fetchBookings])
+  }, [vendorId, onError, fetchBookings, currentDate, viewMode, debouncedSearch, filters, showFormatColumn])
 
-  // Load resources once on mount
+  // Load resources once on mount or when props change - use stable dependencies
+  // OPTIMIZED: Don't block bookings on resources - load them in parallel
   useEffect(() => {
-    loadResources()
-  }, [loadResources])
+    if (vendorId && propVenues && propCourts && propVenues.length > 0 && propCourts.length > 0) {
+      // Load resources in background - don't block bookings
+      loadResources(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorId, showFormatColumn, propVenues?.length, propCourts?.length])
 
-  // Load bookings when filters change
+  // Reload resources when format column visibility changes (force reload)
   useEffect(() => {
-    loadBookings()
-  }, [loadBookings])
+    if (preferencesLoaded && vendorId && propVenues && propCourts) {
+      loadResources(true) // Force reload when format column changes
+      loadBookings(true, true) // Force reload bookings too
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFormatColumn, preferencesLoaded])
 
-  // Debug logging - must be before any conditional returns
+  // Load bookings immediately when component mounts - don't wait for resources
+  // OPTIMIZED: Load bookings in parallel with resources for faster initial load
   useEffect(() => {
-    console.log('Calendar State:', {
-      resourcesCount: resources.length,
-      bookingsCount: bookings.length,
-      currentDate: currentDate.toISOString(),
-      viewMode
-    })
-  }, [resources.length, bookings.length, currentDate, viewMode])
+    if (vendorId) {
+      // Start fetching bookings immediately, don't wait for resources
+      isInitialMountRef.current = false
+      loadBookings(false, false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorId])
+
+  // Load bookings when filters change - use stable dependencies instead of loadBookings
+  // Skip on initial mount (handled by vendorId useEffect above)
+  useEffect(() => {
+    // Only load if vendorId is available and not initial mount
+    if (vendorId && !isInitialMountRef.current) {
+      loadBookings(false, false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate, viewMode, debouncedSearch, filters.venueId, filters.courtId, filters.sportId, filters.status, filters.paymentStatus])
+
 
   const handleEventClick = (booking: CalendarBooking) => {
     setSelectedBooking(booking)
@@ -871,14 +1290,14 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
     clearCache()
     // Update local state immediately for better UX
     setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b))
-    // Reload bookings to ensure consistency
-    await loadBookings(true)
+    // Reload bookings to ensure consistency (force reload)
+    await loadBookings(true, true)
   }
 
   // Get event color with sport color integration
   const getEventColor = (booking: CalendarBooking) => {
     const sportColor = booking.sportId ? getSportColor(booking.sportId, booking.sportName) : null
-    
+
     // Base status colors
     const statusColors = {
       CONFIRMED: sportColor || '#10b981', // green-500
@@ -887,43 +1306,139 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       COMPLETED: '#3b82f6', // blue-500
       NO_SHOW: '#a855f7', // purple-500
     }
-    
+
     const baseColor = statusColors[booking.status] || '#6b7280'
-    
+
     // For confirmed bookings, use sport color if available, otherwise use status color
     if (booking.status === 'CONFIRMED' && sportColor) {
       return sportColor
     }
-    
+
     return baseColor
   }
 
   // Get event background style with sport colors
+  // Helper function to group overlapping bookings and calculate vertical positions
+  const calculateBookingPositions = (bookings: CalendarBooking[], venueTimezone: string) => {
+    if (bookings.length === 0) return []
+
+    // Sort bookings by start time
+    const sortedBookings = [...bookings].sort((a, b) => {
+      const aStart = new Date(a.start)
+      const bStart = new Date(b.start)
+      const aComponents = getDateComponentsInVenueTimezone(aStart, venueTimezone)
+      const bComponents = getDateComponentsInVenueTimezone(bStart, venueTimezone)
+      const aMinutes = aComponents.hour * 60 + aComponents.minutes
+      const bMinutes = bComponents.hour * 60 + bComponents.minutes
+      return aMinutes - bMinutes
+    })
+
+    // Group overlapping bookings
+    const groups: CalendarBooking[][] = []
+    const processed = new Set<string>()
+
+    sortedBookings.forEach(booking => {
+      if (processed.has(booking.id)) return
+
+      const bookingStart = new Date(booking.start)
+      const bookingEnd = new Date(booking.end)
+      const startComponents = getDateComponentsInVenueTimezone(bookingStart, venueTimezone)
+      const endComponents = getDateComponentsInVenueTimezone(bookingEnd, venueTimezone)
+      const startMinutes = startComponents.hour * 60 + startComponents.minutes
+      const endMinutes = endComponents.hour * 60 + endComponents.minutes
+
+      const group: CalendarBooking[] = [booking]
+      processed.add(booking.id)
+
+      // Find all overlapping bookings
+      sortedBookings.forEach(otherBooking => {
+        if (processed.has(otherBooking.id)) return
+
+        const otherStart = new Date(otherBooking.start)
+        const otherEnd = new Date(otherBooking.end)
+        const otherStartComponents = getDateComponentsInVenueTimezone(otherStart, venueTimezone)
+        const otherEndComponents = getDateComponentsInVenueTimezone(otherEnd, venueTimezone)
+        const otherStartMinutes = otherStartComponents.hour * 60 + otherStartComponents.minutes
+        const otherEndMinutes = otherEndComponents.hour * 60 + otherEndComponents.minutes
+
+        // Check if bookings overlap
+        if (startMinutes < otherEndMinutes && endMinutes > otherStartMinutes) {
+          group.push(otherBooking)
+          processed.add(otherBooking.id)
+        }
+      })
+
+      groups.push(group)
+    })
+
+    // Calculate vertical positions for each booking
+    const positions = new Map<string, { row: number; totalRows: number }>()
+
+    groups.forEach(group => {
+      group.forEach((booking, index) => {
+        positions.set(booking.id, {
+          row: index,
+          totalRows: group.length
+        })
+      })
+    })
+
+    return positions
+  }
+
   const getEventStyle = (booking: CalendarBooking) => {
     const color = getEventColor(booking)
     const isConfirmed = booking.status === 'CONFIRMED'
-    
+
     if (isConfirmed && booking.sportId) {
-      // Use sport color for confirmed bookings
+      // Use gradient for confirmed bookings with sport color
+      const rgbaColor = hexToRgba(color, 0.9)
+      const rgbaColorLight = hexToRgba(color, 0.6)
+
       return {
-        backgroundColor: color,
+        background: `linear-gradient(135deg, ${rgbaColor} 0%, ${rgbaColorLight} 100%)`,
         borderColor: color,
         color: 'white',
       }
     }
-    
-    // Use status-based colors for other statuses
-    const statusStyles: Record<string, { bg: string; border: string; text: string }> = {
-      PENDING: { bg: '#fef3c7', border: '#eab308', text: '#92400e' },
-      CANCELLED: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
-      COMPLETED: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
-      NO_SHOW: { bg: '#f3e8ff', border: '#a855f7', text: '#6b21a8' },
+
+    // Use status-based colors for other statuses (with gradients)
+    const statusStyles: Record<string, { bg: string; bgGradient: string; border: string; text: string }> = {
+      PENDING: {
+        bg: '#fef3c7',
+        bgGradient: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+        border: '#eab308',
+        text: '#92400e'
+      },
+      CANCELLED: {
+        bg: '#fee2e2',
+        bgGradient: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+        border: '#ef4444',
+        text: '#991b1b'
+      },
+      COMPLETED: {
+        bg: '#dbeafe',
+        bgGradient: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+        border: '#3b82f6',
+        text: '#1e40af'
+      },
+      NO_SHOW: {
+        bg: '#f3e8ff',
+        bgGradient: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
+        border: '#a855f7',
+        text: '#6b21a8'
+      },
     }
-    
-    const style = statusStyles[booking.status] || { bg: '#f3f4f6', border: '#6b7280', text: '#374151' }
-    
+
+    const style = statusStyles[booking.status] || {
+      bg: '#f3f4f6',
+      bgGradient: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+      border: '#6b7280',
+      text: '#374151'
+    }
+
     return {
-      backgroundColor: style.bg,
+      background: style.bgGradient,
       borderColor: style.border,
       color: style.text,
     }
@@ -946,16 +1461,16 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
     if (!venueTimezone) {
       // Fallback to UTC if no venue timezone
       const date = new Date(utcTimeString)
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
         minute: '2-digit',
         timeZone: 'UTC'
       })
     }
-    
+
     const date = new Date(utcTimeString)
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
       minute: '2-digit',
       timeZone: venueTimezone
     })
@@ -975,7 +1490,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   const getTimezoneLabel = useMemo(() => {
     const tz = getActiveVenueTimezone
     if (!tz) return ''
-    
+
     // Common timezone abbreviations
     const tzMap: Record<string, string> = {
       'Asia/Kolkata': 'IST',
@@ -987,7 +1502,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       'Europe/London': 'GMT',
       'UTC': 'UTC',
     }
-    
+
     return tzMap[tz] || tz.split('/').pop()?.toUpperCase() || tz
   }, [getActiveVenueTimezone])
 
@@ -998,7 +1513,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       const now = new Date()
       const venueTodayStr = now.toLocaleDateString('en-US', { timeZone: getActiveVenueTimezone })
       const browserTodayStr = now.toLocaleDateString('en-US')
-      
+
       // If dates differ, adjust currentDate to venue timezone's "today"
       if (venueTodayStr !== browserTodayStr) {
         const [month, day, year] = venueTodayStr.split('/').map(Number)
@@ -1012,19 +1527,19 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   const formatDateInVenueTimezone = (date: Date, venueTimezone?: string): string => {
     if (!venueTimezone) {
       // Fallback to UTC if no venue timezone
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
         day: 'numeric',
         timeZone: 'UTC'
       })
     }
-    
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
       timeZone: venueTimezone
     })
@@ -1033,17 +1548,17 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   // Helper function to format short date in venue timezone
   const formatShortDateInVenueTimezone = (date: Date, venueTimezone?: string): string => {
     if (!venueTimezone) {
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        month: 'short', 
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
         day: 'numeric',
         timeZone: 'UTC'
       })
     }
-    
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      month: 'short', 
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
       day: 'numeric',
       timeZone: venueTimezone
     })
@@ -1052,13 +1567,13 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   // Helper function to format year in venue timezone
   const formatYearInVenueTimezone = (date: Date, venueTimezone?: string): string => {
     if (!venueTimezone) {
-      return date.toLocaleDateString('en-US', { 
+      return date.toLocaleDateString('en-US', {
         year: 'numeric',
         timeZone: 'UTC'
       })
     }
-    
-    return date.toLocaleDateString('en-US', { 
+
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       timeZone: venueTimezone
     })
@@ -1067,31 +1582,31 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   // Helper function to check if date is today in venue timezone
   const isTodayInVenueTimezone = (date: Date, venueTimezone?: string): boolean => {
     const now = new Date()
-    
+
     // Get today's date string in venue timezone
-    const todayStr = venueTimezone 
+    const todayStr = venueTimezone
       ? now.toLocaleDateString('en-US', { timeZone: venueTimezone })
       : now.toLocaleDateString('en-US', { timeZone: 'UTC' })
-    
+
     // Get the date's string in venue timezone
     const dateStr = venueTimezone
       ? date.toLocaleDateString('en-US', { timeZone: venueTimezone })
       : date.toLocaleDateString('en-US', { timeZone: 'UTC' })
-    
+
     return todayStr === dateStr
   }
 
   // Helper function to get current time in venue timezone
   const getCurrentTimeInVenueTimezone = (venueTimezone?: string): { hour: number; minutes: number } => {
     const now = new Date()
-    
+
     if (!venueTimezone) {
       return {
         hour: now.getUTCHours(),
         minutes: now.getUTCMinutes()
       }
     }
-    
+
     // Format time in venue timezone and parse it
     const timeStr = now.toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -1099,7 +1614,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       hour12: false,
       timeZone: venueTimezone
     })
-    
+
     const [hour, minutes] = timeStr.split(':').map(Number)
     return { hour, minutes }
   }
@@ -1115,7 +1630,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
         minutes: date.getUTCMinutes()
       }
     }
-    
+
     // Get date string components in venue timezone
     const dateStr = date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -1123,17 +1638,17 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       day: '2-digit',
       timeZone: venueTimezone
     })
-    
+
     const timeStr = date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
       timeZone: venueTimezone
     })
-    
+
     const [month, day, year] = dateStr.split('/').map(Number)
     const [hour, minutes] = timeStr.split(':').map(Number)
-    
+
     return { year, month: month - 1, day, hour, minutes }
   }
 
@@ -1141,7 +1656,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   const isSameDayInVenueTimezone = (date1: Date, date2: Date, venueTimezone?: string): boolean => {
     const d1 = getDateComponentsInVenueTimezone(date1, venueTimezone)
     const d2 = getDateComponentsInVenueTimezone(date2, venueTimezone)
-    
+
     return d1.year === d2.year && d1.month === d2.month && d1.day === d2.day
   }
 
@@ -1156,7 +1671,7 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
     if (filters.courtId && filters.courtId !== 'all') {
       filtered = filtered.filter(r => r.id === filters.courtId)
     }
-    
+
     if (filters.sportId && filters.sportId !== 'all') {
       filtered = filtered.filter(r => r.sportId === filters.sportId)
     }
@@ -1178,27 +1693,50 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
     return resources.filter(r => r.venueId === filters.venueId)
   }, [resources, filters.venueId])
 
-  // Group resources by sport - depends on filteredResources
-  const resourcesBySport = useMemo(() => {
-    const grouped = new Map<string, CalendarResource[]>()
-    
+  // Group resources by venue, then by sport - depends on filteredResources
+  const resourcesByVenueAndSport = useMemo(() => {
+    // First group by venue
+    const venueGroups = new Map<string, CalendarResource[]>()
+
     filteredResources.forEach(resource => {
-      const sportId = resource.sportId || 'unknown'
-      if (!grouped.has(sportId)) {
-        grouped.set(sportId, [])
+      const venueId = resource.venueId || 'unknown'
+      if (!venueGroups.has(venueId)) {
+        venueGroups.set(venueId, [])
       }
-      grouped.get(sportId)!.push(resource)
+      venueGroups.get(venueId)!.push(resource)
     })
-    
-    // Convert to array and sort by sport name
-    return Array.from(grouped.entries()).map(([sportId, courts]) => {
-      const sport = allSports.find(s => s.id === sportId)
+
+    // Then group by sport within each venue
+    return Array.from(venueGroups.entries()).map(([venueId, resources]) => {
+      // Get venue name from first resource
+      const venueName = resources[0]?.venueName || 'Unknown Venue'
+
+      // Group resources by sport within this venue
+      const sportGroups = new Map<string, CalendarResource[]>()
+      resources.forEach(resource => {
+        const sportId = resource.sportId || 'unknown'
+        if (!sportGroups.has(sportId)) {
+          sportGroups.set(sportId, [])
+        }
+        sportGroups.get(sportId)!.push(resource)
+      })
+
+      // Convert sport groups to array
+      const sports = Array.from(sportGroups.entries()).map(([sportId, courts]) => {
+        const sport = allSports.find(s => s.id === sportId)
+        return {
+          sportId,
+          sportName: sport?.displayName || sport?.name || 'Unknown',
+          courts: courts.sort((a, b) => a.title.localeCompare(b.title))
+        }
+      }).sort((a, b) => a.sportName.localeCompare(b.sportName))
+
       return {
-        sportId,
-        sportName: sport?.displayName || sport?.name || 'Unknown',
-        courts: courts.sort((a, b) => a.title.localeCompare(b.title))
+        venueId,
+        venueName,
+        sports
       }
-    }).sort((a, b) => a.sportName.localeCompare(b.sportName))
+    }).sort((a, b) => a.venueName.localeCompare(b.venueName))
   }, [filteredResources, allSports])
 
   // Generate date range for week/month views
@@ -1237,11 +1775,11 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
   // OPTIMIZED: Pre-compute bookings by court/date to avoid repeated filtering in render
   const bookingsByCourtDate = useMemo(() => {
     const map = new Map<string, CalendarBooking[]>()
-    
+
     bookings.forEach(booking => {
       const bookingStart = new Date(booking.start)
       const venueTimezone = booking.venueTimezone || getActiveVenueTimezone
-      
+
       // Create a key for each court/date combination
       dateRange.forEach(date => {
         if (isSameDayInVenueTimezone(bookingStart, date, venueTimezone)) {
@@ -1253,24 +1791,9 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
         }
       })
     })
-    
+
     return map
   }, [bookings, dateRange, getActiveVenueTimezone, isSameDayInVenueTimezone])
-
-  // OPTIMIZED: Generate time slots based on view mode and operating hours
-  // For day view: show all 24 hours
-  // For week/month view: show only business hours (6 AM to 11 PM) to reduce DOM elements
-  const generateTimeSlots = useMemo((): string[] => {
-    const slots: string[] = []
-    const startHour = viewMode === 'day' ? 0 : 6 // Start at 6 AM for week/month views
-    const endHour = viewMode === 'day' ? 23 : 23 // End at 11 PM
-    
-    for (let hour = startHour; hour <= endHour; hour++) {
-      slots.push(`${hour.toString().padStart(2, '0')}:00`)
-    }
-    return slots
-  }, [viewMode])
-
 
   // Early return AFTER all hooks
   if (loading && resources.length === 0) {
@@ -1351,9 +1874,9 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
       {/* Calendar Header and View - Grouped together */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Compact Unified Header - Theme Colors */}
-        <div 
+        <div
           className="bg-white border border-gray-200 shadow-sm p-3 flex-shrink-0"
-          style={{ 
+          style={{
             borderBottom: 'none',
             borderTopLeftRadius: '0.5rem',
             borderTopRightRadius: '0.5rem',
@@ -1364,14 +1887,14 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             {/* Left: Title & Date */}
             <div className="flex items-center gap-3">
-              <div 
+              <div
                 className="p-2 rounded-lg"
                 style={{ backgroundColor: theme.colors.primary[500] }}
               >
                 <Calendar className="h-4 w-4 text-white" />
               </div>
               <div>
-                <h2 
+                <h2
                   className="text-base font-semibold"
                   style={{ color: theme.colors.primary[900] }}
                 >
@@ -1393,11 +1916,11 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
                   onClick={() => setViewMode('day')}
                   className={cn(
                     'px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200',
-                    viewMode === 'day' 
-                      ? 'text-white shadow-sm' 
+                    viewMode === 'day'
+                      ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
-                  style={viewMode === 'day' 
+                  style={viewMode === 'day'
                     ? { backgroundColor: theme.colors.primary[500], color: 'white' }
                     : {}
                   }
@@ -1408,11 +1931,11 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
                   onClick={() => setViewMode('week')}
                   className={cn(
                     'px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200',
-                    viewMode === 'week' 
-                      ? 'text-white shadow-sm' 
+                    viewMode === 'week'
+                      ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
-                  style={viewMode === 'week' 
+                  style={viewMode === 'week'
                     ? { backgroundColor: theme.colors.primary[500], color: 'white' }
                     : {}
                   }
@@ -1423,11 +1946,11 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
                   onClick={() => setViewMode('month')}
                   className={cn(
                     'px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200',
-                    viewMode === 'month' 
-                      ? 'text-white shadow-sm' 
+                    viewMode === 'month'
+                      ? 'text-white shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
-                  style={viewMode === 'month' 
+                  style={viewMode === 'month'
                     ? { backgroundColor: theme.colors.primary[500], color: 'white' }
                     : {}
                   }
@@ -1438,7 +1961,8 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
             </div>
 
             {/* Right: Navigation & Actions */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              {/* Date Navigation */}
               <div className="flex items-center gap-0.5 rounded-lg bg-muted">
                 <button
                   onClick={() => navigateDate('prev')}
@@ -1472,15 +1996,6 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
                   <ChevronRight className="h-3 w-3" />
                 </button>
               </div>
-              
-              <button
-                onClick={() => loadBookings(true)}
-                disabled={refreshing}
-                className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground disabled:opacity-50"
-                title="Refresh"
-              >
-                <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
-              </button>
 
               {/* Zoom Controls */}
               <div className="flex items-center gap-0.5 rounded-lg bg-muted border border-border/50">
@@ -1488,10 +2003,10 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
                   onClick={() => {
                     const newWidth = Math.max(MIN_TIME_SLOT_WIDTH, timeSlotWidth - ZOOM_STEP * 2)
                     setTimeSlotWidth(newWidth)
+                    updatePreference('timeSlotWidth', newWidth)
                   }}
-                  disabled={timeSlotWidth <= MIN_TIME_SLOT_WIDTH}
-                  className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Zoom Out (Ctrl/Cmd + Scroll Down)"
+                  className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground"
+                  title="Zoom Out"
                 >
                   <ZoomOut className="h-3 w-3" />
                 </button>
@@ -1502,347 +2017,674 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
                   onClick={() => {
                     const newWidth = Math.min(MAX_TIME_SLOT_WIDTH, timeSlotWidth + ZOOM_STEP * 2)
                     setTimeSlotWidth(newWidth)
+                    updatePreference('timeSlotWidth', newWidth)
                   }}
-                  disabled={timeSlotWidth >= MAX_TIME_SLOT_WIDTH}
-                  className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Zoom In (Ctrl/Cmd + Scroll Up)"
+                  className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground"
+                  title="Zoom In"
                 >
                   <ZoomIn className="h-3 w-3" />
                 </button>
-                <button
-                  onClick={() => setTimeSlotWidth(60)}
-                  className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground"
-                  title="Reset Zoom"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                </button>
               </div>
+
+              {/* Settings Menu - Contains refresh and reset */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="p-1.5 rounded-md transition-all duration-200 text-muted-foreground hover:text-foreground"
+                    title="More options"
+                  >
+                    <MoreVertical className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem
+                    onClick={() => loadBookings(true, true)} // Force manual refresh
+                    disabled={refreshing}
+                  >
+                    <RefreshCw className={`h-3 w-3 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
+                    Column Visibility
+                  </DropdownMenuLabel>
+                  {hasMultipleVenues && (
+                    <DropdownMenuCheckboxItem
+                      checked={showVenueColumn}
+                      onCheckedChange={(checked) => {
+                        setShowVenueColumn(checked)
+                        updatePreference('showVenueColumn', checked)
+                      }}
+                    >
+                      Venue
+                    </DropdownMenuCheckboxItem>
+                  )}
+                  <DropdownMenuCheckboxItem checked={true} disabled>
+                    Sport
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={true} disabled>
+                    Court
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={showFormatColumn}
+                    onCheckedChange={(checked) => {
+                      setShowFormatColumn(checked)
+                      updatePreference('showFormatColumn', checked)
+                    }}
+                  >
+                    Format
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      resetToDefaults()
+                      toast.success('Column preferences reset to defaults')
+                    }}
+                  >
+                    <ResetIcon className="h-3 w-3 mr-2" />
+                    Reset Preferences
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
 
         {/* Calendar View - Attached to header */}
         <Card className="rounded-t-none border-t-0 py-0 flex-1 min-h-0 overflow-hidden flex flex-col">
-        <CardContent className="px-4 py-0 flex-1 overflow-auto min-h-0">
-          {/* Date-based horizontal timeline */}
-          <div className="space-y-4 py-4" ref={calendarGridRef}>
-            {/* Date rows for week/month view */}
-            {dateRange.map((date) => {
-              return (
-              <div key={date.toISOString()} className="border rounded-lg overflow-hidden">
-                {/* Date header */}
-                <div className="sticky top-0 z-10 bg-muted/50 border-b p-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-sm">
-                      {formatShortDateInVenueTimezone(date, getActiveVenueTimezone)}
-                      {isTodayInVenueTimezone(date, getActiveVenueTimezone) && (
-                        <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
-                          Today
-                        </Badge>
-                      )}
-                    </h4>
-                    <div className="text-xs text-muted-foreground">
-                      {formatYearInVenueTimezone(date, getActiveVenueTimezone)}
-                      {getTimezoneLabel && (
-                        <span className="ml-1">({getTimezoneLabel})</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Horizontal timeline for this date */}
-                <div className="overflow-x-auto">
-                  <div 
-                    style={{ 
-                      minWidth: `${sportColumnWidth + courtColumnWidth + (timeSlots.length * timeSlotWidth)}px`,
-                      transition: 'min-width 0.08s cubic-bezier(0.4, 0, 0.2, 1)',
-                      willChange: 'min-width'
-                    }}
-                  >
-                  {/* Time header */}
-                  <div className="flex border-b">
-                    {/* Sport column header */}
-                    <div className="sticky left-0 z-5 bg-card border-r p-2 text-center font-medium text-xs relative group" style={{ width: `${sportColumnWidth}px`, minWidth: `${sportColumnWidth}px` }}>
-                      Sport
-                      {/* Resize handle */}
-                      <div
-                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                        onMouseDown={(e) => handleResizeStart('sport', e)}
-                      />
-                    </div>
-                    {/* Court column header */}
-                    <div className="sticky bg-card border-r p-2 text-center font-medium text-xs relative group" style={{ left: `${sportColumnWidth}px`, width: `${courtColumnWidth}px`, minWidth: `${courtColumnWidth}px` }}>
-                      Court
-                      {/* Resize handle */}
-                      <div
-                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                        onMouseDown={(e) => handleResizeStart('court', e)}
-                      />
-                    </div>
-                    
-                    {/* Time slots as columns */}
-                    {timeSlots.map((slot, index) => (
-                      <div
-                        key={slot}
-                        data-time-slot
-                        className="border-r p-1 text-center text-xs font-medium relative group cursor-zoom-in"
-                        style={{ 
-                          width: `${timeSlotWidth}px`, 
-                          minWidth: `${timeSlotWidth}px`,
-                          transition: 'width 0.08s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.08s cubic-bezier(0.4, 0, 0.2, 1)',
-                          willChange: 'width, min-width'
-                        }}
-                        title="Scroll to zoom time columns"
-                      >
-                        {index === 0 && getTimezoneLabel ? (
-                          <div className="flex flex-col items-center">
-                            <div className="text-[10px] text-muted-foreground font-normal mb-0.5">
-                              {getTimezoneLabel}
-                            </div>
-                            <div>{slot}</div>
+          <CardContent className="px-4 py-0 flex-1 overflow-auto min-h-0">
+            <div ref={containerRef} className="h-full w-full">
+              {/* Date-based horizontal timeline */}
+              <div className="space-y-4 py-4" ref={calendarGridRef}>
+                {/* Date rows for week/month view */}
+                {dateRange.map((date) => {
+                  return (
+                    <div key={date.toISOString()} className="border rounded-lg overflow-hidden">
+                      {/* Date header - Simplified, no sticky positioning */}
+                      <div className="bg-muted/50 border-b p-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-sm">
+                            {formatShortDateInVenueTimezone(date, getActiveVenueTimezone)}
+                            {isTodayInVenueTimezone(date, getActiveVenueTimezone) && (
+                              <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
+                                Today
+                              </Badge>
+                            )}
+                          </h4>
+                          <div className="text-xs text-muted-foreground">
+                            {formatYearInVenueTimezone(date, getActiveVenueTimezone)}
+                            {getTimezoneLabel && (
+                              <span className="ml-1">({getTimezoneLabel})</span>
+                            )}
                           </div>
-                        ) : (
-                          slot
-                        )}
-                        {/* Resize handle - only show on first time slot */}
-                        {index === 0 && (
-                          <div
-                            className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                            onMouseDown={(e) => handleResizeStart('timeSlot', e)}
-                          />
-                        )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
 
-                  {/* Sport groups with courts for this date */}
-                  {resourcesBySport.map((sportGroup, sportGroupIndex) => {
-                    const sportColor = getSportColor(sportGroup.sportId, sportGroup.sportName)
-                    const sportBgColor = hexToRgba(sportColor, 0.25)
-                    
-                    return (
-                      <div key={`${sportGroup.sportId}-${date.toISOString()}`}>
-                        {sportGroup.courts.map((resource, courtIndex) => {
-                          const isLastCourt = courtIndex === sportGroup.courts.length - 1
-                          const isLastSport = sportGroupIndex === resourcesBySport.length - 1
-                          const isFirstCourt = courtIndex === 0
-                          const isFirstSport = sportGroupIndex === 0
-                          
-                          return (
-                          <div 
-                            key={`${resource.id}-${date.toISOString()}`} 
-                            className={cn(
-                              "flex",
-                              // Add top border for first court of each sport (except first sport)
-                              isFirstCourt && !isFirstSport && "border-t-2 border-t-gray-300",
-                              // Add bottom border - thicker for sport separation, thinner for court separation
-                              isLastCourt && !isLastSport 
-                                ? "border-b-2 border-b-gray-300" 
-                                : "border-b border-b-gray-200"
-                            )}
-                            style={{ backgroundColor: sportBgColor }}
-                          >
-                            {/* Sport name (only show on first court of each sport) */}
-                            <div
-                              className="sticky left-0 z-5 border-r p-2 flex items-center justify-start font-medium text-xs"
-                              style={{ 
-                                width: `${sportColumnWidth}px`, 
-                                minWidth: `${sportColumnWidth}px`,
-                                backgroundColor: sportBgColor
-                              }}
-                            >
-                              {courtIndex === 0 && (
-                                <div 
-                                  className="truncate font-semibold" 
-                                  title={sportGroup.sportName}
-                                  style={{ color: sportColor }}
-                                >
-                                  {sportGroup.sportName}
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Court name */}
-                            <div
-                              className="sticky z-5 border-r p-2 flex items-center justify-start font-medium text-xs"
-                              style={{ 
-                                left: `${sportColumnWidth}px`,
-                                width: `${courtColumnWidth}px`, 
-                                minWidth: `${courtColumnWidth}px`,
-                                backgroundColor: sportBgColor
-                              }}
-                            >
-                              <div className="truncate" title={resource.title}>
-                                {resource.title}
-                              </div>
-                            </div>
-
-                      {/* Time slots for this court on this date */}
-                      {/* OPTIMIZED: Use pre-computed bookings map for better performance */}
-                      {timeSlots.map((slot) => {
-                        const [hours, minutes] = slot.split(':').map(Number)
-                        const venueTimezone = resource.venueTimezone || getActiveVenueTimezone
-                        
-                        // Get pre-filtered bookings for this court/date
-                        const key = `${resource.id}-${date.toISOString()}`
-                        const courtDateBookings = bookingsByCourtDate.get(key) || []
-                        
-                        // Find bookings that overlap with this time slot
-                        const slotBookings = courtDateBookings.filter(booking => {
-                          const bookingStart = new Date(booking.start)
-                          const bookingEnd = new Date(booking.end)
-                          
-                          // Get booking time components in venue timezone
-                          const bookingStartComponents = getDateComponentsInVenueTimezone(bookingStart, venueTimezone)
-                          const bookingEndComponents = getDateComponentsInVenueTimezone(bookingEnd, venueTimezone)
-                          
-                          // Check if booking overlaps with this time slot
-                          const bookingStartMinutes = bookingStartComponents.hour * 60 + bookingStartComponents.minutes
-                          const bookingEndMinutes = bookingEndComponents.hour * 60 + bookingEndComponents.minutes
-                          const slotStartMinutes = hours * 60 + minutes
-                          const slotEndMinutes = (hours + 1) * 60 + minutes
-                          
-                          // Booking overlaps if: bookingStart < slotEnd && bookingEnd > slotStart
-                          return bookingStartMinutes < slotEndMinutes && bookingEndMinutes > slotStartMinutes
-                        })
-
-                        const isDragOver = dragOverSlot?.courtId === resource.id && 
-                                          dragOverSlot?.date.toISOString().split('T')[0] === date.toISOString().split('T')[0] &&
-                                          dragOverSlot?.slot === slot
-
-                        return (
-                          <div
-                            key={`${resource.id}-${date.toISOString()}-${slot}`}
-                            data-time-slot
-                            onDragOver={(e) => handleDragOver(e, resource.id, date, slot)}
-                            onDrop={(e) => handleDrop(e, resource.id, date, slot)}
-                            className={cn(
-                              "relative border-r hover:bg-muted/20 transition-colors cursor-zoom-in",
-                              isDragOver && "bg-blue-100 border-blue-400 border-2"
-                            )}
-                            style={{ 
-                              width: `${timeSlotWidth}px`,
-                              minWidth: `${timeSlotWidth}px`,
-                              height: '40px',
-                              backgroundColor: isDragOver ? '#dbeafe' : sportBgColor,
-                              transition: 'width 0.08s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.08s cubic-bezier(0.4, 0, 0.2, 1)',
-                              willChange: 'width, min-width'
-                            }}
-                            title="Scroll to zoom time columns"
-                          >
-                            {/* Booking blocks */}
-                            {slotBookings.map((booking) => {
-                              const bookingStart = new Date(booking.start)
-                              const bookingEnd = new Date(booking.end)
-                              const venueTimezone = booking.venueTimezone || resource.venueTimezone || getActiveVenueTimezone
-                              
-                              // Get booking time components in venue timezone
-                              const bookingStartComponents = getDateComponentsInVenueTimezone(bookingStart, venueTimezone)
-                              const bookingEndComponents = getDateComponentsInVenueTimezone(bookingEnd, venueTimezone)
-                              
-                              // Calculate position within the hour slot (in venue timezone)
-                              const bookingStartMinutes = bookingStartComponents.hour * 60 + bookingStartComponents.minutes
-                              const bookingEndMinutes = bookingEndComponents.hour * 60 + bookingEndComponents.minutes
-                              const slotStartMinutes = hours * 60 + minutes
-                              const slotEndMinutes = (hours + 1) * 60 + minutes
-                              
-                              const offsetMinutes = Math.max(0, bookingStartMinutes - slotStartMinutes)
-                              const durationMinutes = Math.min(slotEndMinutes - slotStartMinutes - offsetMinutes, bookingEndMinutes - bookingStartMinutes)
-                              
-                              const leftOffset = (offsetMinutes / 60) * 100
-                              const width = (durationMinutes / 60) * 100
-                              const eventStyle = getEventStyle(booking)
-                              const isDragging = draggedBooking?.id === booking.id
-
-                              return (
+                      {/* Horizontal timeline for this date */}
+                      <div className="overflow-x-auto">
+                        <div
+                          style={{
+                            minWidth: `${(showVenueColumn ? venueColumnWidth : 0) + sportColumnWidth + courtColumnWidth + (showFormatColumn ? formatColumnWidth : 0) + (timeSlots.length * timeSlotWidth)}px`,
+                            transition: 'min-width 0.08s cubic-bezier(0.4, 0, 0.2, 1)',
+                            willChange: 'min-width'
+                          }}
+                        >
+                          {/* Time header - Simplified sticky positioning */}
+                          <div className="flex border-b">
+                            {/* Venue column header - only show if multiple venues */}
+                            {showVenueColumn && (
+                              <div className="bg-white border-r p-2 text-center font-medium text-xs relative group" style={{ width: `${venueColumnWidth}px`, minWidth: `${venueColumnWidth}px` }}>
+                                Venue
+                                {/* Resize handle */}
                                 <div
-                                  key={booking.id}
-                                  draggable
-                                  onDragStart={(e) => handleDragStart(e, booking)}
-                                  onDragEnd={handleDragEnd}
-                                  className={cn(
-                                    'absolute rounded-md text-xs cursor-move transition-all duration-200 ease-in-out shadow-lg hover:shadow-xl hover:scale-105 hover:z-20 overflow-hidden border',
-                                    isDragging && 'opacity-50',
-                                    draggedBooking && draggedBooking.id !== booking.id && 'opacity-100'
-                                  )}
-                                  style={{
-                                    left: `${leftOffset}%`,
-                                    width: `${width}%`,
-                                    top: '2px',
-                                    bottom: '2px',
-                                    minWidth: '20px',
-                                    borderRadius: '6px',
-                                    ...eventStyle,
-                                    borderWidth: '1px',
-                                  }}
-                                  onDoubleClick={() => handleEventClick(booking)}
-                                  onContextMenu={(e) => handleContextMenu(e, booking)}
-                                  title={`${booking.customerName} - ${booking.status} - $${Number(booking.totalAmount || 0).toFixed(2)}${booking.sportName ? ` - ${booking.sportName}` : ''}`}
-                                >
-                                  <div className="font-semibold truncate text-[11px] px-1 leading-tight">
-                                    {booking.customerName.split(' ')[0]}
-                                  </div>
-                                  <div className="text-[9px] opacity-90 px-1 leading-tight">
-                                    {formatTimeInVenueTimezone(booking.start, booking.venueTimezone)}
-                                  </div>
-                                </div>
-                              )
-                            })}
-
-                            {/* Empty slot - create booking */}
-                            {slotBookings.length === 0 && (
-                              <button
-                                onClick={() => handleCreateBooking(resource.id, date, slot)}
-                                onDragOver={(e) => handleDragOver(e, resource.id, date, slot)}
-                                onDrop={(e) => handleDrop(e, resource.id, date, slot)}
-                                className={cn(
-                                  'absolute inset-0 w-full h-full opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center group',
-                                  dragOverSlot?.courtId === resource.id && dragOverSlot?.slot === slot && 'opacity-100 bg-blue-100 border-2 border-blue-400 border-dashed'
-                                )}
-                                title="Click to create new booking"
-                              >
-                                {dragOverSlot?.courtId === resource.id && dragOverSlot?.slot === slot ? (
-                                  <div className="text-xs text-blue-600 font-medium">Drop here</div>
-                                ) : (
-                                  <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
-                                )}
-                              </button>
+                                  className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  style={{ right: '-2px', width: '6px' }}
+                                  onMouseDown={(e) => handleResizeStart('venue', e)}
+                                />
+                              </div>
+                            )}
+                            {/* Sport column header */}
+                            <div className="bg-white border-r p-2 text-center font-medium text-xs relative group" style={{ width: `${sportColumnWidth}px`, minWidth: `${sportColumnWidth}px` }}>
+                              Sport
+                              {/* Resize handle */}
+                              <div
+                                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ right: '-2px', width: '6px' }}
+                                onMouseDown={(e) => handleResizeStart('sport', e)}
+                              />
+                            </div>
+                            {/* Court column header */}
+                            <div className="bg-white border-r p-2 text-center font-medium text-xs relative group" style={{ width: `${courtColumnWidth}px`, minWidth: `${courtColumnWidth}px` }}>
+                              Court
+                              {/* Resize handle */}
+                              <div
+                                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ right: '-2px', width: '6px' }}
+                                onMouseDown={(e) => handleResizeStart('court', e)}
+                              />
+                            </div>
+                            {/* Format column header - only show if format column is enabled */}
+                            {showFormatColumn && (
+                              <div className="bg-white border-r p-2 text-center font-medium text-xs relative group" style={{ width: `${formatColumnWidth}px`, minWidth: `${formatColumnWidth}px` }}>
+                                Format
+                                {/* Resize handle */}
+                                <div
+                                  className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  style={{ right: '-2px', width: '6px' }}
+                                  onMouseDown={(e) => handleResizeStart('format', e)}
+                                />
+                              </div>
                             )}
 
-                            {/* Current time indicator for today */}
-                            {isTodayInVenueTimezone(date, getActiveVenueTimezone) &&
-                             (() => {
-                              const { hour: currentHour, minutes: currentMinutes } = getCurrentTimeInVenueTimezone(getActiveVenueTimezone)
-                              
-                              if (currentHour === hours) {
-                                return (
+                            {/* Time slots as columns */}
+                            {timeSlots.map((slot, index) => (
+                              <div
+                                key={slot}
+                                data-time-slot
+                                className={cn(
+                                  "p-1 text-center text-xs font-medium relative group",
+                                  index < timeSlots.length - 1 && "border-r" // Don't add border to last column
+                                )}
+                                style={{
+                                  width: `${timeSlotWidth}px`,
+                                  minWidth: `${timeSlotWidth}px`,
+                                  transition: 'width 0.08s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.08s cubic-bezier(0.4, 0, 0.2, 1)',
+                                  willChange: 'width, min-width',
+                                  zIndex: 10
+                                }}
+                              >
+                                {slot}
+                                {/* Resize handle - only show on first time slot */}
+                                {index === 0 && (
                                   <div
-                                    className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20 pointer-events-none"
-                                    style={{ left: `${(currentMinutes / 60) * 100}%` }}
-                                  >
-                                    <div className="absolute -top-1 -left-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
-                                  </div>
-                                )
-                              }
-                              return null
-                            })()}
+                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                    onMouseDown={(e) => handleResizeStart('timeSlot', e)}
+                                  />
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        )
-                        })}
+
+                          {/* Venue groups with sports and courts for this date */}
+                          {resourcesByVenueAndSport.map((venueGroup, venueGroupIndex) => {
+                            // Use consistent white background for all venue cells within the same venue group
+                            const venueColumnBg = 'bg-white'
+                            const isFirstVenue = venueGroupIndex === 0
+                            const isLastVenue = venueGroupIndex === resourcesByVenueAndSport.length - 1
+
+                            return (
+                              <div
+                                key={`${venueGroup.venueId}-${date.toISOString()}`}
+                                className={cn(
+                                  // Add border, shadow, and rounded corners for card-like appearance
+                                  "border border-gray-200 rounded-lg shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)]",
+                                  // Add spacing between venues for better visual separation
+                                  !isLastVenue && "mb-2"
+                                )}
+                              >
+                                {venueGroup.sports.map((sportGroup, sportGroupIndex) => {
+                                  const sportColor = getSportColor(sportGroup.sportId, sportGroup.sportName)
+                                  const sportBgColor = hexToRgba(sportColor, 0.15) // Light background for time slots
+                                  // Use sport color at full opacity for category columns to prevent transparency
+                                  const sportColumnBgColor = sportColor // Fully opaque sport color
+
+                                  return (
+                                    <div key={`${sportGroup.sportId}-${venueGroup.venueId}-${date.toISOString()}`}>
+                                      {sportGroup.courts.map((resource, courtIndex) => {
+                                        const isLastCourt = courtIndex === sportGroup.courts.length - 1
+                                        const isLastSport = sportGroupIndex === venueGroup.sports.length - 1
+                                        const isFirstCourt = courtIndex === 0
+                                        const isFirstSport = sportGroupIndex === 0
+                                        const isFirstRowOfVenue = courtIndex === 0 && isFirstSport
+
+                                        return (
+                                          <div
+                                            key={`${resource.id}-${date.toISOString()}`}
+                                            className={cn(
+                                              "flex",
+                                              // Thin border between courts (except last court of last sport)
+                                              !isLastCourt && "border-b border-b-white",
+                                              // Thick border between sports (last court of each sport, except last sport)
+                                              isLastCourt && !isLastSport && "border-b-2 border-b-white"
+                                            )}
+                                          >
+                                            {/* Venue name (only show on first court of first sport of each venue) */}
+                                            {showVenueColumn && (
+                                              <div
+                                                className={cn(
+                                                  "border-r p-2 flex items-center justify-start font-medium text-xs",
+                                                  venueColumnBg,
+                                                  "border-b-0 border-t-0 border-l-0"
+                                                )}
+                                                style={{
+                                                  width: `${venueColumnWidth}px`,
+                                                  minWidth: `${venueColumnWidth}px`,
+                                                  backgroundColor: 'white'
+                                                }}
+                                              >
+                                                {courtIndex === 0 && isFirstSport && (
+                                                  <div
+                                                    className="truncate font-semibold"
+                                                    title={venueGroup.venueName}
+                                                  >
+                                                    {venueGroup.venueName}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+
+                                            {/* Sport name (only show on first court of each sport) */}
+                                            <div
+                                              className="border-r p-2 flex items-center justify-start font-medium text-xs"
+                                              style={{
+                                                width: `${sportColumnWidth}px`,
+                                                minWidth: `${sportColumnWidth}px`,
+                                                backgroundColor: sportColumnBgColor,
+                                                color: 'white',
+                                                opacity: 1
+                                              }}
+                                            >
+                                              {courtIndex === 0 && (
+                                                <div
+                                                  className="truncate font-semibold"
+                                                  title={sportGroup.sportName}
+                                                >
+                                                  {sportGroup.sportName}
+                                                </div>
+                                              )}
+                                            </div>
+
+                                            {/* Court name */}
+                                            <div
+                                              className="border-r p-2 flex items-center justify-start font-medium text-xs"
+                                              style={{
+                                                width: `${courtColumnWidth}px`,
+                                                minWidth: `${courtColumnWidth}px`,
+                                                backgroundColor: sportColumnBgColor,
+                                                color: 'white',
+                                                opacity: 1
+                                              }}
+                                            >
+                                              <div className="truncate" title={resource.title}>
+                                                {showFormatColumn ? resource.title.split(' - ')[0] : resource.title}
+                                              </div>
+                                            </div>
+
+                                            {/* Format name - only show if format column is enabled */}
+                                            {showFormatColumn && (
+                                              <div
+                                                className="border-r p-2 flex items-center justify-start font-medium text-xs"
+                                                style={{
+                                                  width: `${formatColumnWidth}px`,
+                                                  minWidth: `${formatColumnWidth}px`,
+                                                  backgroundColor: sportColumnBgColor,
+                                                  color: 'white',
+                                                  opacity: 1
+                                                }}
+                                              >
+                                                <div className="truncate" title={resource.formatName || 'No Format'}>
+                                                  {resource.formatName || 'No Format'}
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            {/* Time slots container - wrap in relative container for absolute positioning */}
+                                            <div
+                                              className="relative flex overflow-hidden"
+                                              style={{
+                                                position: 'relative',
+                                                width: `${timeSlots.length * timeSlotWidth}px`,
+                                                minWidth: `${timeSlots.length * timeSlotWidth}px`,
+                                                maxWidth: `${timeSlots.length * timeSlotWidth}px`,
+                                                zIndex: 1 // Lower than categorical columns (z-30)
+                                              }}
+                                            >
+                                              {/* Time slots for this court on this date */}
+                                              {/* OPTIMIZED: Use pre-computed bookings map for better performance */}
+                                              {(() => {
+                                                // Calculate dynamic row height once for this court/date row
+                                                const key = `${resource.id}-${date.toISOString()}`
+                                                const courtDateBookings = bookingsByCourtDate.get(key) || []
+                                                const uniqueBookings = Array.from(new Map(courtDateBookings.map(b => [b.id, b])).values())
+                                                const venueTimezone = resource.venueTimezone || getActiveVenueTimezone || 'UTC'
+                                                const bookingPositions = calculateBookingPositions(uniqueBookings, venueTimezone)
+                                                const maxRows = bookingPositions instanceof Map
+                                                  ? Math.max(...Array.from(bookingPositions.values()).map(p => p.totalRows), 1)
+                                                  : 1
+
+                                                // Base row height scales with zoom level
+                                                const baseRowHeight = Math.max(40, Math.min(100, 40 + (timeSlotWidth - 60) * 0.2))
+
+                                                // When multiple formats exist (stacked bookings), multiply row height by number of stacks
+                                                const dynamicRowHeight = maxRows > 1
+                                                  ? baseRowHeight * maxRows
+                                                  : baseRowHeight
+
+                                                return timeSlots.map((slot, slotIndex) => {
+                                                  const [hours, minutes] = slot.split(':').map(Number)
+
+                                                  // Find bookings that overlap with this time slot
+                                                  const slotBookings = courtDateBookings.filter(booking => {
+                                                    const bookingStart = new Date(booking.start)
+                                                    const bookingEnd = new Date(booking.end)
+
+                                                    // Get booking time components in venue timezone
+                                                    const bookingStartComponents = getDateComponentsInVenueTimezone(bookingStart, venueTimezone)
+                                                    const bookingEndComponents = getDateComponentsInVenueTimezone(bookingEnd, venueTimezone)
+
+                                                    // Check if booking overlaps with this time slot
+                                                    const bookingStartMinutes = bookingStartComponents.hour * 60 + bookingStartComponents.minutes
+                                                    const bookingEndMinutes = bookingEndComponents.hour * 60 + bookingEndComponents.minutes
+                                                    const slotStartMinutes = hours * 60 + minutes
+                                                    const slotEndMinutes = (hours + 1) * 60 + minutes
+
+                                                    // Booking overlaps if: bookingStart < slotEnd && bookingEnd > slotStart
+                                                    return bookingStartMinutes < slotEndMinutes && bookingEndMinutes > slotStartMinutes
+                                                  })
+
+                                                  const isDragOver = dragOverSlot?.courtId === resource.id &&
+                                                    dragOverSlot?.date.toISOString().split('T')[0] === date.toISOString().split('T')[0] &&
+                                                    dragOverSlot?.slot === slot
+
+                                                  return (
+                                                    <div
+                                                      key={`${resource.id}-${date.toISOString()}-${slot}`}
+                                                      data-time-slot
+                                                      onDragOver={(e) => handleDragOver(e, resource.id, date, slot)}
+                                                      onDrop={(e) => handleDrop(e, resource.id, date, slot)}
+                                                      className={cn(
+                                                        "hover:bg-muted/20 transition-colors",
+                                                        slotIndex < timeSlots.length - 1 && "border-r", // Don't add border to last column
+                                                        isDragOver && "bg-blue-100 border-blue-400 border-2"
+                                                      )}
+                                                      style={{
+                                                        width: `${timeSlotWidth}px`,
+                                                        minWidth: `${timeSlotWidth}px`,
+                                                        height: `${dynamicRowHeight}px`,
+                                                        backgroundColor: isDragOver ? '#dbeafe' : sportBgColor,
+                                                        transition: 'width 0.08s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.08s cubic-bezier(0.4, 0, 0.2, 1), height 0.2s ease-in-out',
+                                                        willChange: 'width, min-width, height'
+                                                      }}
+                                                    />
+                                                  )
+                                                })
+                                              })()}
+
+                                              {/* Render all bookings once, positioned absolutely across slots */}
+                                              {(() => {
+                                                const key = `${resource.id}-${date.toISOString()}`
+                                                const courtDateBookings = bookingsByCourtDate.get(key) || []
+                                                const venueTimezone = resource.venueTimezone || getActiveVenueTimezone
+
+                                                // Group bookings by ID to avoid duplicates
+                                                const uniqueBookings = Array.from(new Map(courtDateBookings.map(b => [b.id, b])).values())
+
+                                                // Calculate vertical positions for overlapping bookings
+                                                const bookingPositions = calculateBookingPositions(uniqueBookings, venueTimezone || getActiveVenueTimezone || 'UTC')
+
+                                                // Calculate row height based on zoom level and number of overlapping bookings
+                                                const maxRows = bookingPositions instanceof Map
+                                                  ? Math.max(...Array.from(bookingPositions.values()).map(p => p.totalRows), 1)
+                                                  : 1
+
+                                                // Base row height scales with zoom level (timeSlotWidth)
+                                                // At 60px (100% zoom): 40px base height
+                                                // At 120px (200% zoom): 60px base height
+                                                // At 300px (500% zoom): 100px base height
+                                                const baseRowHeight = Math.max(40, Math.min(100, 40 + (timeSlotWidth - 60) * 0.2))
+
+                                                // When multiple formats exist (stacked bookings), multiply row height by number of stacks
+                                                // This ensures each booking has adequate space
+                                                const totalRowHeight = maxRows > 1
+                                                  ? baseRowHeight * maxRows // Multiply base height by number of stacks
+                                                  : baseRowHeight
+
+                                                // Each booking gets equal share of the total height, with small gaps
+                                                const rowGap = maxRows > 1 ? 3 : 0 // 3px gap between stacked bookings
+                                                const rowHeight = maxRows > 1
+                                                  ? (totalRowHeight - (maxRows - 1) * rowGap) / maxRows // Divide height minus gaps
+                                                  : baseRowHeight
+
+                                                return uniqueBookings.map((booking) => {
+                                                  const bookingStart = new Date(booking.start)
+                                                  const bookingEnd = new Date(booking.end)
+
+                                                  // Get booking time components in venue timezone
+                                                  const bookingStartComponents = getDateComponentsInVenueTimezone(bookingStart, venueTimezone)
+                                                  const bookingEndComponents = getDateComponentsInVenueTimezone(bookingEnd, venueTimezone)
+
+                                                  // Calculate position in minutes from start of day
+                                                  const bookingStartMinutes = bookingStartComponents.hour * 60 + bookingStartComponents.minutes
+                                                  const bookingEndMinutes = bookingEndComponents.hour * 60 + bookingEndComponents.minutes
+
+                                                  // Find which slot this booking starts in
+                                                  const startSlotIndex = timeSlots.findIndex(slot => {
+                                                    const [slotHours] = slot.split(':').map(Number)
+                                                    const slotStartMinutes = slotHours * 60
+                                                    const slotEndMinutes = (slotHours + 1) * 60
+                                                    // Booking starts in this slot if: bookingStart >= slotStart && bookingStart < slotEnd
+                                                    return bookingStartMinutes >= slotStartMinutes && bookingStartMinutes < slotEndMinutes
+                                                  })
+
+                                                  // If booking doesn't start in any visible slot, skip it
+                                                  if (startSlotIndex === -1) {
+                                                    return null
+                                                  }
+
+                                                  // Calculate offset within the starting slot (in minutes)
+                                                  const [startSlotHours] = timeSlots[startSlotIndex].split(':').map(Number)
+                                                  const slotStartMinutes = startSlotHours * 60
+                                                  const offsetMinutes = bookingStartMinutes - slotStartMinutes
+
+                                                  // Calculate total duration
+                                                  const totalDurationMinutes = bookingEndMinutes - bookingStartMinutes
+
+                                                  // Calculate the maximum visible end time (end of last slot)
+                                                  const lastSlotIndex = timeSlots.length - 1
+                                                  const [lastSlotHours] = timeSlots[lastSlotIndex].split(':').map(Number)
+                                                  const maxVisibleEndMinutes = (lastSlotHours + 1) * 60 // End of last slot (e.g., 24:00 = 1440 minutes)
+
+                                                  // Cap the booking end time to not extend beyond visible slots
+                                                  const cappedEndMinutes = Math.min(bookingEndMinutes, maxVisibleEndMinutes)
+                                                  const cappedDurationMinutes = cappedEndMinutes - bookingStartMinutes
+
+                                                  // Calculate left position: slot index * slot width + offset within slot (in pixels)
+                                                  // Each slot is timeSlotWidth pixels wide, so position = slotIndex * width + (offsetMinutes / 60) * width
+                                                  const leftPx = startSlotIndex * timeSlotWidth + (offsetMinutes / 60) * timeSlotWidth
+
+                                                  // Calculate total width in pixels (capped to not exceed visible area)
+                                                  const widthPx = Math.min(
+                                                    (cappedDurationMinutes / 60) * timeSlotWidth,
+                                                    (timeSlots.length * timeSlotWidth) - leftPx // Don't exceed container width
+                                                  )
+
+                                                  // Get vertical position
+                                                  const position = bookingPositions instanceof Map
+                                                    ? (bookingPositions.get(booking.id) || { row: 0, totalRows: 1 })
+                                                    : { row: 0, totalRows: 1 }
+                                                  // Center the booking vertically within its row slot with 10% gap for clear boundaries
+                                                  const verticalGap = rowHeight * 0.05 // 5% gap on top and bottom (10% total)
+                                                  const topPx = 2 + (position.row * (rowHeight + rowGap)) + verticalGap
+                                                  const heightPx = rowHeight * 0.9 // 10% less than row height for clear boundaries (applies to all bookings)
+
+                                                  const eventStyle = getEventStyle(booking)
+                                                  const isDragging = draggedBooking?.id === booking.id
+
+                                                  return (
+                                                    <div
+                                                      key={booking.id}
+                                                      draggable
+                                                      onDragStart={(e) => handleDragStart(e, booking)}
+                                                      onDragEnd={handleDragEnd}
+                                                      className={cn(
+                                                        'absolute rounded-md text-xs cursor-move transition-all duration-200 ease-in-out shadow-lg hover:shadow-xl hover:scale-105 hover:z-20 overflow-hidden border',
+                                                        isDragging && 'opacity-50',
+                                                        draggedBooking && draggedBooking.id !== booking.id && 'opacity-100'
+                                                      )}
+                                                      style={{
+                                                        left: `${leftPx}px`,
+                                                        width: `${widthPx}px`,
+                                                        top: `${topPx}px`,
+                                                        height: `${heightPx}px`,
+                                                        minWidth: '20px',
+                                                        borderRadius: '6px',
+                                                        ...eventStyle,
+                                                        borderWidth: '1px',
+                                                      }}
+                                                      onClick={() => handleEventClick(booking)}
+                                                      onContextMenu={(e) => handleContextMenu(e, booking)}
+                                                      title={`${booking.customerName} - ${booking.status} - $${Number(booking.totalAmount || 0).toFixed(2)}${booking.format?.displayName ? ` - ${booking.format.displayName}` : ''}${booking.sportName ? ` - ${booking.sportName}` : ''}`}
+                                                    >
+                                                      <div className="font-semibold truncate text-[11px] px-1.5 leading-tight flex items-center gap-1">
+                                                        <span>{booking.customerName.split(' ')[0]}</span>
+                                                        {booking.format?.displayName && (
+                                                          <span className="text-[9px] font-bold bg-white/30 backdrop-blur-sm px-1.5 py-0.5 rounded border border-white/50">
+                                                            {booking.format.displayName}
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                      <div className="text-[9px] opacity-90 px-1.5 leading-tight flex items-center gap-1.5">
+                                                        <span>{formatTimeInVenueTimezone(booking.start, booking.venueTimezone)}</span>
+                                                        {booking.format?.playersPerTeam && (
+                                                          <span className="text-[8px] opacity-75">
+                                                            ({booking.format.playersPerTeam}p)
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  )
+                                                })
+                                              })()}
+
+                                              {/* Calculate dynamic row height for this court/date row */}
+                                              {(() => {
+                                                const key = `${resource.id}-${date.toISOString()}`
+                                                const courtDateBookings = bookingsByCourtDate.get(key) || []
+                                                const uniqueBookings = Array.from(new Map(courtDateBookings.map(b => [b.id, b])).values())
+                                                const venueTimezone = resource.venueTimezone || getActiveVenueTimezone || 'UTC'
+                                                const bookingPositions = calculateBookingPositions(uniqueBookings, venueTimezone)
+                                                const maxRows = bookingPositions instanceof Map
+                                                  ? Math.max(...Array.from(bookingPositions.values()).map(p => p.totalRows), 1)
+                                                  : 1
+
+                                                // Base row height scales with zoom level
+                                                const baseRowHeight = Math.max(40, Math.min(100, 40 + (timeSlotWidth - 60) * 0.2))
+
+                                                // When multiple formats exist (stacked bookings), multiply row height by number of stacks
+                                                const dynamicRowHeight = maxRows > 1
+                                                  ? baseRowHeight * maxRows
+                                                  : baseRowHeight
+
+                                                return dynamicRowHeight
+                                              })()}
+
+                                              {/* Empty slots - create booking buttons */}
+                                              {timeSlots.map((slot, slotIndex) => {
+                                                const [hours, minutes] = slot.split(':').map(Number)
+                                                const key = `${resource.id}-${date.toISOString()}`
+                                                const courtDateBookings = bookingsByCourtDate.get(key) || []
+                                                const venueTimezone = resource.venueTimezone || getActiveVenueTimezone
+
+                                                // Calculate dynamic row height for this row
+                                                const uniqueBookings = Array.from(new Map(courtDateBookings.map(b => [b.id, b])).values())
+                                                const bookingPositions = calculateBookingPositions(uniqueBookings, venueTimezone || getActiveVenueTimezone || 'UTC')
+                                                const maxRows = bookingPositions instanceof Map
+                                                  ? Math.max(...Array.from(bookingPositions.values()).map(p => p.totalRows), 1)
+                                                  : 1
+                                                const baseRowHeight = Math.max(40, Math.min(100, 40 + (timeSlotWidth - 60) * 0.2))
+
+                                                // When multiple formats exist (stacked bookings), multiply row height by number of stacks
+                                                const dynamicRowHeight = maxRows > 1
+                                                  ? baseRowHeight * maxRows
+                                                  : baseRowHeight
+
+                                                // Check if this slot has any bookings
+                                                const hasBooking = courtDateBookings.some(booking => {
+                                                  const bookingStart = new Date(booking.start)
+                                                  const bookingEnd = new Date(booking.end)
+                                                  const bookingStartComponents = getDateComponentsInVenueTimezone(bookingStart, venueTimezone)
+                                                  const bookingEndComponents = getDateComponentsInVenueTimezone(bookingEnd, venueTimezone)
+                                                  const bookingStartMinutes = bookingStartComponents.hour * 60 + bookingStartComponents.minutes
+                                                  const bookingEndMinutes = bookingEndComponents.hour * 60 + bookingEndComponents.minutes
+                                                  const slotStartMinutes = hours * 60 + minutes
+                                                  const slotEndMinutes = (hours + 1) * 60 + minutes
+                                                  return bookingStartMinutes < slotEndMinutes && bookingEndMinutes > slotStartMinutes
+                                                })
+
+                                                const isDragOver = dragOverSlot?.courtId === resource.id &&
+                                                  dragOverSlot?.date.toISOString().split('T')[0] === date.toISOString().split('T')[0] &&
+                                                  dragOverSlot?.slot === slot
+
+                                                if (hasBooking) return null
+
+                                                return (
+                                                  <button
+                                                    key={`empty-${resource.id}-${date.toISOString()}-${slot}`}
+                                                    onClick={() => handleCreateBooking(resource.id, date, slot)}
+                                                    onDragOver={(e) => handleDragOver(e, resource.id, date, slot)}
+                                                    onDrop={(e) => handleDrop(e, resource.id, date, slot)}
+                                                    className={cn(
+                                                      'absolute opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center group',
+                                                      isDragOver && 'opacity-100 bg-blue-100 border-2 border-blue-400 border-dashed'
+                                                    )}
+                                                    style={{
+                                                      left: `${slotIndex * timeSlotWidth}px`,
+                                                      width: `${timeSlotWidth}px`,
+                                                      height: '40px',
+                                                      top: 0,
+                                                    }}
+                                                    title="Click to create new booking"
+                                                  >
+                                                    {isDragOver ? (
+                                                      <div className="text-xs text-blue-600 font-medium">Drop here</div>
+                                                    ) : (
+                                                      <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                                                    )}
+                                                  </button>
+                                                )
+                                              })}
+
+                                              {/* Current time indicator for today */}
+                                              {isTodayInVenueTimezone(date, getActiveVenueTimezone) &&
+                                                (() => {
+                                                  const { hour: currentHour, minutes: currentMinutes } = getCurrentTimeInVenueTimezone(getActiveVenueTimezone)
+                                                  const currentSlotIndex = timeSlots.findIndex(slot => {
+                                                    const [hours] = slot.split(':').map(Number)
+                                                    return hours === currentHour
+                                                  })
+
+                                                  if (currentSlotIndex !== -1) {
+                                                    const leftPx = currentSlotIndex * timeSlotWidth + (currentMinutes / 60) * timeSlotWidth
+                                                    return (
+                                                      <div
+                                                        className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20 pointer-events-none"
+                                                        style={{ left: `${leftPx}px` }}
+                                                      >
+                                                        <div className="absolute -top-1 -left-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
+                                                      </div>
+                                                    )
+                                                  }
+                                                  return null
+                                                })()}
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                    )
-                    })}
-                  </div>
-                    )
-                  })}
-                </div>
+                    </div>
+                  )
+                })}
               </div>
-              </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Booking Details Modal */}
@@ -1889,6 +2731,165 @@ export function VendorBookingCalendar({ filters, onError }: VendorBookingCalenda
           ))}
         </div>
       )}
+
+      {/* Drag and Drop Confirmation Modal */}
+      <Dialog open={pendingChange !== null} onOpenChange={(open) => !open && cancelBookingChange()}>
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-[90vw] md:w-[512px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Booking Reschedule</DialogTitle>
+            <DialogDescription>
+              Please review the changes before confirming the booking reschedule.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingChange && (() => {
+            // Check if time actually changed
+            const originalStart = new Date(pendingChange.booking.start).getTime()
+            const originalEnd = new Date(pendingChange.booking.end).getTime()
+            const newStart = pendingChange.newStartTime.getTime()
+            const newEnd = pendingChange.newEndTime.getTime()
+            const timeChanged = originalStart !== newStart || originalEnd !== newEnd
+
+            // Check if court changed
+            const courtChanged = pendingChange.booking.resourceId !== pendingChange.targetCourtId
+
+            // Check if booking is in final state or past
+            const bookingStatusUpper = pendingChange.booking.status?.toUpperCase()
+            const isFinalState = bookingStatusUpper === 'COMPLETED' || bookingStatusUpper === 'CANCELLED'
+            const bookingEndDate = new Date(pendingChange.booking.end)
+            const isPastBooking = bookingEndDate < new Date()
+
+            return (
+              <div className="space-y-4 py-4">
+                {/* Warning for final states or past bookings */}
+                {(isFinalState || isPastBooking) && (
+                  <Alert variant="destructive" className="border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <AlertTitle className="text-yellow-800 dark:text-yellow-200">
+                      {isFinalState && isPastBooking
+                        ? 'Moving Historical Final State Booking'
+                        : isFinalState
+                          ? 'Moving Final State Booking'
+                          : 'Moving Past Booking'}
+                    </AlertTitle>
+                    <AlertDescription className="text-yellow-700 dark:text-yellow-300">
+                      {isFinalState && isPastBooking
+                        ? `This booking is in a final state (${pendingChange.booking.status}) and has already ended. Moving it may affect historical records, payments, reporting, and analytics. Please proceed with caution.`
+                        : isFinalState
+                          ? `This booking is in a final state (${pendingChange.booking.status}). Moving it may affect historical records, payments, or reporting. Please proceed with caution.`
+                          : 'This booking has already ended. Moving past bookings may affect historical records, reporting, and analytics. Please proceed with caution.'}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Booking Info */}
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <div className="text-sm font-medium mb-2">Booking Details</div>
+                  <div className="text-sm space-y-1">
+                    <div><span className="font-medium">Customer:</span> {pendingChange.booking.customerName}</div>
+                    <div><span className="font-medium">Court:</span> {pendingChange.booking.courtName}</div>
+                    <div><span className="font-medium">Venue:</span> {pendingChange.booking.venueName}</div>
+                    {pendingChange.venueTimezone && (
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Timezone: {pendingChange.venueTimezone}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Time Changes - Only show if time actually changed */}
+                {timeChanged && (
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium">Time Changes</div>
+
+                    {/* Old Time */}
+                    <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
+                      <div className="text-xs text-red-600 font-medium mb-1">Current Time</div>
+                      <div className="text-sm">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          <span>
+                            {formatTimeInVenueTimezone(pendingChange.booking.start, pendingChange.venueTimezone)} - {formatTimeInVenueTimezone(pendingChange.booking.end, pendingChange.venueTimezone)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {formatDateInVenueTimezone(new Date(pendingChange.booking.start), pendingChange.venueTimezone)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="flex justify-center">
+                      <ChevronRight className="h-5 w-5 text-muted-foreground rotate-90" />
+                    </div>
+
+                    {/* New Time */}
+                    <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                      <div className="text-xs text-green-600 font-medium mb-1">New Time</div>
+                      <div className="text-sm">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          <span>
+                            {formatTimeInVenueTimezone(pendingChange.newStartTime.toISOString(), pendingChange.venueTimezone)} - {formatTimeInVenueTimezone(pendingChange.newEndTime.toISOString(), pendingChange.venueTimezone)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {formatDateInVenueTimezone(pendingChange.targetDate, pendingChange.venueTimezone)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Court Change Warning */}
+                {courtChanged && (() => {
+                  const newCourt = resources.find(r => r.id === pendingChange.targetCourtId)
+                  const newCourtName = newCourt?.title || 'Unknown Court'
+                  // Format the "From" court name to include venue for consistency
+                  const fromCourtName = pendingChange.booking.venueName
+                    ? `${pendingChange.booking.courtName} (${pendingChange.booking.venueName})`
+                    : pendingChange.booking.courtName
+                  return (
+                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                      <div className="text-xs text-yellow-800 font-medium mb-1 flex items-center gap-1">
+                        <span>⚠️</span>
+                        <span>Court Change</span>
+                      </div>
+                      <div className="text-sm text-yellow-700 space-y-1">
+                        <div>This booking will be moved to a different court.</div>
+                        <div className="font-medium">
+                          <span className="text-yellow-800">From:</span> {fromCourtName}
+                        </div>
+                        <div className="font-medium">
+                          <span className="text-yellow-800">To:</span> {newCourtName}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Show summary if only court changed (no time change) */}
+                {!timeChanged && courtChanged && (
+                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                    <div className="text-sm text-blue-700">
+                      Time remains the same. Only the court will change.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelBookingChange}>
+              Cancel
+            </Button>
+            <Button onClick={confirmBookingChange}>
+              Confirm Reschedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

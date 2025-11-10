@@ -23,7 +23,6 @@ export async function GET(
             name: true,
             slug: true,
             logoUrl: true,
-            verified: true,
             currencyCode: true, // Include vendor currency code as fallback
           },
         },
@@ -38,13 +37,17 @@ export async function GET(
                 icon: true,
               },
             },
-            format: {
-              select: {
-                id: true,
-                name: true,
-                displayName: true,
-                minPlayers: true,
-                maxPlayers: true,
+            supportedFormats: {
+              include: {
+                format: {
+                  select: {
+                    id: true,
+                    name: true,
+                    displayName: true,
+                    playersPerTeam: true,
+                    maxTotalPlayers: true,
+                  },
+                },
               },
             },
           },
@@ -102,7 +105,10 @@ export async function GET(
         features: court.features ? JSON.parse(court.features) : [],
         images: court.images ? JSON.parse(court.images) : [],
         sport: court.sport,
-        format: court.format,
+        supportedFormats: court.supportedFormats?.map(sf => ({
+          format: sf.format,
+          maxSlots: sf.maxSlots,
+        })) || [],
       })),
       operatingHours: venue.operatingHours,
       openingHours: venue.operatingHours.length > 0

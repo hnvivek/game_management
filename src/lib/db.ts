@@ -48,4 +48,9 @@ if (process.env.NODE_ENV === 'development') {
   })
 }
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+// Store Prisma Client in global to prevent multiple instances in development
+// In production (serverless), each function invocation may be isolated, but Prisma handles connection pooling
+// Setting global in all environments ensures reuse within the same process/function invocation
+if (!globalForPrisma.prisma) {
+  globalForPrisma.prisma = db
+}

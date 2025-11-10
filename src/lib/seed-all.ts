@@ -64,27 +64,27 @@ const sportsData = [
 // FORMAT TYPES DATA
 const formatTypesData = [
   // Football formats
-  { sportName: 'football', name: '11-a-side', displayName: '11-a-Side', minPlayers: 11, maxPlayers: 22 },
-  { sportName: 'football', name: '7-a-side', displayName: '7-a-Side', minPlayers: 7, maxPlayers: 14 },
-  { sportName: 'football', name: '5-a-side', displayName: '5-a-Side', minPlayers: 5, maxPlayers: 10 },
+  { sportName: 'football', name: '11-a-side', displayName: '11-a-Side', playersPerTeam: 11, maxTotalPlayers: 22 },
+  { sportName: 'football', name: '7-a-side', displayName: '7-a-Side', playersPerTeam: 7, maxTotalPlayers: 14 },
+  { sportName: 'football', name: '5-a-side', displayName: '5-a-Side', playersPerTeam: 5, maxTotalPlayers: 10 },
 
   // Basketball formats
-  { sportName: 'basketball', name: '5v5', displayName: '5v5 Full Court', minPlayers: 5, maxPlayers: 10 },
-  { sportName: 'basketball', name: '3x3', displayName: '3x3 Half Court', minPlayers: 3, maxPlayers: 6 },
+  { sportName: 'basketball', name: '5v5', displayName: '5v5 Full Court', playersPerTeam: 5, maxTotalPlayers: 10 },
+  { sportName: 'basketball', name: '3x3', displayName: '3x3 Half Court', playersPerTeam: 3, maxTotalPlayers: 6 },
 
   // Cricket formats
-  { sportName: 'cricket', name: 'tape-ball', displayName: 'Tape Ball', minPlayers: 11, maxPlayers: 12 },
-  { sportName: 'cricket', name: 'tennis-ball', displayName: 'Tennis Ball', minPlayers: 6, maxPlayers: 12 },
-  { sportName: 'boxcricket', name: '6v6', displayName: '6v6 Box Cricket', minPlayers: 6, maxPlayers: 12 },
-  { sportName: 'boxcricket', name: '8v8', displayName: '8v8 Box Cricket', minPlayers: 8, maxPlayers: 16 },
+  { sportName: 'cricket', name: 'tape-ball', displayName: 'Tape Ball', playersPerTeam: 11, maxTotalPlayers: 12 },
+  { sportName: 'cricket', name: 'tennis-ball', displayName: 'Tennis Ball', playersPerTeam: 6, maxTotalPlayers: 12 },
+  { sportName: 'boxcricket', name: '6v6', displayName: '6v6 Box Cricket', playersPerTeam: 6, maxTotalPlayers: 12 },
+  { sportName: 'boxcricket', name: '8v8', displayName: '8v8 Box Cricket', playersPerTeam: 8, maxTotalPlayers: 16 },
 
   // Badminton formats
-  { sportName: 'badminton', name: 'singles', displayName: 'Singles', minPlayers: 1, maxPlayers: 2 },
-  { sportName: 'badminton', name: 'doubles', displayName: 'Doubles', minPlayers: 2, maxPlayers: 4 },
+  { sportName: 'badminton', name: 'singles', displayName: 'Singles', playersPerTeam: 1, maxTotalPlayers: 2 },
+  { sportName: 'badminton', name: 'doubles', displayName: 'Doubles', playersPerTeam: 2, maxTotalPlayers: 4 },
 
   // Other sports
-  { sportName: 'tennis', name: 'singles', displayName: 'Singles', minPlayers: 1, maxPlayers: 2 },
-  { sportName: 'tennis', name: 'doubles', displayName: 'Doubles', minPlayers: 2, maxPlayers: 4 }
+  { sportName: 'tennis', name: 'singles', displayName: 'Singles', playersPerTeam: 1, maxTotalPlayers: 2 },
+  { sportName: 'tennis', name: 'doubles', displayName: 'Doubles', playersPerTeam: 2, maxTotalPlayers: 4 }
 ];
 
 // VENDORS DATA
@@ -156,28 +156,41 @@ async function seedFormatTypes() {
   const sports = await prisma.sportType.findMany();
   const sportMap = new Map(sports.map(s => [s.name, s.id]));
 
-  for (const format of formatTypesData) {
-    const sportId = sportMap.get(format.sportName);
-    if (sportId) {
-      await prisma.formatType.upsert({
-        where: { sportId_name: { sportId, name: format.name } },
-        update: {
-          displayName: format.displayName,
-          minPlayers: format.minPlayers,
-          maxPlayers: format.maxPlayers,
-        },
-        create: {
-          sportId,
-          name: format.name,
-          displayName: format.displayName,
-          minPlayers: format.minPlayers,
-          maxPlayers: format.maxPlayers,
-        },
-      });
+  const vendors = await prisma.vendor.findMany();
+  const vendorMap = new Map(vendors.map(v => [v.slug, v.id]));
+
+  // Create formats for each vendor
+  for (const vendor of vendors) {
+    for (const format of formatTypesData) {
+      const sportId = sportMap.get(format.sportName);
+      if (sportId) {
+        await prisma.formatType.upsert({
+          where: { 
+            vendorId_sportId_name: { 
+              vendorId: vendor.id, 
+              sportId, 
+              name: format.name 
+            } 
+          },
+          update: {
+            displayName: format.displayName,
+            playersPerTeam: format.playersPerTeam,
+            maxTotalPlayers: format.maxTotalPlayers,
+          },
+          create: {
+            vendorId: vendor.id,
+            sportId,
+            name: format.name,
+            displayName: format.displayName,
+            playersPerTeam: format.playersPerTeam,
+            maxTotalPlayers: format.maxTotalPlayers,
+          },
+        });
+      }
     }
   }
 
-  console.log(`✅ Created format types`);
+  console.log(`✅ Created format types for ${vendors.length} vendors`);
 }
 
 async function seedUsers() {
@@ -682,48 +695,213 @@ async function seedOperatingHours() {
 async function seedCourts() {
   console.log('🎾 Seeding courts...');
 
+  // Updated courts data with multi-format support and maxSlots
   const courtsData = [
-    { venueName: '3Lok Sports Hub - Whitefield', sportName: 'football', formatName: '5-a-side', courtNumber: 'Turf A', pricePerHour: 1500, maxPlayers: 10, surface: 'Premium Artificial Turf', description: 'Premium 5-a-side football turf with floodlights and modern facilities' },
-    { venueName: '3Lok Sports Hub - Whitefield', sportName: 'football', formatName: '7-a-side', courtNumber: 'Turf B', pricePerHour: 2600, maxPlayers: 14, surface: 'Premium Artificial Turf', description: 'Professional 7-a-side football turf with floodlights and seating area' },
-    { venueName: '3Lok Sports Hub - Whitefield', sportName: 'football', formatName: '5-a-side', courtNumber: 'Turf C', pricePerHour: 1400, maxPlayers: 10, surface: 'Artificial Turf', description: 'Standard 5-a-side football turf with basic facilities' },
-    { venueName: 'Venue 1', sportName: 'football', formatName: '5-a-side', courtNumber: 'Court 1', pricePerHour: 1200, maxPlayers: 10, surface: 'Artificial Turf', description: 'Standard football court' },
-    { venueName: 'Venue 1', sportName: 'cricket', formatName: 'tennis-ball', courtNumber: 'Court 2', pricePerHour: 1800, maxPlayers: 12, surface: 'Grass', description: 'Tennis ball cricket court' },
-    { venueName: 'Venue 2', sportName: 'basketball', formatName: '5v5', courtNumber: 'Court 1', pricePerHour: 2000, maxPlayers: 10, surface: 'Wood Flooring', description: 'Indoor basketball court' },
-    { venueName: 'Venue 2', sportName: 'badminton', formatName: 'singles', courtNumber: 'Court 2', pricePerHour: 700, maxPlayers: 2, surface: 'Synthetic', description: 'Badminton court' },
-    { venueName: 'Venue 3', sportName: 'football', formatName: '7-a-side', courtNumber: 'Court 1', pricePerHour: 2200, maxPlayers: 14, surface: 'Artificial Turf', description: '7-a-side football court' },
-    { venueName: 'Venue 3', sportName: 'cricket', formatName: 'tennis-ball', courtNumber: 'Court 2', pricePerHour: 1600, maxPlayers: 12, surface: 'Grass', description: 'Cricket court' },
-    { venueName: '3Lok Sports Hub - Whitefield', sportName: 'boxcricket', formatName: '6v6', courtNumber: 'Box Court 1', pricePerHour: 2000, maxPlayers: 12, surface: 'Synthetic Mat', description: 'Indoor box cricket court with nets and floodlights' },
-    { venueName: 'Venue 1', sportName: 'boxcricket', formatName: '8v8', courtNumber: 'Box Court 1', pricePerHour: 2200, maxPlayers: 16, surface: 'Synthetic Mat', description: 'Large box cricket court for 8v8 matches' },
-    { venueName: 'GameHub Pro Sports - Indiranagar', sportName: 'basketball', formatName: '5v5', courtNumber: 'Court 1', pricePerHour: 2500, maxPlayers: 10, surface: 'Premium Wood Flooring', description: 'Professional indoor basketball court with AC, scoreboard, and spectator seating' },
-    { venueName: 'GameHub Pro Sports - Indiranagar', sportName: 'badminton', formatName: 'singles', courtNumber: 'Court 1', pricePerHour: 800, maxPlayers: 2, surface: 'Premium Synthetic', description: 'Air-conditioned badminton court with professional lighting' },
-    { venueName: 'GameHub Pro Sports - Indiranagar', sportName: 'badminton', formatName: 'doubles', courtNumber: 'Court 2', pricePerHour: 1200, maxPlayers: 4, surface: 'Premium Synthetic', description: 'Air-conditioned doubles badminton court with professional lighting' }
+    { 
+      venueName: '3Lok Sports Hub - Whitefield', 
+      sportName: 'football', 
+      formats: [
+        { formatName: '11-a-side', maxSlots: 1 },
+        { formatName: '7-a-side', maxSlots: 2 },
+        { formatName: '5-a-side', maxSlots: 4 }
+      ],
+      courtNumber: 'Turf A', 
+      pricePerHour: 1500, 
+      maxPlayers: 22, 
+      surface: 'Premium Artificial Turf', 
+      description: 'Premium football turf with floodlights and modern facilities'
+    },
+    { 
+      venueName: '3Lok Sports Hub - Whitefield', 
+      sportName: 'football', 
+      formats: [
+        { formatName: '7-a-side', maxSlots: 2 },
+        { formatName: '5-a-side', maxSlots: 4 }
+      ],
+      courtNumber: 'Turf B', 
+      pricePerHour: 2600, 
+      maxPlayers: 14, 
+      surface: 'Premium Artificial Turf', 
+      description: 'Professional 7-a-side football turf with floodlights and seating area'
+    },
+    { 
+      venueName: '3Lok Sports Hub - Whitefield', 
+      sportName: 'football', 
+      formats: [
+        { formatName: '5-a-side', maxSlots: 1 }
+      ],
+      courtNumber: 'Turf C', 
+      pricePerHour: 1400, 
+      maxPlayers: 10, 
+      surface: 'Artificial Turf', 
+      description: 'Standard 5-a-side football turf with basic facilities'
+    },
+    { 
+      venueName: 'Venue 1', 
+      sportName: 'football', 
+      formats: [
+        { formatName: '5-a-side', maxSlots: 1 }
+      ],
+      courtNumber: 'Court 1', 
+      pricePerHour: 1200, 
+      maxPlayers: 10, 
+      surface: 'Artificial Turf', 
+      description: 'Standard football court'
+    },
+    { 
+      venueName: 'Venue 1', 
+      sportName: 'cricket', 
+      formats: [
+        { formatName: 'tennis-ball', maxSlots: 1 }
+      ],
+      courtNumber: 'Court 2', 
+      pricePerHour: 1800, 
+      maxPlayers: 12, 
+      surface: 'Grass', 
+      description: 'Tennis ball cricket court'
+    },
+    { 
+      venueName: 'Venue 2', 
+      sportName: 'basketball', 
+      formats: [
+        { formatName: '5v5', maxSlots: 1 },
+        { formatName: '3x3', maxSlots: 2 }
+      ],
+      courtNumber: 'Court 1', 
+      pricePerHour: 2000, 
+      maxPlayers: 10, 
+      surface: 'Wood Flooring', 
+      description: 'Indoor basketball court'
+    },
+    { 
+      venueName: 'Venue 2', 
+      sportName: 'badminton', 
+      formats: [
+        { formatName: 'singles', maxSlots: 1 },
+        { formatName: 'doubles', maxSlots: 1 }
+      ],
+      courtNumber: 'Court 2', 
+      pricePerHour: 700, 
+      maxPlayers: 4, 
+      surface: 'Synthetic', 
+      description: 'Badminton court'
+    },
+    { 
+      venueName: 'Venue 3', 
+      sportName: 'football', 
+      formats: [
+        { formatName: '7-a-side', maxSlots: 1 }
+      ],
+      courtNumber: 'Court 1', 
+      pricePerHour: 2200, 
+      maxPlayers: 14, 
+      surface: 'Artificial Turf', 
+      description: '7-a-side football court'
+    },
+    { 
+      venueName: 'Venue 3', 
+      sportName: 'cricket', 
+      formats: [
+        { formatName: 'tennis-ball', maxSlots: 1 }
+      ],
+      courtNumber: 'Court 2', 
+      pricePerHour: 1600, 
+      maxPlayers: 12, 
+      surface: 'Grass', 
+      description: 'Cricket court'
+    },
+    { 
+      venueName: '3Lok Sports Hub - Whitefield', 
+      sportName: 'boxcricket', 
+      formats: [
+        { formatName: '6v6', maxSlots: 1 }
+      ],
+      courtNumber: 'Box Court 1', 
+      pricePerHour: 2000, 
+      maxPlayers: 12, 
+      surface: 'Synthetic Mat', 
+      description: 'Indoor box cricket court with nets and floodlights'
+    },
+    { 
+      venueName: 'Venue 1', 
+      sportName: 'boxcricket', 
+      formats: [
+        { formatName: '8v8', maxSlots: 1 }
+      ],
+      courtNumber: 'Box Court 1', 
+      pricePerHour: 2200, 
+      maxPlayers: 16, 
+      surface: 'Synthetic Mat', 
+      description: 'Large box cricket court for 8v8 matches'
+    },
+    { 
+      venueName: 'GameHub Pro Sports - Indiranagar', 
+      sportName: 'basketball', 
+      formats: [
+        { formatName: '5v5', maxSlots: 1 }
+      ],
+      courtNumber: 'Court 1', 
+      pricePerHour: 2500, 
+      maxPlayers: 10, 
+      surface: 'Premium Wood Flooring', 
+      description: 'Professional indoor basketball court with AC, scoreboard, and spectator seating'
+    },
+    { 
+      venueName: 'GameHub Pro Sports - Indiranagar', 
+      sportName: 'badminton', 
+      formats: [
+        { formatName: 'singles', maxSlots: 1 }
+      ],
+      courtNumber: 'Court 1', 
+      pricePerHour: 800, 
+      maxPlayers: 2, 
+      surface: 'Premium Synthetic', 
+      description: 'Air-conditioned badminton court with professional lighting'
+    },
+    { 
+      venueName: 'GameHub Pro Sports - Indiranagar', 
+      sportName: 'badminton', 
+      formats: [
+        { formatName: 'doubles', maxSlots: 1 }
+      ],
+      courtNumber: 'Court 2', 
+      pricePerHour: 1200, 
+      maxPlayers: 4, 
+      surface: 'Premium Synthetic', 
+      description: 'Air-conditioned doubles badminton court with professional lighting'
+    }
   ];
 
-  const venues = await prisma.venue.findMany();
-  const venueMap = new Map(venues.map(v => [v.name, v.id]));
+  const venues = await prisma.venue.findMany({ include: { vendor: true } });
+  const venueMap = new Map(venues.map(v => [v.name, v]));
 
   const sports = await prisma.sportType.findMany();
   const sportMap = new Map(sports.map(s => [s.name, s.id]));
 
-  const formats = await prisma.formatType.findMany({ include: { sport: true } });
-  const formatMap = new Map(formats.map(f => [`${f.sport.name}-${f.name}`, f.id]));
-
   for (const court of courtsData) {
-    const venueId = venueMap.get(court.venueName);
+    const venue = venueMap.get(court.venueName);
     const sportId = sportMap.get(court.sportName);
-    const formatId = formatMap.get(`${court.sportName}-${court.formatName}`);
 
-    if (venueId && sportId) {
-      await prisma.court.upsert({
+    if (venue && sportId) {
+      // Get formats for this vendor and sport
+      const formats = await prisma.formatType.findMany({
+        where: {
+          vendorId: venue.vendorId,
+          sportId: sportId
+        }
+      });
+      const formatMap = new Map(formats.map(f => [f.name, f.id]));
+
+      // Create or update court
+      const createdCourt = await prisma.court.upsert({
         where: {
           venueId_courtNumber: {
-            venueId,
+            venueId: venue.id,
             courtNumber: court.courtNumber
           }
         },
         update: {
           sportId,
-          formatId,
           name: `${court.sportName === 'football' ? 'Football' : court.sportName === 'basketball' ? 'Basketball' : court.sportName === 'boxcricket' ? 'Box Cricket' : court.sportName === 'cricket' ? 'Cricket' : 'Badminton'} ${court.courtNumber}`,
           description: court.description,
           surface: court.surface,
@@ -732,9 +910,8 @@ async function seedCourts() {
           isActive: true,
         },
         create: {
-          venueId,
+          venueId: venue.id,
           sportId,
-          formatId,
           name: `${court.sportName === 'football' ? 'Football' : court.sportName === 'basketball' ? 'Basketball' : court.sportName === 'boxcricket' ? 'Box Cricket' : court.sportName === 'cricket' ? 'Cricket' : 'Badminton'} ${court.courtNumber}`,
           courtNumber: court.courtNumber,
           description: court.description,
@@ -744,10 +921,35 @@ async function seedCourts() {
           isActive: true,
         },
       });
+
+      // Create CourtFormat records for each format
+      for (const formatConfig of court.formats) {
+        const formatId = formatMap.get(formatConfig.formatName);
+        if (formatId) {
+          await prisma.courtFormat.upsert({
+            where: {
+              courtId_formatId: {
+                courtId: createdCourt.id,
+                formatId: formatId
+              }
+            },
+            update: {
+              maxSlots: formatConfig.maxSlots,
+              isActive: true,
+            },
+            create: {
+              courtId: createdCourt.id,
+              formatId: formatId,
+              maxSlots: formatConfig.maxSlots,
+              isActive: true,
+            },
+          });
+        }
+      }
     }
   }
 
-  console.log(`✅ Created ${courtsData.length} courts`);
+  console.log(`✅ Created ${courtsData.length} courts with multi-format support`);
 }
 
 async function seedTeams() {
@@ -787,7 +989,16 @@ async function seedTeams() {
   const sports = await prisma.sportType.findMany();
   const sportMap = new Map(sports.map(s => [s.name, s.id]));
 
-  const formats = await prisma.formatType.findMany({ include: { sport: true } });
+  // Get formats - need vendor context, use first vendor for teams
+  const vendors = await prisma.vendor.findMany();
+  const firstVendorId = vendors[0]?.id;
+  
+  const formats = firstVendorId 
+    ? await prisma.formatType.findMany({ 
+        where: { vendorId: firstVendorId },
+        include: { sport: true } 
+      })
+    : [];
   const formatMap = new Map(formats.map(f => [`${f.sport.name}-${f.name}`, f.id]));
 
   for (const team of teamsData) {
@@ -840,556 +1051,699 @@ async function seedTeams() {
 }
 
 async function seedBookings() {
-  console.log('📅 Seeding bookings for 3Lok Sports Hub...');
+  console.log('📅 Seeding comprehensive bookings for calendar testing...');
 
-  // Get 3Lok vendor
-  const vendor = await prisma.vendor.findUnique({ where: { slug: '3lok' } });
-  if (!vendor) {
-    console.log('⚠️  3Lok vendor not found, skipping bookings');
+  // Get all vendors
+  const vendors = await prisma.vendor.findMany({ where: { deletedAt: null } });
+  if (vendors.length === 0) {
+    console.log('⚠️  No vendors found, skipping bookings');
     return;
   }
 
-  console.log(`✅ Found vendor: ${vendor.name} (ID: ${vendor.id})`);
-
-  // Get 3Lok venues and courts
-  const venues = await prisma.venue.findMany({
-    where: { vendorId: vendor.id },
-    include: { courts: true }
+  // Get all venues with courts and their formats for all vendors
+  const allVenues = await prisma.venue.findMany({
+    where: { deletedAt: null },
+    include: { 
+      vendor: true,
+      courts: {
+        where: { isActive: true },
+        include: { 
+          sport: true,
+          supportedFormats: {
+            where: { isActive: true },
+            include: {
+              format: true
+            }
+          }
+        }
+      }
+    }
   });
 
-  console.log(`✅ Found ${venues.length} venue(s) for 3Lok`);
-
-  if (venues.length === 0) {
-    console.log('⚠️  No venues found for 3Lok, skipping bookings');
-    return;
-  }
-
-  // Check if any venue has courts
-  const venuesWithCourts = venues.filter(v => v.courts.length > 0);
+  const venuesWithCourts = allVenues.filter(v => v.courts.length > 0);
   if (venuesWithCourts.length === 0) {
-    console.log('⚠️  No courts found for any 3Lok venue, skipping bookings');
-    console.log('   Make sure seedCourts() runs before seedBookings()');
-    venues.forEach(v => {
-      console.log(`   - ${v.name}: 0 courts`);
-    });
+    console.log('⚠️  No venues with courts found, skipping bookings');
     return;
   }
 
-  console.log(`✅ Found ${venuesWithCourts.length} venue(s) with courts`);
-  venuesWithCourts.forEach(v => {
-    console.log(`   - ${v.name}: ${v.courts.length} court(s)`);
-  });
+  console.log(`✅ Found ${venuesWithCourts.length} venue(s) with ${venuesWithCourts.reduce((sum, v) => sum + v.courts.length, 0)} total court(s)`);
+  
+  // Build a map of court ID to its supported formats for quick lookup
+  const courtFormatMap = new Map<string, Array<{ formatId: string; formatName: string; maxSlots: number }>>();
+  for (const venue of venuesWithCourts) {
+    for (const court of venue.courts) {
+      const formats = court.supportedFormats.map(cf => ({
+        formatId: cf.formatId,
+        formatName: cf.format.name,
+        maxSlots: cf.maxSlots
+      }));
+      courtFormatMap.set(court.id, formats);
+    }
+  }
 
-  // Get customer users
+  // Get all customer users
   const customers = await prisma.user.findMany({
     where: { role: 'CUSTOMER', isActive: true },
-    take: 5
+    take: 10
   });
 
   if (customers.length === 0) {
     console.log('⚠️  No customer users found, skipping bookings');
-    console.log('   Make sure seedUsers() runs before seedBookings()');
     return;
   }
 
   console.log(`✅ Found ${customers.length} customer(s)`);
 
-  // Use the venue with the most courts, or first venue
-  const venue = venuesWithCourts.reduce((prev, current) => 
-    (current.courts.length > prev.courts.length) ? current : prev
-  );
-  const allCourts = venue.courts;
-  
-  // Get box cricket courts specifically
-  const boxCricketCourts = allCourts.filter(court => {
-    // We'll check by sport name after fetching sport info
-    return true; // Will filter later
-  });
-  
-  // Get sport info to identify box cricket courts
-  const sports = await prisma.sportType.findMany();
-  const boxCricketSport = sports.find(s => s.name === 'boxcricket');
-  
-  // Filter courts by sport
-  const boxCricketCourtsFiltered = boxCricketSport 
-    ? allCourts.filter(court => court.sportId === boxCricketSport.id)
-    : [];
-  
-  // Use all courts, but prioritize box cricket if available
-  const courts = boxCricketCourtsFiltered.length > 0 
-    ? [...boxCricketCourtsFiltered, ...allCourts.filter(c => !boxCricketCourtsFiltered.some(bc => bc.id === c.id))]
-    : allCourts;
-  
-  console.log(`✅ Using venue: ${venue.name} with ${courts.length} court(s)`);
-  
-  if (courts.length < 2) {
-    console.log('⚠️  Need at least 2 courts for seeding, found:', courts.length);
-    console.log('   Available courts:', courts.map(c => `${c.name} (${c.courtNumber})`).join(', '));
-    // Continue anyway if we have at least 1 court
-    if (courts.length === 0) {
-      return;
-    }
-  }
-  
   const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
   // Helper function to create date with time
-  const createDate = (daysAgo: number, hour: number = 18, minute: number = 0) => {
-    const date = new Date(now);
-    date.setDate(date.getDate() - daysAgo);
+  const createDate = (daysOffset: number, hour: number = 18, minute: number = 0) => {
+    const date = new Date(today);
+    date.setDate(date.getDate() + daysOffset);
     date.setHours(hour, minute, 0, 0);
     return date;
   };
-  
-  // Create bookings with various statuses and dates across multiple time periods
-  // This ensures we have data for analytics comparison (last week vs previous week, etc.)
-  // CURRENT WEEK (Last 7 days) - MORE bookings and LONGER durations to show growth
-  const bookingsData = [
-    // Day 0 (Today) - 3 bookings
-    {
-      court: courts[0],
-      customer: customers[0],
-      date: createDate(0, 18, 0),
-      duration: 90, // Longer duration
-      status: 'CONFIRMED' as const,
-      notes: 'Regular weekly booking'
-    },
-    {
-      court: courts[0],
-      customer: customers[1],
-      date: createDate(0, 19, 30),
-      duration: 120, // Longer duration
-      status: 'CONFIRMED' as const,
-      notes: 'Birthday celebration match'
-    },
-    {
-      court: courts[1],
-      customer: customers[2],
-      date: createDate(0, 20, 0),
-      duration: 120,
-      status: 'PENDING' as const,
-      notes: 'Team practice session'
-    },
-    // Day 1 (Yesterday) - 3 bookings
-    {
-      court: courts[0],
-      customer: customers[0],
-      date: createDate(1, 18, 0),
-      duration: 90, // Longer duration
-      status: 'COMPLETED' as const,
-      notes: 'Weekly match'
-    },
-    {
-      court: courts[1],
-      customer: customers[1],
-      date: createDate(1, 19, 0),
-      duration: 120, // Longer duration
-      status: 'COMPLETED' as const,
-      notes: 'Friendly match'
-    },
-    {
-      court: courts[1],
-      customer: customers[3] || customers[0],
-      date: createDate(1, 17, 0),
-      duration: 90,
-      status: 'COMPLETED' as const,
-      notes: 'Additional booking'
-    },
-    // Day 2 - 2 bookings
-    {
-      court: courts[0],
-      customer: customers[2],
-      date: createDate(2, 20, 0),
-      duration: 90, // Longer duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[3] || customers[0],
-      date: createDate(2, 17, 0),
-      duration: 120, // Longer duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    // Day 3 - 2 bookings
-    {
-      court: courts[0],
-      customer: customers[4] || customers[1],
-      date: createDate(3, 18, 0),
-      duration: 90, // Longer duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[0],
-      date: createDate(3, 19, 0),
-      duration: 90,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    // Day 4 - 2 bookings
-    {
-      court: courts[1],
-      customer: customers[0],
-      date: createDate(4, 19, 0),
-      duration: 120, // Longer duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[0],
-      customer: customers[1],
-      date: createDate(4, 18, 0),
-      duration: 90,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    // Day 5 - 2 bookings
-    {
-      court: courts[0],
-      customer: customers[1],
-      date: createDate(5, 18, 0),
-      duration: 60,
-      status: 'CANCELLED' as const,
-      notes: 'Cancelled due to rain'
-    },
-    {
-      court: courts[1],
-      customer: customers[2],
-      date: createDate(5, 20, 0),
-      duration: 120,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    // Day 6 - 2 bookings
-    {
-      court: courts[0],
-      customer: customers[0],
-      date: createDate(6, 17, 0),
-      duration: 90, // Longer duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[3] || customers[0],
-      date: createDate(6, 19, 0),
-      duration: 90,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    
-    // PREVIOUS WEEK (8-14 days ago) - FEWER bookings and SHORTER durations to show growth
-    // This period has fewer bookings with shorter durations to demonstrate growth
-    {
-      court: courts[0],
-      customer: customers[0],
-      date: createDate(8, 18, 0), // Oct 29 - clearly in previous period
-      duration: 60, // Shorter duration
-      status: 'COMPLETED' as const,
-      notes: 'Previous week booking'
-    },
-    {
-      court: courts[1],
-      customer: customers[1],
-      date: createDate(8, 19, 0), // Oct 29
-      duration: 60, // Shorter duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[0],
-      customer: customers[2],
-      date: createDate(9, 20, 0), // Oct 28
-      duration: 60, // Shorter duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[3] || customers[0],
-      date: createDate(10, 18, 0), // Oct 27
-      duration: 60, // Shorter duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[0],
-      customer: customers[4] || customers[1],
-      date: createDate(11, 19, 0), // Oct 26
-      duration: 60, // Shorter duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[0],
-      date: createDate(12, 17, 0), // Oct 25
-      duration: 60, // Shorter duration
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    
-    // LAST MONTH (15-30 days ago) - Some bookings for monthly comparison
-    {
-      court: courts[0],
-      customer: customers[0],
-      date: createDate(15, 18, 0),
-      duration: 60,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[1],
-      date: createDate(16, 19, 0),
-      duration: 90,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[0],
-      customer: customers[2],
-      date: createDate(18, 20, 0),
-      duration: 60,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[3] || customers[0],
-      date: createDate(20, 18, 0),
-      duration: 90,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[0],
-      customer: customers[4] || customers[1],
-      date: createDate(22, 19, 0),
-      duration: 60,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[0],
-      date: createDate(25, 17, 0),
-      duration: 90,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[0],
-      customer: customers[1],
-      date: createDate(28, 18, 0),
-      duration: 60,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    
-    // PREVIOUS MONTH (31-45 days ago) - Fewer bookings for comparison
-    {
-      court: courts[0],
-      customer: customers[0],
-      date: createDate(31, 18, 0),
-      duration: 60,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[1],
-      date: createDate(33, 19, 0),
-      duration: 90,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[0],
-      customer: customers[2],
-      date: createDate(35, 20, 0),
-      duration: 60,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[1],
-      customer: customers[3] || customers[0],
-      date: createDate(38, 18, 0),
-      duration: 90,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    {
-      court: courts[0],
-      customer: customers[4] || customers[1],
-      date: createDate(42, 19, 0),
-      duration: 60,
-      status: 'COMPLETED' as const,
-      notes: null
-    },
-    
-    // Future bookings (for testing upcoming bookings)
-    {
-      court: courts[0],
-      customer: customers[0],
-      date: createDate(-1, 18, 0), // Tomorrow
-      duration: 60,
-      status: 'CONFIRMED' as const,
-      notes: 'Next week booking'
-    },
-    {
-      court: courts[1],
-      customer: customers[1],
-      date: createDate(-2, 19, 0), // Day after tomorrow
-      duration: 120,
-      status: 'CONFIRMED' as const,
-      notes: 'Tournament practice'
-    },
-    {
-      court: courts[0],
-      customer: customers[2],
-      date: createDate(-3, 17, 0),
-      duration: 90,
-      status: 'PENDING' as const,
-      notes: 'Weekend match'
-    },
-    {
-      court: courts[1],
-      customer: customers[3] || customers[0],
-      date: createDate(-4, 20, 0),
-      duration: 60,
-      status: 'CONFIRMED' as const,
-      notes: null
-    }
-  ];
 
-  // Add box cricket specific bookings if box cricket courts exist
-  if (boxCricketCourtsFiltered.length > 0) {
-    const boxCricketCourt = boxCricketCourtsFiltered[0];
-    const additionalBoxCricketBookings = [
-      // Current week - box cricket bookings
-      {
-        court: boxCricketCourt,
-        customer: customers[0],
-        date: createDate(1, 16, 0),
-        duration: 60,
-        status: 'COMPLETED' as const,
-        notes: 'Box cricket match'
-      },
-      {
-        court: boxCricketCourt,
-        customer: customers[1],
-        date: createDate(2, 19, 0),
-        duration: 90,
-        status: 'COMPLETED' as const,
-        notes: 'Evening box cricket session'
-      },
-      {
-        court: boxCricketCourt,
-        customer: customers[2],
-        date: createDate(4, 20, 0),
-        duration: 60,
-        status: 'COMPLETED' as const,
-        notes: null
-      },
-      // Previous week - box cricket bookings
-      {
-        court: boxCricketCourt,
-        customer: customers[0],
-        date: createDate(9, 18, 0),
-        duration: 60,
-        status: 'COMPLETED' as const,
-        notes: 'Previous week box cricket'
-      },
-      {
-        court: boxCricketCourt,
-        customer: customers[1],
-        date: createDate(11, 19, 0),
-        duration: 60,
-        status: 'COMPLETED' as const,
-        notes: null
-      },
-      // Future bookings
-      {
-        court: boxCricketCourt,
-        customer: customers[2],
-        date: createDate(-1, 19, 0),
-        duration: 90,
-        status: 'CONFIRMED' as const,
-        notes: 'Tomorrow box cricket match'
-      }
-    ];
-    bookingsData.push(...additionalBoxCricketBookings);
+  // Get all sports for reference
+  const sports = await prisma.sportType.findMany();
+  const sportMap = new Map(sports.map(s => [s.name, s.id]));
+
+  // Generate comprehensive bookings for calendar testing
+  const bookingsData: Array<{
+    venue: typeof venuesWithCourts[0];
+    court: typeof venuesWithCourts[0]['courts'][0];
+    customer: typeof customers[0];
+    date: Date;
+    duration: number;
+    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW';
+    notes?: string | null;
+    formatId?: string;
+    slotNumber?: number;
+  }> = [];
+
+  // Distribute courts across venues
+  let courtIndex = 0;
+  let customerIndex = 0;
+
+  // Helper to get next court (round-robin across venues)
+  const getNextCourt = () => {
+    const venue = venuesWithCourts[courtIndex % venuesWithCourts.length];
+    const courts = venue.courts;
+    const court = courts[Math.floor(courtIndex / venuesWithCourts.length) % courts.length];
+    courtIndex++;
+    return { venue, court };
+  };
+
+  // Helper to get next customer (round-robin)
+  const getNextCustomer = () => {
+    const customer = customers[customerIndex % customers.length];
+    customerIndex++;
+    return customer;
+  };
+
+  // Helper to assign format to booking based on court's supported formats
+  const assignFormatToBooking = (courtId: string, existingBookingsAtTime: number = 0) => {
+    const formats = courtFormatMap.get(courtId) || [];
+    if (formats.length === 0) return { formatId: undefined, slotNumber: undefined };
+    
+    // Prefer smaller formats (5-a-side) for multiple bookings, larger formats (11-a-side) for single bookings
+    const sortedFormats = [...formats].sort((a, b) => {
+      // Sort by maxSlots descending (larger formats first)
+      return b.maxSlots - a.maxSlots;
+    });
+    
+    // Use first available format
+    const selectedFormat = sortedFormats[0];
+    // Assign slot number based on existing bookings (simple round-robin)
+    const slotNumber = (existingBookingsAtTime % selectedFormat.maxSlots) + 1;
+    
+    return {
+      formatId: selectedFormat.formatId,
+      slotNumber: slotNumber
+    };
+  };
+
+  // TODAY - Multiple bookings throughout the day for testing day view
+  for (let hour = 8; hour <= 22; hour += 2) {
+    const { venue, court } = getNextCourt();
+    const formatInfo = assignFormatToBooking(court.id);
+    bookingsData.push({
+      venue,
+      court,
+      customer: getNextCustomer(),
+      date: createDate(0, hour, 0),
+      duration: 60,
+      status: hour < 12 ? 'COMPLETED' : hour < 18 ? 'CONFIRMED' : 'CONFIRMED',
+      notes: `Today ${hour}:00 booking`,
+      formatId: formatInfo.formatId,
+      slotNumber: formatInfo.slotNumber
+    });
   }
 
-  let createdCount = 0;
-  for (const bookingData of bookingsData) {
-    try {
-      // Verify court and customer exist
-      if (!bookingData.court?.id || !bookingData.customer?.id) {
-        console.error(`Skipping booking - missing court or customer ID`);
-        continue;
-      }
+  // TOMORROW - Spread bookings across different times
+  const tomorrowHours = [9, 11, 14, 16, 18, 19, 20, 21];
+  tomorrowHours.forEach((hour, idx) => {
+    const { venue, court } = getNextCourt();
+    const formatInfo = assignFormatToBooking(court.id, idx);
+    bookingsData.push({
+      venue,
+      court,
+      customer: getNextCustomer(),
+      date: createDate(1, hour, idx % 2 === 0 ? 0 : 30),
+      duration: idx % 3 === 0 ? 90 : idx % 3 === 1 ? 120 : 60,
+      status: idx < 3 ? 'CONFIRMED' : 'PENDING',
+      notes: `Tomorrow ${hour}:${idx % 2 === 0 ? '00' : '30'} booking`,
+      formatId: formatInfo.formatId,
+      slotNumber: formatInfo.slotNumber
+    });
+  });
 
-      const startTime = new Date(bookingData.date);
-      const endTime = new Date(startTime.getTime() + bookingData.duration * 60 * 1000);
-      
-      // Calculate total amount based on court price and duration
-      const hours = bookingData.duration / 60;
-      const totalAmount = Number(bookingData.court.pricePerHour) * hours;
-
-      // Verify court exists in database
-      const courtExists = await prisma.court.findUnique({
-        where: { id: bookingData.court.id }
+  // NEXT 7 DAYS - Create bookings for each day of the week
+  for (let dayOffset = 2; dayOffset <= 7; dayOffset++) {
+    const hours = [10, 14, 17, 19, 20];
+    hours.forEach((hour, idx) => {
+      const { venue, court } = getNextCourt();
+      const statuses: Array<'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW'> = 
+        ['CONFIRMED', 'CONFIRMED', 'PENDING', 'CONFIRMED', 'CONFIRMED'];
+      const formatInfo = assignFormatToBooking(court.id, idx);
+      bookingsData.push({
+        venue,
+        court,
+        customer: getNextCustomer(),
+        date: createDate(dayOffset, hour, idx % 2 === 0 ? 0 : 30),
+        duration: [60, 90, 120, 90, 60][idx],
+        status: statuses[idx],
+        notes: `Day ${dayOffset} ${hour}:${idx % 2 === 0 ? '00' : '30'}`,
+        formatId: formatInfo.formatId,
+        slotNumber: formatInfo.slotNumber
       });
-      
-      if (!courtExists) {
-        console.error(`Court ${bookingData.court.id} (${bookingData.court.name}) does not exist in database`);
-        continue;
-      }
+    });
+  }
 
-      // Verify user exists in database
-      const userExists = await prisma.user.findUnique({
-        where: { id: bookingData.customer.id }
+  // NEXT 2 WEEKS - More bookings for week/month view testing
+  let futureBookingIndex = 0;
+  for (let dayOffset = 8; dayOffset <= 14; dayOffset++) {
+    const hours = [9, 12, 15, 18, 20];
+    hours.forEach((hour) => {
+      const { venue, court } = getNextCourt();
+      const formatInfo = assignFormatToBooking(court.id, futureBookingIndex++);
+      bookingsData.push({
+        venue,
+        court,
+        customer: getNextCustomer(),
+        date: createDate(dayOffset, hour, 0),
+        duration: hour < 15 ? 60 : 90,
+        status: 'CONFIRMED',
+        notes: `Future booking day ${dayOffset}`,
+        formatId: formatInfo.formatId,
+        slotNumber: formatInfo.slotNumber
       });
-      
-      if (!userExists) {
-        console.error(`User ${bookingData.customer.id} (${bookingData.customer.email}) does not exist in database`);
-        continue;
-      }
+    });
+  }
 
-      await prisma.booking.create({
-        data: {
-          userId: bookingData.customer.id,
-          courtId: bookingData.court.id,
-          date: startTime,
-          startTime: startTime,
-          endTime: endTime,
-          totalAmount: totalAmount,
-          status: bookingData.status,
-          notes: bookingData.notes,
+  // PAST WEEK - Historical bookings for testing past dates
+  let pastBookingIndex = 0;
+  for (let dayOffset = -7; dayOffset <= -1; dayOffset++) {
+    const hours = [10, 14, 18, 20];
+    hours.forEach((hour, idx) => {
+      const { venue, court } = getNextCourt();
+      const statuses: Array<'COMPLETED' | 'CANCELLED' | 'NO_SHOW'> = 
+        ['COMPLETED', 'COMPLETED', 'COMPLETED', idx === 3 ? 'NO_SHOW' : 'COMPLETED'];
+      const formatInfo = assignFormatToBooking(court.id, pastBookingIndex++);
+      bookingsData.push({
+        venue,
+        court,
+        customer: getNextCustomer(),
+        date: createDate(dayOffset, hour, 0),
+        duration: 60,
+        status: statuses[idx],
+        notes: `Past booking ${Math.abs(dayOffset)} days ago`,
+        formatId: formatInfo.formatId,
+        slotNumber: formatInfo.slotNumber
+      });
+    });
+  }
+
+  // PAST MONTH - More historical data
+  let historicalBookingIndex = 0;
+  for (let dayOffset = -30; dayOffset <= -8; dayOffset += 2) {
+    const { venue, court } = getNextCourt();
+    const formatInfo = assignFormatToBooking(court.id, historicalBookingIndex++);
+    bookingsData.push({
+      venue,
+      court,
+      customer: getNextCustomer(),
+      date: createDate(dayOffset, 18, 0),
+      duration: 60,
+      status: 'COMPLETED',
+      notes: `Historical booking ${Math.abs(dayOffset)} days ago`,
+      formatId: formatInfo.formatId,
+      slotNumber: formatInfo.slotNumber
+    });
+  }
+
+  // Add some cancelled bookings
+  let cancelledBookingIndex = 0;
+  for (let i = 0; i < 5; i++) {
+    const { venue, court } = getNextCourt();
+    const formatInfo = assignFormatToBooking(court.id, cancelledBookingIndex++);
+    bookingsData.push({
+      venue,
+      court,
+      customer: getNextCustomer(),
+      date: createDate(-3 + i, 19, 0),
+      duration: 60,
+      status: 'CANCELLED',
+      notes: 'Cancelled booking',
+      formatId: formatInfo.formatId,
+      slotNumber: formatInfo.slotNumber
+    });
+  }
+
+  // Add overlapping bookings for testing conflict detection (same court, overlapping times)
+  if (venuesWithCourts.length > 0 && venuesWithCourts[0].courts.length > 0) {
+    const testVenue = venuesWithCourts[0];
+    const testCourt = testVenue.courts[0];
+    const formatInfo1 = assignFormatToBooking(testCourt.id, 0);
+    const formatInfo2 = assignFormatToBooking(testCourt.id, 1);
+    
+    // Create bookings that are close but don't overlap (for testing)
+    bookingsData.push({
+      venue: testVenue,
+      court: testCourt,
+      customer: getNextCustomer(),
+      date: createDate(2, 18, 0),
+      duration: 60,
+      status: 'CONFIRMED',
+      notes: 'Test booking 1',
+      formatId: formatInfo1.formatId,
+      slotNumber: formatInfo1.slotNumber
+    });
+    bookingsData.push({
+      venue: testVenue,
+      court: testCourt,
+      customer: getNextCustomer(),
+      date: createDate(2, 19, 0),
+      duration: 60,
+      status: 'CONFIRMED',
+      notes: 'Test booking 2 - adjacent',
+      formatId: formatInfo2.formatId,
+      slotNumber: formatInfo2.slotNumber
+    });
+  }
+
+  // Add specific bookings for Football Turf A to demonstrate format conflict logic
+  // Court supports: 11-a-side (1 slot), 7-a-side (2 slots), 5-a-side (4 slots)
+  // Total slots = 4
+  // IMPORTANT: Bookings must respect conflict logic - no conflicting bookings!
+  const whitefieldVenue = venuesWithCourts.find(v => v.name === '3Lok Sports Hub - Whitefield');
+  if (whitefieldVenue) {
+    const footballTurfA = whitefieldVenue.courts.find(c => c.courtNumber === 'Turf A');
+    
+    if (footballTurfA) {
+      // Get formats for this court
+      const courtFormats = await prisma.courtFormat.findMany({
+        where: {
+          courtId: footballTurfA.id,
+          isActive: true
         },
+        include: {
+          format: true
+        }
       });
 
-      createdCount++;
-    } catch (error: any) {
-      console.error(`Error creating booking ${createdCount + 1}:`, error?.message || error);
-      console.error('   Court ID:', bookingData.court?.id, 'Court Name:', bookingData.court?.name);
-      console.error('   Customer ID:', bookingData.customer?.id, 'Customer Email:', bookingData.customer?.email);
-      if (error?.meta) {
-        console.error('   Prisma Error Details:', JSON.stringify(error.meta, null, 2));
+      const formatMap = new Map(courtFormats.map(cf => [cf.format.name, cf.formatId]));
+
+      // Scenario 1: Today at 16:00 - 2x 7-a-side (valid - uses 4 slots total, no conflicts)
+      if (formatMap.has('7-a-side')) {
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 16, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '7-a-side match - Slot 1',
+          formatId: formatMap.get('7-a-side'),
+          slotNumber: 1
+        });
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 16, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '7-a-side match - Slot 2',
+          formatId: formatMap.get('7-a-side'),
+          slotNumber: 2
+        });
+      }
+
+      // Scenario 2: Today at 17:00 - 4x 5-a-side (valid - uses all 4 slots, no conflicts)
+      if (formatMap.has('5-a-side')) {
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 17, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '5-a-side match - Slot 1',
+          formatId: formatMap.get('5-a-side'),
+          slotNumber: 1
+        });
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 17, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '5-a-side match - Slot 2',
+          formatId: formatMap.get('5-a-side'),
+          slotNumber: 2
+        });
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 17, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '5-a-side match - Slot 3',
+          formatId: formatMap.get('5-a-side'),
+          slotNumber: 3
+        });
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 17, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '5-a-side match - Slot 4',
+          formatId: formatMap.get('5-a-side'),
+          slotNumber: 4
+        });
+      }
+
+      // Scenario 3: Today at 18:00 - 1x 11-a-side (valid - uses all 4 slots, no conflicts)
+      if (formatMap.has('11-a-side')) {
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 18, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '11-a-side match - Full court',
+          formatId: formatMap.get('11-a-side'),
+          slotNumber: 1
+        });
+      }
+
+      // Scenario 4: Today at 19:00 - 1x 7-a-side + 2x 5-a-side (valid - 2+2=4 slots, same size formats can coexist)
+      // Note: This demonstrates that 7-a-side and 5-a-side can coexist when slots allow
+      if (formatMap.has('7-a-side') && formatMap.has('5-a-side')) {
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 19, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '7-a-side match - Mixed formats',
+          formatId: formatMap.get('7-a-side'),
+          slotNumber: 1
+        });
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 19, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '5-a-side match - Slot 1',
+          formatId: formatMap.get('5-a-side'),
+          slotNumber: 1
+        });
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(0, 19, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '5-a-side match - Slot 2',
+          formatId: formatMap.get('5-a-side'),
+          slotNumber: 2
+        });
+      }
+
+      // Scenario 5: Tomorrow at 16:00 - Sequential bookings (no overlap) - all formats work
+      if (formatMap.has('11-a-side')) {
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(1, 16, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '11-a-side match - Sequential',
+          formatId: formatMap.get('11-a-side'),
+          slotNumber: 1
+        });
+      }
+      if (formatMap.has('7-a-side')) {
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(1, 17, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '7-a-side match - Sequential',
+          formatId: formatMap.get('7-a-side'),
+          slotNumber: 1
+        });
+      }
+      if (formatMap.has('5-a-side')) {
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(1, 18, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '5-a-side match - Sequential',
+          formatId: formatMap.get('5-a-side'),
+          slotNumber: 1
+        });
+      }
+
+      // Scenario 6: Tomorrow at 19:00 - 1x 7-a-side only (valid - 2 slots used, 2 remaining but no other bookings)
+      if (formatMap.has('7-a-side')) {
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(1, 19, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '7-a-side match - Single booking',
+          formatId: formatMap.get('7-a-side'),
+          slotNumber: 1
+        });
+      }
+
+      // Scenario 7: Day after tomorrow at 16:00 - 2x 5-a-side (valid - 2 slots used, 2 remaining)
+      if (formatMap.has('5-a-side')) {
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(2, 16, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '5-a-side match - Slot 1',
+          formatId: formatMap.get('5-a-side'),
+          slotNumber: 1
+        });
+        bookingsData.push({
+          venue: whitefieldVenue,
+          court: footballTurfA,
+          customer: getNextCustomer(),
+          date: createDate(2, 16, 0),
+          duration: 60,
+          status: 'CONFIRMED',
+          notes: '5-a-side match - Slot 2',
+          formatId: formatMap.get('5-a-side'),
+          slotNumber: 2
+        });
       }
     }
   }
 
-  console.log(`✅ Created ${createdCount} bookings for 3Lok Sports Hub`);
+  console.log(`📝 Generated ${bookingsData.length} booking entries`);
+
+  // Create bookings in batches for better performance
+  let createdCount = 0;
+  let errorCount = 0;
+  const batchSize = 50;
+
+  for (let i = 0; i < bookingsData.length; i += batchSize) {
+    const batch = bookingsData.slice(i, i + batchSize);
+    const bookingPromises = batch.map(async (bookingData) => {
+      try {
+        // Verify court and customer exist
+        if (!bookingData.court?.id || !bookingData.customer?.id) {
+          throw new Error('Missing court or customer ID');
+        }
+
+        const startTime = new Date(bookingData.date);
+        const endTime = new Date(startTime.getTime() + bookingData.duration * 60 * 1000);
+        
+        // Calculate total amount based on court price and duration
+        const hours = bookingData.duration / 60;
+        const totalAmount = Number(bookingData.court.pricePerHour) * hours;
+
+        // Check if booking already exists (avoid duplicates)
+        const existingBooking = await prisma.booking.findFirst({
+          where: {
+            courtId: bookingData.court.id,
+            startTime: startTime,
+            userId: bookingData.customer.id
+          }
+        });
+
+        if (existingBooking) {
+          return null; // Skip duplicate
+        }
+
+        return await prisma.booking.create({
+          data: {
+            userId: bookingData.customer.id,
+            courtId: bookingData.court.id,
+            date: startTime,
+            startTime: startTime,
+            endTime: endTime,
+            totalAmount: totalAmount,
+            status: bookingData.status,
+            notes: bookingData.notes,
+            formatId: bookingData.formatId || null,
+            slotNumber: bookingData.slotNumber || null,
+          },
+        });
+      } catch (error: any) {
+        errorCount++;
+        if (errorCount <= 5) { // Only log first 5 errors to avoid spam
+          console.error(`   Error creating booking: ${error?.message || error}`);
+        }
+        return null;
+      }
+    });
+
+    const results = await Promise.all(bookingPromises);
+    const successful = results.filter(r => r !== null).length;
+    createdCount += successful;
+    
+    if (i % (batchSize * 5) === 0) {
+      console.log(`   Progress: ${Math.min(i + batchSize, bookingsData.length)}/${bookingsData.length} bookings processed...`);
+    }
+  }
+
+  console.log(`✅ Created ${createdCount} bookings across ${venuesWithCourts.length} venue(s)`);
   
-  if (createdCount === 0) {
-    console.log('⚠️  No bookings were created. Check the errors above.');
+  if (errorCount > 0) {
+    console.log(`⚠️  ${errorCount} bookings failed to create (duplicates or errors)`);
+  }
+
+  // Display summary by status
+  const statusCounts = await prisma.booking.groupBy({
+    by: ['status'],
+    _count: { id: true }
+  });
+  
+  console.log('\n📊 Bookings by status:');
+  statusCounts.forEach(({ status, _count }) => {
+    console.log(`   ${status}: ${_count.id}`);
+  });
+
+  // Display summary by date range
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+  const tomorrowDate = new Date(todayDate);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  
+  const todayBookings = await prisma.booking.count({
+    where: {
+      startTime: {
+        gte: todayDate,
+        lt: tomorrowDate
+      }
+    }
+  });
+  
+  const thisWeekBookings = await prisma.booking.count({
+    where: {
+      startTime: {
+        gte: todayDate,
+        lt: new Date(todayDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+      }
+    }
+  });
+  
+  console.log('\n📅 Bookings by date range:');
+  console.log(`   Today: ${todayBookings} bookings`);
+  console.log(`   This week: ${thisWeekBookings} bookings`);
+  
+  // Get vendor-specific counts
+  const allVendors = await prisma.vendor.findMany({ where: { deletedAt: null } });
+  console.log('\n🏪 Bookings per vendor:');
+  for (const vendor of allVendors) {
+    const vendorBookingCount = await prisma.booking.count({
+      where: {
+        court: {
+          venue: {
+            vendorId: vendor.id,
+            deletedAt: null
+          }
+        }
+      }
+    });
+    console.log(`   ${vendor.name}: ${vendorBookingCount} bookings`);
+  }
+}
+
+// CLEAR ALL DATA FUNCTION
+async function clearAllData() {
+  console.log('🧹 Clearing existing data...\n');
+
+  try {
+    // Delete in reverse order of dependencies
+    await prisma.booking.deleteMany({});
+    await prisma.payment.deleteMany({});
+    await prisma.teamMember.deleteMany({});
+    await prisma.team.deleteMany({});
+    await prisma.courtFormat.deleteMany({});
+    await prisma.court.deleteMany({});
+    await prisma.venueOperatingHours.deleteMany({});
+    await prisma.venue.deleteMany({});
+    await prisma.formatType.deleteMany({});
+    await prisma.vendorSettings.deleteMany({});
+    await prisma.vendorStaff.deleteMany({});
+    await prisma.vendor.deleteMany({});
+    await prisma.sportType.deleteMany({});
+    // Note: We keep users as they might be referenced elsewhere
+    // Uncomment if you want to clear users too:
+    // await prisma.user.deleteMany({});
+    
+    console.log('✅ All data cleared successfully\n');
+  } catch (error) {
+    console.error('❌ Error clearing data:', error);
+    throw error;
   }
 }
 
@@ -1398,11 +1752,14 @@ async function seedAll() {
   console.log('🚀 Starting clean database seeding...\n');
 
   try {
+    // Clear existing data first
+    await clearAllData();
+    
     // Seed data in correct order
     await seedSports();
-    await seedFormatTypes();
     await seedUsers();
-    await seedVendors();
+    await seedVendors(); // Must be before seedFormatTypes
+    await seedFormatTypes(); // Now vendors exist
     await seedVenues();
     await seedOperatingHours();
     await seedCourts();

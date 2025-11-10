@@ -139,9 +139,14 @@ export const GET = withPerformanceTracking(async function GET(request: NextReque
       }
     }
 
-    // Add format filter
+    // Add format filter - filter by supportedFormats
     if (format) {
-      whereConditions.formatId = format
+      whereConditions.supportedFormats = {
+        some: {
+          formatId: format,
+          isActive: true
+        }
+      }
     }
 
     // Add city filter (through venue)
@@ -190,12 +195,13 @@ export const GET = withPerformanceTracking(async function GET(request: NextReque
           id: true,
           venueId: true,
           sportId: true,
-          formatId: true,
           courtNumber: true,
           name: true,
           description: true,
+          surface: true,
           pricePerHour: true,
           features: true,
+          maxPlayers: true,
           isActive: true,
           createdAt: true,
           updatedAt: true,
@@ -232,13 +238,23 @@ export const GET = withPerformanceTracking(async function GET(request: NextReque
               icon: true
             }
           },
-          format: {
+          supportedFormats: {
+            where: {
+              isActive: true
+            },
             select: {
               id: true,
-              name: true,
-              displayName: true,
-              minPlayers: true,
-              maxPlayers: true
+              formatId: true,
+              maxSlots: true,
+              format: {
+                select: {
+                  id: true,
+                  name: true,
+                  displayName: true,
+                  playersPerTeam: true,
+                  maxTotalPlayers: true
+                }
+              }
             }
           }
         },
@@ -402,28 +418,49 @@ export async function POST(request: NextRequest) {
     const {
       venueId,
       sportId,
-      formatId,
+      formatConfigs, // Array of { formatId, maxSlots }
       courtNumber,
       name,
       description,
       pricePerHour,
       features,
+      length,
+      width,
+      maxPlayers,
       isActive = true,
     } = body
 
     // Validate required fields
-    if (!venueId || !sportId || !courtNumber || !pricePerHour) {
+    if (!venueId || !sportId || !pricePerHour) {
       return NextResponse.json(
-        { error: 'Missing required fields: venueId, sportId, courtNumber, pricePerHour' },
+        { error: 'Missing required fields: venueId, sportId, pricePerHour' },
         { status: 400 }
       )
     }
+
+    // Validate formatConfigs
+    if (!formatConfigs || !Array.isArray(formatConfigs) || formatConfigs.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one format must be selected' },
+        { status: 400 }
+      )
+    }
+
+    if (formatConfigs.length > 5) {
+      return NextResponse.json(
+        { error: 'Maximum 5 formats allowed per court' },
+        { status: 400 }
+      )
+    }
+
+    // Get the next court number if not provided
+    const nextCourtNumber = courtNumber || await getNextCourtNumber(venueId, sportId)
 
     // Check if court number already exists for this venue
     const existingCourt = await db.court.findFirst({
       where: {
         venueId,
-        courtNumber
+        courtNumber: nextCourtNumber
       }
     })
 
@@ -434,21 +471,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get the next court number if not provided
-    const nextCourtNumber = courtNumber || await getNextCourtNumber(venueId, sportId)
-
     // Create court
     const court = await db.court.create({
       data: {
         venueId,
         sportId,
-        formatId,
         courtNumber: nextCourtNumber,
         name: name || `Court ${nextCourtNumber}`,
         description,
         pricePerHour,
         features: features ? JSON.stringify(features) : null,
+        length: length ? parseFloat(length) : null,
+        width: width ? parseFloat(width) : null,
+        maxPlayers: maxPlayers || 10,
         isActive,
+        supportedFormats: {
+          create: formatConfigs.map((config: { formatId: string; maxSlots: number }) => ({
+            formatId: config.formatId,
+            maxSlots: config.maxSlots || 1,
+            isActive: true
+          }))
+        }
       },
       include: {
         venue: {
@@ -476,19 +519,23 @@ export async function POST(request: NextRequest) {
             icon: true
           }
         },
-        format: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            minPlayers: true,
-            maxPlayers: true
+        supportedFormats: {
+          include: {
+            format: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                playersPerTeam: true,
+                maxTotalPlayers: true
+              }
+            }
           }
         }
       }
     })
 
-    return NextResponse.json({ court })
+    return NextResponse.json({ success: true, data: court })
   } catch (error) {
     console.error('Error creating court:', error)
     return NextResponse.json(
@@ -511,14 +558,53 @@ async function checkCourtAvailability(
   courtId: string,
   date: string,
   startTime: string,
-  endTime: string
+  endTime: string,
+  formatId?: string
 ): Promise<boolean> {
   try {
     // Convert to DateTime objects
     const startDateTime = new Date(`${date}T${startTime}:00.000Z`)
     const endDateTime = new Date(`${date}T${endTime}:00.000Z`)
 
-    // Check for existing bookings
+    // If formatId is provided, check format-specific availability
+    if (formatId) {
+      // Get court with supported formats
+      const court = await db.court.findUnique({
+        where: { id: courtId },
+        include: {
+          supportedFormats: {
+            where: {
+              formatId,
+              isActive: true,
+            },
+          },
+        },
+      })
+
+      if (!court || court.supportedFormats.length === 0) {
+        return false // Format not supported
+      }
+
+      const courtFormat = court.supportedFormats[0]
+      
+      // Count existing bookings for this format at the overlapping time
+      const overlappingBookings = await db.booking.findMany({
+        where: {
+          courtId,
+          formatId,
+          status: { in: ['CONFIRMED', 'PENDING'] },
+          AND: [
+            { startTime: { lt: endDateTime } },
+            { endTime: { gt: startDateTime } },
+          ],
+        },
+      })
+
+      // Check if we've reached the max slots for this format
+      return overlappingBookings.length < courtFormat.maxSlots
+    }
+
+    // If no format specified, check for any overlapping bookings (backward compatibility)
     const overlappingBookings = await db.booking.findMany({
       where: {
         courtId,
@@ -531,7 +617,6 @@ async function checkCourtAvailability(
     })
 
     // Check for existing matches
-    // For matches, we check if any match is scheduled to start during the requested time slot
     const overlappingMatches = await db.match.findMany({
       where: {
         courtId,

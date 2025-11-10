@@ -9,10 +9,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Calendar, Clock, MapPin, DollarSign, User, Mail, Phone, Edit, XCircle, CheckCircle, MessageSquare, ExternalLink, Save, X, MoreVertical } from 'lucide-react'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
+import { Calendar, Clock, MapPin, DollarSign, User, Mail, Phone, Edit, XCircle, CheckCircle, MessageSquare, ExternalLink, Save, X, MoreVertical, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface CalendarBooking {
   id: string
@@ -31,6 +33,15 @@ interface CalendarBooking {
   sportId?: string
   sportName?: string
   paymentStatus?: string
+  formatId?: string | null
+  slotNumber?: number | null
+  format?: {
+    id: string
+    name: string
+    displayName: string
+    playersPerTeam: number
+    maxTotalPlayers?: number | null
+  } | null
 }
 
 interface VenueOption {
@@ -97,6 +108,16 @@ export function BookingDetailsModal({
   const [notes, setNotes] = useState('')
   const [venueTimezone, setVenueTimezone] = useState<string | null>(null)
   const [venueCurrencyCode, setVenueCurrencyCode] = useState<string>('USD') // Default to USD
+  
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<{
+    venue?: string
+    court?: string
+    sport?: string
+    time?: string
+    availability?: string
+  }>({})
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false)
 
   // Fetch venue timezone and currency from booking or venue
   useEffect(() => {
@@ -210,6 +231,105 @@ export function BookingDetailsModal({
     ? availableCourts.filter(court => court.venueId === selectedVenueId)
     : availableCourts
 
+  // Get selected court details
+  const selectedCourt = editedBooking?.courtId 
+    ? availableCourts.find(c => c.id === editedBooking.courtId)
+    : null
+
+  // Get original court details for sport comparison (only if booking exists)
+  const originalCourt = booking?.resourceId 
+    ? availableCourts.find(c => c.id === booking.resourceId)
+    : null
+
+  // Validation function
+  const validateBooking = async (): Promise<boolean> => {
+    const errors: typeof validationErrors = {}
+    
+    // Validate venue
+    if (!selectedVenueId && !editedBooking?.venueId) {
+      errors.venue = 'Please select a venue'
+    }
+    
+    // Validate court
+    if (!editedBooking?.courtId) {
+      errors.court = 'Please select a court'
+    } else {
+      const court = availableCourts.find(c => c.id === editedBooking.courtId)
+      if (!court) {
+        errors.court = 'Selected court not found'
+      } else if (selectedVenueId && court.venueId !== selectedVenueId) {
+        errors.court = 'Court does not belong to selected venue'
+      }
+    }
+    
+    // Validate sport (if court changed, sport should match)
+    if (editedBooking?.courtId && booking && editedBooking.courtId !== booking.resourceId) {
+      const newCourt = availableCourts.find(c => c.id === editedBooking.courtId)
+      if (newCourt && originalCourt && newCourt.sportName !== originalCourt.sportName) {
+        errors.sport = `Sport changed from ${originalCourt.sportName} to ${newCourt.sportName}. Please verify this is correct.`
+      }
+    }
+    
+    // Validate time
+    if (!editedBooking?.start || !editedBooking?.end) {
+      errors.time = 'Please provide both start and end times'
+    } else {
+      const startDate = new Date(editedBooking.start)
+      const endDate = new Date(editedBooking.end)
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        errors.time = 'Invalid date format'
+      } else if (startDate >= endDate) {
+        errors.time = 'End time must be after start time'
+      } else {
+        const durationMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60)
+        if (durationMinutes < 30) {
+          errors.time = 'Minimum booking duration is 30 minutes'
+        }
+        if (durationMinutes > 24 * 60) {
+          errors.time = 'Maximum booking duration is 24 hours'
+        }
+      }
+    }
+    
+    // Check availability if all basic validations pass
+    // Note: Full availability check will be done server-side, but we can do a basic check here
+    if (!errors.venue && !errors.court && !errors.time && editedBooking?.courtId && editedBooking?.start && editedBooking?.end) {
+      setIsCheckingAvailability(true)
+      try {
+        // Check for conflicts by querying bookings API
+        const startDate = new Date(editedBooking.start)
+        const endDate = new Date(editedBooking.end)
+        
+        const response = await fetch(
+          `/api/bookings?courtId=${editedBooking.courtId}&startTime=${startDate.toISOString()}&endTime=${endDate.toISOString()}`,
+          { credentials: 'include' }
+        )
+        
+        if (response.ok) {
+          const data = await response.json()
+          // Filter out the current booking
+          const conflictingBookings = (data.bookings || []).filter(
+            (b: any) => booking && b.id !== booking.id && 
+            (b.status === 'CONFIRMED' || b.status === 'PENDING')
+          )
+          
+          if (conflictingBookings.length > 0) {
+            errors.availability = `Court may not be available. Found ${conflictingBookings.length} conflicting booking(s).`
+          }
+        }
+      } catch (error) {
+        console.error('Error checking availability:', error)
+        // Don't block save if availability check fails - server will validate
+      } finally {
+        setIsCheckingAvailability(false)
+      }
+    }
+    
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   // Fetch booking notes
   useEffect(() => {
     const fetchBookingNotes = async () => {
@@ -249,20 +369,86 @@ export function BookingDetailsModal({
       })
       setSelectedVenueId(venueId)
       setIsEditing(false)
+      setValidationErrors({}) // Clear validation errors when opening
     } else if (!open) {
       // Reset when modal closes
       setIsEditing(false)
       setEditedBooking(null)
       setNotes('')
       setSelectedVenueId('')
+      setValidationErrors({})
     }
   }, [booking, open, availableCourts])
+
+  // Real-time validation when editing (debounced)
+  useEffect(() => {
+    if (!isEditing || !editedBooking) {
+      return
+    }
+
+    // Debounce validation
+    const timeoutId = setTimeout(() => {
+      // Only validate basic fields, not availability (to avoid too many API calls)
+      const errors: typeof validationErrors = {}
+      
+      if (!selectedVenueId && !editedBooking?.venueId) {
+        errors.venue = 'Please select a venue'
+      }
+      
+      if (!editedBooking?.courtId) {
+        errors.court = 'Please select a court'
+      } else {
+        const court = availableCourts.find(c => c.id === editedBooking.courtId)
+        if (court && selectedVenueId && court.venueId !== selectedVenueId) {
+          errors.court = 'Court does not belong to selected venue'
+        }
+      }
+      
+      if (editedBooking?.courtId && booking && editedBooking.courtId !== booking.resourceId) {
+        const newCourt = availableCourts.find(c => c.id === editedBooking.courtId)
+        if (newCourt && originalCourt && newCourt.sportName !== originalCourt.sportName) {
+          errors.sport = `Sport changed from ${originalCourt.sportName} to ${newCourt.sportName}`
+        }
+      }
+      
+      if (!editedBooking?.start || !editedBooking?.end) {
+        errors.time = 'Please provide both start and end times'
+      } else {
+        const startDate = new Date(editedBooking.start)
+        const endDate = new Date(editedBooking.end)
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          errors.time = 'Invalid date format'
+        } else if (startDate >= endDate) {
+          errors.time = 'End time must be after start time'
+        } else {
+          const durationMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60)
+          if (durationMinutes < 30) {
+            errors.time = 'Minimum booking duration is 30 minutes'
+          }
+          if (durationMinutes > 24 * 60) {
+            errors.time = 'Maximum booking duration is 24 hours'
+          }
+        }
+      }
+      
+      setValidationErrors(errors)
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [isEditing, editedBooking, selectedVenueId, availableCourts, booking?.resourceId, originalCourt])
 
   if (!booking) return null
 
   const startDate = editedBooking?.start ? new Date(editedBooking.start) : new Date(booking.start)
   const endDate = editedBooking?.end ? new Date(editedBooking.end) : new Date(booking.end)
   const duration = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60))
+
+  // Check if booking is in the past
+  const isPastBooking = endDate < new Date()
+  // Check final state - handle both uppercase and title case
+  const bookingStatusUpper = booking.status?.toUpperCase()
+  const isFinalState = bookingStatusUpper === 'COMPLETED' || bookingStatusUpper === 'CANCELLED'
 
   // Helper function to format date in venue timezone for display
   const formatDateInVenueTimezone = (date: Date, formatStr: string): string => {
@@ -466,15 +652,28 @@ export function BookingDetailsModal({
   const handleSave = async () => {
     if (!editedBooking || !onUpdate) return
 
-    // Validation
-    if (!editedBooking.courtId) {
-      toast.error('Please select a court')
+    // Run comprehensive validation
+    const isValid = await validateBooking()
+    
+    // Allow save even with availability warnings (server will do final check)
+    // But block save if there are critical errors (venue, court, time)
+    const criticalErrors = { ...validationErrors }
+    delete criticalErrors.availability // Don't block on availability warnings
+    
+    const hasCriticalErrors = Object.keys(criticalErrors).length > 0
+    
+    if (hasCriticalErrors) {
+      // Show first error as toast
+      const firstError = Object.values(criticalErrors)[0]
+      if (firstError) {
+        toast.error(firstError)
+      }
       return
     }
     
-    if (!editedBooking.start || !editedBooking.end) {
-      toast.error('Please provide start and end times')
-      return
+    // Show warning if availability check failed but allow save
+    if (validationErrors.availability) {
+      toast.warning(validationErrors.availability + ' Proceeding anyway - server will validate.')
     }
 
     setIsSaving(true)
@@ -502,6 +701,9 @@ export function BookingDetailsModal({
 
       const updated = await response.json()
       toast.success('Booking updated successfully!')
+      
+      // Clear validation errors on success
+      setValidationErrors({})
       
       // Refresh notes if they were updated
       if (notes !== undefined) {
@@ -548,11 +750,12 @@ export function BookingDetailsModal({
     })
     setSelectedVenueId(currentCourt?.venueId || '')
     setIsEditing(false)
+    setValidationErrors({}) // Clear validation errors
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-[95vw] max-h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-xl w-[calc(100%-2rem)] sm:w-[90vw] md:w-[576px] max-h-[85vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -613,6 +816,27 @@ export function BookingDetailsModal({
             </h3>
             {isEditing ? (
               <div className="space-y-4">
+                {/* Warning for final states or past bookings */}
+                {(isFinalState || isPastBooking) && (
+                  <Alert variant="destructive" className="border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <AlertTitle className="text-yellow-800 dark:text-yellow-200">
+                      {isFinalState && isPastBooking 
+                        ? 'Editing Historical Final State Booking'
+                        : isFinalState 
+                        ? 'Editing Final State Booking'
+                        : 'Editing Past Booking'}
+                    </AlertTitle>
+                    <AlertDescription className="text-yellow-700 dark:text-yellow-300">
+                      {isFinalState && isPastBooking
+                        ? `This booking is in a final state (${booking.status}) and has already ended. Changes may affect historical records, payments, reporting, and analytics. Please proceed with caution.`
+                        : isFinalState
+                        ? `This booking is in a final state (${booking.status}). Changes may affect historical records, payments, or reporting. Please proceed with caution.`
+                        : 'This booking has already ended. Editing past bookings may affect historical records, reporting, and analytics. Please proceed with caution.'}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="venue">Venue</Label>
@@ -625,9 +849,27 @@ export function BookingDetailsModal({
                           venueId: value,
                           courtId: '', // Reset court when venue changes
                         })
+                        
+                        // Fetch venue timezone for the new venue
+                        if (value) {
+                          fetch(`/api/venues/${value}`, {
+                            credentials: 'include'
+                          })
+                            .then(response => response.json())
+                            .then(data => {
+                              const venue = data.venue || data
+                              const timezone = venue.timezone
+                              if (timezone) {
+                                setVenueTimezone(timezone)
+                              }
+                            })
+                            .catch(error => {
+                              console.error('Failed to fetch venue timezone:', error)
+                            })
+                        }
                       }}
                     >
-                      <SelectTrigger id="venue" className="w-full">
+                      <SelectTrigger id="venue" className={cn("w-full", validationErrors.venue && "border-red-500")}>
                         <SelectValue placeholder="Select venue" />
                       </SelectTrigger>
                       <SelectContent className="z-[100]">
@@ -638,20 +880,50 @@ export function BookingDetailsModal({
                         ))}
                       </SelectContent>
                     </Select>
+                    {validationErrors.venue && (
+                      <p className="text-sm text-red-600 flex items-center gap-1">
+                        <span>⚠</span>
+                        {validationErrors.venue}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="court">Court</Label>
                     <Select
                       value={editedBooking?.courtId || booking.resourceId}
                       onValueChange={(value) => {
+                        // Find the selected court to get its venue
+                        const selectedCourt = availableCourts.find(c => c.id === value)
+                        const newVenueId = selectedCourt?.venueId || ''
+                        
                         setEditedBooking({
                           ...editedBooking,
                           courtId: value,
+                          venueId: newVenueId,
                         })
+                        setSelectedVenueId(newVenueId)
+                        
+                        // Fetch venue timezone for the new court's venue
+                        if (newVenueId) {
+                          fetch(`/api/venues/${newVenueId}`, {
+                            credentials: 'include'
+                          })
+                            .then(response => response.json())
+                            .then(data => {
+                              const venue = data.venue || data
+                              const timezone = venue.timezone
+                              if (timezone) {
+                                setVenueTimezone(timezone)
+                              }
+                            })
+                            .catch(error => {
+                              console.error('Failed to fetch venue timezone:', error)
+                            })
+                        }
                       }}
                       disabled={!selectedVenueId}
                     >
-                      <SelectTrigger id="court" className="w-full">
+                      <SelectTrigger id="court" className={cn("w-full", validationErrors.court && "border-red-500")}>
                         <SelectValue placeholder={selectedVenueId ? "Select court" : "Select venue first"} />
                       </SelectTrigger>
                       <SelectContent className="z-[100]">
@@ -666,6 +938,18 @@ export function BookingDetailsModal({
                         )}
                       </SelectContent>
                     </Select>
+                    {validationErrors.court && (
+                      <p className="text-sm text-red-600 flex items-center gap-1">
+                        <span>⚠</span>
+                        {validationErrors.court}
+                      </p>
+                    )}
+                    {validationErrors.sport && (
+                      <p className="text-sm text-yellow-600 flex items-center gap-1">
+                        <span>⚠</span>
+                        {validationErrors.sport}
+                      </p>
+                    )}
                   </div>
                 </div>
                 
@@ -728,6 +1012,7 @@ export function BookingDetailsModal({
                           end: newEnd,
                         })
                       }}
+                      className={cn(validationErrors.time && "border-red-500")}
                     />
                   </div>
                   <div className="space-y-2">
@@ -744,9 +1029,29 @@ export function BookingDetailsModal({
                           end: newEnd,
                         })
                       }}
+                      className={cn(validationErrors.time && "border-red-500")}
                     />
                   </div>
                 </div>
+                {(validationErrors.time || validationErrors.availability) && (
+                  <div className="space-y-1">
+                    {validationErrors.time && (
+                      <p className="text-sm text-red-600 flex items-center gap-1">
+                        <span>⚠</span>
+                        {validationErrors.time}
+                      </p>
+                    )}
+                    {validationErrors.availability && (
+                      <p className="text-sm text-red-600 flex items-center gap-1">
+                        <span>⚠</span>
+                        {validationErrors.availability}
+                      </p>
+                    )}
+                    {isCheckingAvailability && (
+                      <p className="text-sm text-muted-foreground">Checking availability...</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -796,6 +1101,24 @@ export function BookingDetailsModal({
                     {booking.sportName && (
                       <p className="text-xs text-muted-foreground mt-0.5">{booking.sportName}</p>
                     )}
+                    {booking.format && (
+                      <div className="mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {booking.format.displayName}
+                          {booking.format.playersPerTeam && (
+                            <span className="ml-1">
+                              ({booking.format.playersPerTeam} per team
+                              {booking.format.maxTotalPlayers && booking.format.maxTotalPlayers > booking.format.playersPerTeam * 2
+                                ? `, up to ${booking.format.maxTotalPlayers} total`
+                                : `, ${booking.format.playersPerTeam * 2} total`})
+                            </span>
+                          )}
+                        </Badge>
+                        {booking.slotNumber && (
+                          <span className="text-xs text-muted-foreground ml-1">Slot {booking.slotNumber}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -831,14 +1154,18 @@ export function BookingDetailsModal({
           </div>
 
           {/* Notes Section */}
-          {!isEditing && notes && (
+          {!isEditing && (
             <>
               <Separator />
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   Notes
                 </h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{notes}</p>
+                {notes ? (
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{notes}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No notes</p>
+                )}
               </div>
             </>
           )}
@@ -907,7 +1234,7 @@ export function BookingDetailsModal({
 
               {/* Right: Primary Actions */}
               <div className="flex items-center gap-2 ml-auto">
-                {onUpdate && booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
+                {onUpdate && (
                   <Button
                     variant="default"
                     onClick={() => setIsEditing(true)}

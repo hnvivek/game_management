@@ -69,13 +69,17 @@ export const GET = withVendorOwnershipAuth(async (request: NextRequest, { user, 
                 icon: true
               }
             },
-            format: {
-              select: {
-                id: true,
-                name: true,
-                displayName: true,
-                minPlayers: true,
-                maxPlayers: true
+            supportedFormats: {
+              include: {
+                format: {
+                  select: {
+                    id: true,
+                    name: true,
+                    displayName: true,
+                    playersPerTeam: true,
+                    maxTotalPlayers: true
+                  }
+                }
               }
             },
             _count: {

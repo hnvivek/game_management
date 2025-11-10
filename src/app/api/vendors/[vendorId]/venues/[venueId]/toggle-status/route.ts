@@ -17,22 +17,23 @@ export const POST = withPerformanceTracking(
 
       // Optimized: Use a single transaction to check and update
       // This reduces round trips and ensures atomicity
+      // Use select to minimize data transfer
       const updatedVenue = await db.$transaction(async (tx) => {
-        // First, verify venue exists and belongs to vendor
+        // First, verify venue exists and belongs to vendor (with minimal select)
         const existingVenue = await tx.venue.findFirst({
           where: {
             id: venueId,
             vendorId,
             deletedAt: null
           },
-          select: { id: true, name: true, isActive: true }
+          select: { id: true, isActive: true }
         });
 
         if (!existingVenue) {
           throw new Error('Venue not found');
         }
 
-        // Update in the same transaction
+        // Update in the same transaction with minimal select
         return await tx.venue.update({
           where: { id: venueId },
           data: { isActive: !existingVenue.isActive },

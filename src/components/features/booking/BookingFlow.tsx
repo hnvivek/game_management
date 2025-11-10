@@ -29,8 +29,8 @@ interface Court {
     id: string
     name: string
     displayName: string
-    minPlayers: number
-    maxPlayers: number
+    playersPerTeam: number
+    maxTotalPlayers?: number | null
   }
   venue: {
     id: string
@@ -408,7 +408,7 @@ export default function BookingFlow({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {selectedCourt && [...Array(selectedCourt.format.maxPlayers)].map((_, i) => (
+                        {selectedCourt && [...Array(selectedCourt.format.playersPerTeam * 2)].map((_, i) => (
                           <SelectItem key={i + 1} value={(i + 1).toString()}>
                             {i + 1} {i === 0 ? 'player' : 'players'}
                           </SelectItem>

@@ -26,8 +26,8 @@ interface Format {
   id: string
   name: string
   displayName: string
-  minPlayers: number
-  maxPlayers: number
+  playersPerTeam: number
+  maxTotalPlayers?: number | null
 }
 
 interface User {
@@ -343,7 +343,7 @@ export default function TeamManager({
                             <div className="flex flex-col">
                               <span>{format.displayName}</span>
                               <span className="text-xs text-muted-foreground">
-                                {format.minPlayers}-{format.maxPlayers} players
+                                {format.playersPerTeam} per team ({format.playersPerTeam * 2} total{format.maxTotalPlayers && format.maxTotalPlayers > format.playersPerTeam * 2 ? `, up to ${format.maxTotalPlayers}` : ''})
                               </span>
                             </div>
                           </SelectItem>

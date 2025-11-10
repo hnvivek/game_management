@@ -97,7 +97,7 @@ interface VendorSettingsData {
 }
 
 export default function VendorSettingsPage() {
-  const { vendorId } = useVendor()
+  const { vendorId, user } = useVendor()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -300,23 +300,12 @@ export default function VendorSettingsPage() {
     }
   }, [vendorId])
 
-  // Fetch current user ID
+  // Set current user ID from auth context
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include'
-        })
-        if (response.ok) {
-          const data = await response.json()
-          setCurrentUserId(data.user?.id || null)
-        }
-      } catch (err) {
-        console.error('Error fetching current user:', err)
-      }
+    if (user?.id) {
+      setCurrentUserId(user.id)
     }
-    fetchCurrentUser()
-  }, [])
+  }, [user])
 
   // Fetch settings on mount
   useEffect(() => {

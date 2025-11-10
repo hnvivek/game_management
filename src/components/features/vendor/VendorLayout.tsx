@@ -23,9 +23,11 @@ import {
   Clock,
   DollarSign,
   MapPin,
-  UserCog
+  UserCog,
+  Layers
 } from 'lucide-react'
 import { useVendor } from '@/hooks/use-vendor'
+import { useAuth } from '@/components/features/auth/AuthProvider'
 import Footer from '@/components/footer'
 
 interface NavigationItem {
@@ -62,6 +64,12 @@ const navigationItems: NavigationItem[] = [
     description: 'Manage venues and facilities'
   },
   {
+    title: 'Formats',
+    href: '/vendor/formats',
+    icon: Layers,
+    description: 'Manage court formats and configurations'
+  },
+  {
     title: 'Analytics',
     href: '/vendor/analytics',
     icon: TrendingUp,
@@ -92,7 +100,7 @@ export function VendorLayout({ children, title, subtitle }: VendorLayoutProps) {
   const [isMobile, setIsMobile] = useState(false)
   const pathname = usePathname()
   const { vendor, isLoading: vendorLoading } = useVendor()
-  const [user, setUser] = useState<{ name: string | null; email: string; role: string; avatarUrl?: string | null } | null>(null)
+  const { user: authUser } = useAuth()
 
   useEffect(() => {
     const checkMobile = () => {
@@ -105,44 +113,6 @@ export function VendorLayout({ children, title, subtitle }: VendorLayoutProps) {
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
-  }, [])
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        
-        if (!response.ok) {
-          // Don't throw error for 401/403 - user might not be authenticated
-          if (response.status === 401 || response.status === 403) {
-            console.log('User not authenticated')
-            return
-          }
-          throw new Error(`Failed to fetch user: ${response.status} ${response.statusText}`)
-        }
-        
-        const data = await response.json()
-        if (data?.user) {
-          setUser(data.user)
-        }
-      } catch (error) {
-        // Only log error if it's not a network error (which might be expected)
-        if (error instanceof TypeError && error.message === 'Failed to fetch') {
-          // Network error - might be offline or server unavailable
-          console.warn('Network error fetching user - server may be unavailable')
-        } else {
-          console.error('Error fetching user:', error)
-        }
-        // Don't set user state on error - keep it null
-      }
-    }
-
-    fetchUser()
   }, [])
 
   const toggleSidebar = () => {
@@ -274,17 +244,17 @@ export function VendorLayout({ children, title, subtitle }: VendorLayoutProps) {
                 <div className="flex items-center gap-2">
                   <div className="hidden md:block text-right">
                     <div className="text-sm font-medium">
-                      {user?.name || user?.email || 'Loading...'}
+                      {authUser?.name || authUser?.email || 'Loading...'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {user?.role === 'VENDOR_ADMIN' ? 'Vendor Admin' : user?.role === 'VENDOR_STAFF' ? 'Vendor Staff' : user?.role || 'User'}
+                      {authUser?.role === 'VENDOR_ADMIN' ? 'Vendor Admin' : authUser?.role === 'VENDOR_STAFF' ? 'Vendor Staff' : authUser?.role || 'User'}
                     </div>
                   </div>
                   <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-full">
-                    {user?.avatarUrl ? (
+                    {authUser?.avatarUrl ? (
                       <img 
-                        src={user.avatarUrl} 
-                        alt={user.name || user.email} 
+                        src={authUser.avatarUrl} 
+                        alt={authUser.name || authUser.email} 
                         className="w-8 h-8 rounded-full object-cover"
                       />
                     ) : (

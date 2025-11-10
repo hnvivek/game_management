@@ -631,7 +631,7 @@ export default function TournamentBuilder({ onTournamentCreate, initialSettings 
                             <div className="flex flex-col">
                               <span className="font-medium">{format.displayName}</span>
                               <span className="text-xs text-muted-foreground">
-                                {format.minPlayers}-{format.maxPlayers} players
+                                {format.playersPerTeam} per team ({format.playersPerTeam * 2} total{format.maxTotalPlayers && format.maxTotalPlayers > format.playersPerTeam * 2 ? `, up to ${format.maxTotalPlayers}` : ''})
                               </span>
                             </div>
                           </SelectItem>
@@ -654,7 +654,7 @@ export default function TournamentBuilder({ onTournamentCreate, initialSettings 
                             <div className="flex flex-col">
                               <span className="font-medium">{format.displayName}</span>
                               <span className="text-xs text-muted-foreground">
-                                {format.minPlayers}-{format.maxPlayers} players
+                                {format.playersPerTeam} per team ({format.playersPerTeam * 2} total{format.maxTotalPlayers && format.maxTotalPlayers > format.playersPerTeam * 2 ? `, up to ${format.maxTotalPlayers}` : ''})
                               </span>
                             </div>
                           </SelectItem>

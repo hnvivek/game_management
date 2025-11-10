@@ -4,11 +4,10 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import CourtForm from '@/components/courts/CourtForm'
 import { VendorLayout } from '@/components/features/vendor/VendorLayout'
+import { VendorBreadcrumb } from '@/components/features/vendor/VendorBreadcrumb'
 import { useVendor } from '@/hooks/use-vendor'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowLeft } from 'lucide-react'
 
 export default function EditCourtPage() {
   const params = useParams()
@@ -85,10 +84,7 @@ export default function EditCourtPage() {
     return (
       <VendorLayout title="Edit Court" subtitle="Error loading court">
         <div className="p-6 space-y-6">
-          <Button variant="ghost" onClick={() => router.push(`/vendor/venues/${venueId}`)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Venue
-          </Button>
+          <VendorBreadcrumb />
           <Card>
             <CardContent className="p-6">
               <div className="text-center py-12">
@@ -115,12 +111,9 @@ export default function EditCourtPage() {
   }
 
   return (
-    <VendorLayout title="Edit Court" subtitle="Update court information">
+    <VendorLayout title="Edit Court" subtitle={court.name || 'Update court information'}>
       <div className="p-6 space-y-6">
-        <Button variant="ghost" onClick={() => router.push(`/vendor/venues/${venueId}`)}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Venue
-        </Button>
+        <VendorBreadcrumb />
 
         <CourtForm
           vendorId={vendorId}
@@ -129,6 +122,7 @@ export default function EditCourtPage() {
           mode="edit"
           onSave={handleSave}
           onCancel={handleCancel}
+          hideHeader={true}
         />
       </div>
     </VendorLayout>

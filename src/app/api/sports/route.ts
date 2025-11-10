@@ -161,7 +161,7 @@ export async function GET() {
             isActive: true
           },
           orderBy: [
-            { maxPlayers: 'desc' }, // Larger formats first (11-a-side before 6-a-side)
+            { playersPerTeam: 'desc' }, // Larger formats first (11-a-side before 6-a-side)
             { name: 'asc' }
           ]
         }

@@ -24,7 +24,10 @@ const updateCourtSchema = z.object({
   }, z.number().int().positive()).optional(),
   isActive: z.boolean().optional(),
   sportId: z.string().optional(),
-  formatId: z.string().optional(),
+  formatConfigs: z.array(z.object({
+    formatId: z.string(),
+    maxSlots: z.number().int().positive()
+  })).optional(),
   features: z.array(z.string()).optional(),
   });
 
@@ -82,13 +85,24 @@ export async function GET(
             icon: true
           }
         },
-        format: {
+        supportedFormats: {
+          where: {
+            isActive: true
+          },
           select: {
             id: true,
-            name: true,
-            displayName: true,
-            minPlayers: true,
-            maxPlayers: true
+            formatId: true,
+            maxSlots: true,
+            isActive: true,
+            format: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                playersPerTeam: true,
+                maxTotalPlayers: true
+              }
+            }
           }
         },
         _count: {
@@ -196,9 +210,28 @@ export async function PUT(
       ...(updates.maxPlayers && { maxPlayers: updates.maxPlayers }),
       ...(updates.isActive !== undefined && { isActive: updates.isActive }),
       ...(updates.sportId && { sport: { connect: { id: updates.sportId } } }),
-      ...(updates.formatId && { format: { connect: { id: updates.formatId } } }),
       ...(updates.features && { features: JSON.stringify(updates.features) })
     };
+
+    // Handle formatConfigs separately if provided
+    if (updates.formatConfigs) {
+      // Delete existing court formats
+      await db.courtFormat.deleteMany({
+        where: { courtId }
+      });
+
+      // Create new court formats
+      if (updates.formatConfigs.length > 0) {
+        await db.courtFormat.createMany({
+          data: updates.formatConfigs.map((config: { formatId: string; maxSlots: number }) => ({
+            courtId,
+            formatId: config.formatId,
+            maxSlots: config.maxSlots || 1,
+            isActive: true
+          }))
+        });
+      }
+    }
 
     // Update court
     const updatedCourt = await db.court.update({
@@ -229,13 +262,17 @@ export async function PUT(
             icon: true
           }
         },
-        format: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            minPlayers: true,
-            maxPlayers: true
+        supportedFormats: {
+          include: {
+            format: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                playersPerTeam: true,
+                maxTotalPlayers: true
+              }
+            }
           }
         }
       }

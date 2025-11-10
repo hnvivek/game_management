@@ -1,7 +1,14 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+
+interface Vendor {
+  id: string
+  name: string
+  slug: string
+  isActive: boolean
+}
 
 interface User {
   id: string
@@ -11,6 +18,8 @@ interface User {
   phone?: string
   avatarUrl?: string
   isActive: boolean
+  vendorId?: string | null
+  vendor?: Vendor | null
 }
 
 interface AuthContextType {
@@ -26,28 +35,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+  const hasCheckedAuth = useRef(false)
 
   useEffect(() => {
-    // Check for existing session on mount
-    checkAuthSession()
+    // Only check auth once on mount
+    if (!hasCheckedAuth.current) {
+      hasCheckedAuth.current = true
+      checkAuthSession()
+    }
   }, [])
 
   const checkAuthSession = async () => {
     try {
-      // Check for token in cookies
+      // Use AbortController for timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
+
+      // Check for token in cookies with cache: 'no-store' to avoid stale data
       const response = await fetch('/api/auth/me', {
         credentials: 'include', // Important for cookies
+        cache: 'no-store', // Always fetch fresh
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
       })
+
+      clearTimeout(timeoutId)
 
       if (response.ok) {
         const userData = await response.json()
-        setUser(userData.user)
+        // Include vendorId and vendor from the API response
+        setUser({
+          ...userData.user,
+          vendorId: userData.user.vendorId || null,
+          vendor: userData.user.vendor || null
+        })
       } else {
         // No valid session, clear any stored data
         setUser(null)
       }
     } catch (error) {
-      console.error('Auth session check failed:', error)
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Auth session check timed out')
+      } else {
+        console.error('Auth session check failed:', error)
+      }
       setUser(null)
     } finally {
       setIsLoading(false)
@@ -68,7 +101,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         const data = await response.json()
-        setUser(data.user)
+        // Include vendorId and vendor from the API response
+        setUser({
+          ...data.user,
+          vendorId: data.user.vendorId || null,
+          vendor: data.user.vendor || null
+        })
 
         // Redirect based on user role
         switch (data.user.role) {

@@ -51,17 +51,6 @@ export interface VendorBookingsResponse {
       hasNextPage: boolean
       hasPreviousPage: boolean
     }
-    summary: {
-      totalBookings: number
-      totalRevenue: number
-      confirmedBookings: number
-      todayStats: {
-        bookings: number
-        revenue: number
-      }
-      upcomingBookings: number
-      statusBreakdown: Record<string, { count: number; revenue: number }>
-    }
     vendor?: {
       currencyCode: string
     }
@@ -73,17 +62,6 @@ export interface VendorBookingsResponse {
     limit: number
     hasNextPage: boolean
     hasPreviousPage: boolean
-  }
-  summary?: {
-    totalBookings: number
-    totalRevenue: number
-    confirmedBookings: number
-    todayStats: {
-      bookings: number
-      revenue: number
-    }
-    upcomingBookings: number
-    statusBreakdown: Record<string, { count: number; revenue: number }>
   }
   vendor?: {
     currencyCode: string
@@ -123,86 +101,5 @@ export async function fetchVendorBookings(vendorId: string, filters: VendorBooki
   }
 
   return response.data!
-}
-
-/**
- * Fetch booking statistics for vendor dashboard
- * Optimized: Uses the bookings API which already includes summary stats
- */
-export async function fetchVendorBookingStats(vendorId: string): Promise<VendorBookingStats> {
-  try {
-    // Fetch bookings with summary stats in a single call
-    const bookingsResponse = await fetchVendorBookings(vendorId, {
-      page: 1,
-      limit: 1 // We only need the summary, not the actual bookings
-    })
-
-    if (!bookingsResponse.success) {
-      throw new Error('Failed to fetch vendor booking stats')
-    }
-
-    // The summary is in meta.summary
-    const summary = bookingsResponse.meta?.summary || bookingsResponse.summary
-    if (!summary) {
-      throw new Error('Invalid response format - missing summary')
-    }
-    const statusBreakdown = summary.statusBreakdown || {}
-
-    // Extract counts from status breakdown
-    const confirmedCount = statusBreakdown.CONFIRMED?.count || 0
-    const pendingCount = statusBreakdown.PENDING?.count || 0
-    const cancelledCount = statusBreakdown.CANCELLED?.count || 0
-    const completedCount = statusBreakdown.COMPLETED?.count || 0
-
-    // Calculate average booking value from confirmed and completed bookings
-    const validBookings = confirmedCount + completedCount
-    const avgBookingValue = validBookings > 0 
-      ? summary.totalRevenue / validBookings 
-      : 0
-
-    // Calculate this week and this month counts
-    // We'll need to make additional calls for these, but optimize by using todayStats
-    const today = new Date()
-    const weekStart = new Date(today)
-    weekStart.setDate(today.getDate() - today.getDay())
-    weekStart.setHours(0, 0, 0, 0)
-    
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-    monthStart.setHours(0, 0, 0, 0)
-
-    // Fetch week and month counts in parallel
-    const [weekBookings, monthBookings] = await Promise.all([
-      fetchVendorBookings(vendorId, {
-        dateFrom: weekStart.toISOString(),
-        limit: 1000,
-        page: 1
-      }).catch(() => ({ success: true, meta: { summary: { totalBookings: 0 } } })),
-      fetchVendorBookings(vendorId, {
-        dateFrom: monthStart.toISOString(),
-        limit: 1000,
-        page: 1
-      }).catch(() => ({ success: true, meta: { summary: { totalBookings: 0 } } }))
-    ])
-
-    const weekSummary = weekBookings.meta?.summary || weekBookings.summary
-    const monthSummary = monthBookings.meta?.summary || monthBookings.summary
-
-    return {
-      total: summary.totalBookings,
-      today: summary.todayStats?.bookings || 0,
-      thisWeek: weekSummary?.totalBookings || 0,
-      thisMonth: monthSummary?.totalBookings || 0,
-      confirmed: confirmedCount,
-      pending: pendingCount,
-      cancelled: cancelledCount,
-      completed: completedCount,
-      revenue: summary.totalRevenue,
-      avgBookingValue: avgBookingValue,
-      growth: 0 // Growth calculation would need historical data
-    }
-  } catch (error) {
-    console.error('Error fetching vendor booking stats:', error)
-    throw error
-  }
 }
 

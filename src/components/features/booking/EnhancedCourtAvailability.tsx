@@ -44,8 +44,8 @@ interface Court {
     id: string
     name: string
     displayName: string
-    minPlayers: number
-    maxPlayers: number
+    playersPerTeam: number
+    maxTotalPlayers?: number | null
   }
   pricePerHour: number
   maxPlayers: number
@@ -67,8 +67,8 @@ interface Format {
   id: string
   name: string
   displayName: string
-  minPlayers: number
-  maxPlayers: number
+  playersPerTeam: number
+  maxTotalPlayers?: number | null
 }
 
 interface Venue {
@@ -135,9 +135,9 @@ export default function EnhancedCourtAvailability() {
     ])
 
     setFormats([
-      { id: '1', name: '5v5', displayName: 'Mini Pitch 5v5', minPlayers: 5, maxPlayers: 10 },
-      { id: '2', name: '7v7', displayName: 'Small Pitch 7v7', minPlayers: 7, maxPlayers: 14 },
-      { id: '3', name: '11v11', displayName: 'Full Pitch 11v11', minPlayers: 11, maxPlayers: 22 },
+      { id: '1', name: '5v5', displayName: 'Mini Pitch 5v5', playersPerTeam: 5, maxTotalPlayers: 10 },
+      { id: '2', name: '7v7', displayName: 'Small Pitch 7v7', playersPerTeam: 7, maxTotalPlayers: 14 },
+      { id: '3', name: '11v11', displayName: 'Full Pitch 11v11', playersPerTeam: 11, maxTotalPlayers: 22 },
     ])
 
     // Mock venues
@@ -213,8 +213,8 @@ export default function EnhancedCourtAvailability() {
             id: '3',
             name: '11v11',
             displayName: 'Full Pitch 11v11',
-            minPlayers: 11,
-            maxPlayers: 22
+            playersPerTeam: 11,
+            maxTotalPlayers: 22
           },
           pricePerHour: 2500,
           maxPlayers: 22,
@@ -258,8 +258,8 @@ export default function EnhancedCourtAvailability() {
             id: '2',
             name: '7v7',
             displayName: 'Small Pitch 7v7',
-            minPlayers: 7,
-            maxPlayers: 14
+            playersPerTeam: 7,
+            maxTotalPlayers: 14
           },
           pricePerHour: 1800,
           maxPlayers: 14,

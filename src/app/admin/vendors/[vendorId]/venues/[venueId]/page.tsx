@@ -66,13 +66,16 @@ interface Venue {
       displayName: string
       icon?: string
     }
-    format: {
-      id: string
-      name: string
-      displayName: string
-      minPlayers: number
-      maxPlayers: number
-    }
+    supportedFormats?: Array<{
+      format: {
+        id: string
+        name: string
+        displayName: string
+        minPlayers: number
+        maxPlayers: number
+      }
+      maxSlots: number
+    }>
   }>
   vendor: {
     id: string
@@ -337,16 +340,25 @@ export default function VenueDetailsPage() {
                           {!court.isActive && <Badge variant="secondary">Inactive</Badge>}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {court.sport.displayName} • {court.format.displayName}
+                          {court.sport.displayName}
+                          {court.supportedFormats && court.supportedFormats.length > 0 && (
+                            <> • {court.supportedFormats.map(sf => sf.format.displayName).join(', ')}</>
+                          )}
                         </p>
                         {court.description && (
                           <p className="text-sm text-muted-foreground">{court.description}</p>
                         )}
                         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                          <div className="flex items-center space-x-1">
-                            <Users className="h-3 w-3" />
-                            <span>{court.format.minPlayers}-{court.format.maxPlayers} players</span>
-                          </div>
+                          {court.supportedFormats && court.supportedFormats.length > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <Users className="h-3 w-3" />
+                              <span>
+                                {court.supportedFormats.map(sf => 
+                                  `${sf.format.minPlayers}-${sf.format.maxPlayers} players`
+                                ).join(', ')}
+                              </span>
+                            </div>
+                          )}
                           <div className="flex items-center space-x-1">
                             <DollarSign className="h-3 w-3" />
                             <span>${court.pricePerHour}/hour</span>

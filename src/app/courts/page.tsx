@@ -25,8 +25,8 @@ interface Format {
   id: string
   name: string
   displayName: string
-  minPlayers: number
-  maxPlayers: number
+  playersPerTeam: number
+  maxTotalPlayers?: number | null
   isActive: boolean
 }
 
@@ -403,7 +403,7 @@ export default function CourtsPage() {
             </Badge>
             {court.format && (
               <span className="text-xs text-muted-foreground">
-                {court.format.minPlayers}-{court.format.maxPlayers} players
+                {court.format.playersPerTeam} per team ({court.format.playersPerTeam * 2} total{court.format.maxTotalPlayers && court.format.maxTotalPlayers > court.format.playersPerTeam * 2 ? `, up to ${court.format.maxTotalPlayers}` : ''})
               </span>
             )}
           </div>
@@ -619,8 +619,8 @@ export default function CourtsPage() {
             id: format.id,
             name: format.name,
             displayName: format.displayName,
-            minPlayers: format.minPlayers,
-            maxPlayers: format.maxPlayers
+            playersPerTeam: format.playersPerTeam,
+            maxTotalPlayers: format.maxTotalPlayers
           }))}
           venues={venues.map(vendor => ({
             id: vendor.id,
